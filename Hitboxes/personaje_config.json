@@ -1,0 +1,11 @@
+{
+  "scale": 1.0,
+  "hitbox_w_ratio": 0.2,
+  "hitbox_h_ratio": 0.09000000000000002,
+  "hitbox_offset_x_ratio": 0.4,
+  "hitbox_offset_y_ratio": 0.6599999999999998,
+  "interactable_hitbox_w_ratio": 0.18,
+  "interactable_hitbox_h_ratio": 0.4600000000000003,
+  "interactable_hitbox_offset_x_ratio": 0.41000000000000003,
+  "interactable_hitbox_offset_y_ratio": 0.2899999999999995
+}

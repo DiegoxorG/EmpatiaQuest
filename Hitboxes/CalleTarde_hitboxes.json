@@ -1,0 +1,62 @@
+{
+  "image": "Imagenes\\CalleTarde.png",
+  "image_size": [
+    1923,
+    1282
+  ],
+  "hitboxes": [
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.16536661466458658,
+      "ry": 0.6287051482059283,
+      "rw": 0.062402496099843996,
+      "rh": 0.030421216848673948,
+      "action": "puerta",
+      "target_image": "CalleTarde.png"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.4420176807072283,
+      "ry": 0.6684867394695788,
+      "rw": 0.046801872074883,
+      "rh": 0.0358814352574103,
+      "action": "puerta",
+      "target_image": "CalleTarde.png"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.7431097243889756,
+      "ry": 0.6731669266770671,
+      "rw": 0.04316172646905876,
+      "rh": 0.0343213728549142,
+      "action": "puerta",
+      "target_image": "CalleTarde.png"
+    }
+  ],
+  "spawn": {
+    "default": null,
+    "by_origin": {
+      "Pasillo1_tarde.png": {
+        "rx": 0.1996879875195008,
+        "ry": 0.6458658346333853,
+        "rw": 0.007280291211648466,
+        "rh": 0.0062402496099844
+      },
+      "AtrasTarde (1).png": {
+        "rx": 0.4659386375455018,
+        "ry": 0.6903276131045242,
+        "rw": 0.007280291211648466,
+        "rh": 0.0062402496099844
+      },
+      "HabTarde.png": {
+        "rx": 0.764950598023921,
+        "ry": 0.6817472698907956,
+        "rw": 0.007280291211648466,
+        "rh": 0.0062402496099844
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "image": "Imagenes\\CalleNoche.png",
+  "image_size": [
+    1923,
+    1282
+  ],
+  "hitboxes": [
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.749869994799792,
+      "ry": 0.6755070202808112,
+      "rw": 0.04160166406656266,
+      "rh": 0.031201248049921998,
+      "action": "puerta",
+      "target_image": "CalleNoche.png"
+    }
+  ],
+  "spawn": {
+    "default": null,
+    "by_origin": {
+      "HabNoche.png": {
+        "rx": 0.7717108684347374,
+        "ry": 0.6864274570982839,
+        "rw": 0.007280291211648466,
+        "rh": 0.0062402496099844
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "image": "Imagenes\\CafeteriaNoche.png",
+  "image_size": [
+    1709,
+    1282
+  ],
+  "hitboxes": [
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.28671737858396723,
+      "ry": 0.19656786271450857,
+      "rw": 0.04505558806319485,
+      "rh": 0.027301092043681748,
+      "action": "puerta",
+      "target_image": "CafeteriaNoche.png"
+    }
+  ],
+  "spawn": {
+    "default": null,
+    "by_origin": {}
+  }
+}
