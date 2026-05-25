@@ -3,7 +3,6 @@ Configuración global de colores y constantes del juego.
 """
 
 DEFAULT_FPS = 60
-SAVE_VERSION = 2
 
 # Paleta de colores principal
 BG_DARK = (20, 18, 42)
@@ -82,3 +81,17 @@ DEFAULT_CONTROLS = {
     "opcion_4": "4",
     "opcion_5": "5",
 }
+
+# Posición de spawn del jugador en el mundo cuando no hay spawn definido en JSON.
+# Desplazamiento desde el centro del mundo (en píxeles a zoom 1.35).
+SPAWN_OFFSET_X = -180
+SPAWN_OFFSET_Y = -120
+
+# Número de eventos de historia que el jugador debe completar para terminar el juego.
+STORY_GOAL = 12
+
+# Versión del schema de guardado; incrementar si cambia la estructura del JSON.
+SAVE_VERSION = 3
+
+# Duración de transiciones de pantalla en milisegundos.
+TRANSITION_DURATION_MS = 300

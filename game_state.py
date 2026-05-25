@@ -1,0 +1,1298 @@
+"""
+Mixin de estado del juego para EmpatiaQuestUI.
+Contiene toda la lógica de datos: guardado, carga, exploración, historia,
+habilidades, logros y eventos.
+"""
+
+import os
+import json
+import random
+
+import pygame
+from Movimiento.Personaje import Personaje
+from Movimiento.Fondo import Fondo
+from Movimiento.Animacion import Animacion
+from config import (
+    DEFAULT_CONTROLS, SAVE_VERSION, SPAWN_OFFSET_X, SPAWN_OFFSET_Y,
+    STORY_GOAL, DEFAULT_CHARACTER_COLORS, DEFAULT_SETTINGS,
+    CUSTOM_PARTS, PART_STYLES,
+)
+from story import (
+    build_story_events, pick_next_event, format_event_text, PROLOGO_RAZON_CHOICES,
+)
+from achievements import Lista_Logros, LOGRO_TRIGGERS
+
+
+# ─── Habilidades disponibles y sus triggers ────────────────────────────────────
+DEFAULT_SKILLS = {
+    "Escucha Activa": {
+        "nivel": 0, "max_nivel": 3,
+        "descripcion": "Prestar atencion sin interrumpir.",
+    },
+    "Intervencion Pacifica": {
+        "nivel": 0, "max_nivel": 3,
+        "descripcion": "Actuar para detener el dano sin escalar la violencia.",
+    },
+    "Empatia Digital": {
+        "nivel": 0, "max_nivel": 3,
+        "descripcion": "Manejar situaciones de ciberbullying de forma correcta.",
+    },
+    "Valentia Social": {
+        "nivel": 0, "max_nivel": 3,
+        "descripcion": "Decir no cuando es lo correcto, aunque cueste.",
+    },
+    "Mediacion de Conflictos": {
+        "nivel": 0, "max_nivel": 3,
+        "descripcion": "Ayudar a resolver conflictos de forma dialogada.",
+    },
+}
+
+# (event_id, option_idx) → dict de habilidades que suben 1 nivel
+SKILL_TRIGGERS = {
+    ("voces_pasillo", 0):    {"Intervencion Pacifica": 1, "Valentia Social": 1},
+    ("voces_pasillo", 2):    {"Mediacion de Conflictos": 1},
+    ("reenviado", 0):        {"Empatia Digital": 1},
+    ("reenviado", 2):        {"Empatia Digital": 1},
+    ("detras_agresor", 0):   {"Mediacion de Conflictos": 1, "Escucha Activa": 1},
+    ("encajar", 1):          {"Valentia Social": 1},
+    ("encajar", 2):          {"Intervencion Pacifica": 1, "Valentia Social": 1},
+    ("broma", 0):            {"Intervencion Pacifica": 1},
+    ("broma", 2):            {"Mediacion de Conflictos": 1},
+    ("racismo", 1):          {"Intervencion Pacifica": 1, "Mediacion de Conflictos": 1},
+    ("xenofobia", 0):        {"Mediacion de Conflictos": 1},
+    ("xenofobia", 1):        {"Intervencion Pacifica": 1},
+    ("no_era_flojera", 0):   {"Escucha Activa": 1},
+    ("no_era_flojera", 1):   {"Mediacion de Conflictos": 1},
+    ("persona_llorando", 0): {"Escucha Activa": 1},
+    ("persona_llorando", 1): {"Escucha Activa": 1},
+    ("rumores", 0):          {"Escucha Activa": 1},
+    ("rumores", 1):          {"Intervencion Pacifica": 1, "Valentia Social": 1},
+    ("lider_empatia", 0):    {"Mediacion de Conflictos": 1},
+    ("lider_empatia", 1):    {"Intervencion Pacifica": 1},
+    ("primer_dia", 0):       {"Empatia Digital": 1},
+    ("primer_dia", 2):       {"Mediacion de Conflictos": 1},
+}
+
+
+class GameStateMixin:
+    """
+    Mixin que contiene toda la lógica de estado, guardado/carga,
+    aventura, historia y habilidades de EmpatiaQuestUI.
+    """
+
+    # ── Controles ─────────────────────────────────────────────────────────────
+
+    def _build_default_controls(self):
+        controls = {}
+        for action, key_name in DEFAULT_CONTROLS.items():
+            try:
+                controls[action] = pygame.key.key_code(key_name)
+            except ValueError:
+                continue
+        return controls
+
+    def _serialize_controls(self):
+        return {action: pygame.key.name(key) for action, key in self.controls.items()}
+
+    def _apply_loaded_controls(self, loaded_controls):
+        self.controls = self._build_default_controls()
+        if not isinstance(loaded_controls, dict):
+            return
+        for action, key_name in loaded_controls.items():
+            if action not in self.controls or not isinstance(key_name, str):
+                continue
+            try:
+                self.controls[action] = pygame.key.key_code(key_name)
+            except ValueError:
+                continue
+
+    def _control_name(self, action):
+        key = self.controls.get(action)
+        if key is None:
+            return "-"
+        name = pygame.key.name(key).upper()
+        return "ENTER" if name == "RETURN" else name
+
+    def _rebind_control(self, action, new_key):
+        if action not in self.controls:
+            return
+        if new_key == pygame.K_ESCAPE:
+            self.waiting_control_action = None
+            return
+        for other_action, other_key in self.controls.items():
+            if other_action != action and other_key == new_key:
+                self.controls[other_action] = self.controls[action]
+                break
+        self.controls[action] = new_key
+        self.waiting_control_action = None
+
+    # ── Guardado y carga ──────────────────────────────────────────────────────
+
+    def _save_slot_exists(self, slot):
+        return os.path.exists(self.save_slot_files[slot])
+
+    def _build_save_data(self):
+        return {
+            "save_version": SAVE_VERSION,
+            "story_felicidad": self.story_felicidad,
+            "story_reputacion": self.story_reputacion,
+            "story_completed": self.story_completed,
+            "story_event_pool": [
+                {k: v for k, v in e.items() if k != "scene"} for e in self.story_event_pool
+            ],
+            "story_current_event": (
+                {k: v for k, v in self.story_current_event.items() if k != "scene"}
+                if self.story_current_event else None
+            ),
+            "story_thought": self.story_thought,
+            "story_pending_end": self.story_pending_end,
+            "story_final_key": self.story_final_key,
+            "story_final_text": self.story_final_text,
+            "prologo_razon": self.prologo_razon,
+            "decision_history": self.decision_history,
+            "character_colors": self.character_colors,
+            "current_style": self.current_style,
+            "settings": self.settings,
+            "controls": self._serialize_controls(),
+            "skills_inventory": self.skills_inventory,
+            "logros": self.lista_logros.to_list(),
+        }
+
+    def _migrate_save_data(self, data):
+        if not isinstance(data, dict):
+            return {"save_version": SAVE_VERSION}
+        migrated = dict(data)
+        version = int(migrated.get("save_version", 1))
+
+        if version < 2:
+            migrated.setdefault("character_colors", self.character_colors.copy())
+            migrated.setdefault("current_style", self.current_style.copy())
+            migrated.setdefault("settings", self.settings.copy())
+            migrated.setdefault("controls", self._serialize_controls())
+
+        if version < 3:
+            migrated.setdefault("prologo_razon", "")
+            migrated.setdefault("decision_history", [])
+            migrated.setdefault("skills_inventory", {k: dict(v) for k, v in DEFAULT_SKILLS.items()})
+            migrated.setdefault("logros", [])
+
+        migrated["save_version"] = SAVE_VERSION
+        return migrated
+
+    def _apply_loaded_save_data(self, data):
+        data = self._migrate_save_data(data)
+        self._start_adventure()
+        self.story_felicidad = int(data.get("story_felicidad", 50))
+        self.story_reputacion = int(data.get("story_reputacion", 50))
+        self.story_completed = int(data.get("story_completed", 0))
+        self.story_event_pool = data.get("story_event_pool", self.story_event_pool)
+        self.story_current_event = data.get("story_current_event", self.story_current_event)
+        self.story_thought = data.get("story_thought", "")
+        self.story_pending_end = bool(data.get("story_pending_end", False))
+        self.story_final_key = data.get("story_final_key", "")
+        self.story_final_text = data.get("story_final_text", "")
+        self.prologo_razon = data.get("prologo_razon", "")
+        self.decision_history = data.get("decision_history", [])
+
+        loaded_colors = data.get("character_colors", {})
+        if isinstance(loaded_colors, dict):
+            for part, color in loaded_colors.items():
+                if part in self.character_colors and isinstance(color, (list, tuple)) and len(color) == 3:
+                    self.character_colors[part] = tuple(max(0, min(255, int(v))) for v in color)
+
+        loaded_style = data.get("current_style", {})
+        if isinstance(loaded_style, dict):
+            for part, idx in loaded_style.items():
+                if part in self.current_style:
+                    self.current_style[part] = max(0, min(len(self.part_styles[part]) - 1, int(idx)))
+
+        loaded_settings = data.get("settings", {})
+        if isinstance(loaded_settings, dict):
+            prev_fullscreen = bool(self.settings.get("Pantalla completa", False))
+            for key in self.settings:
+                if key in loaded_settings:
+                    self.settings[key] = loaded_settings[key]
+            if bool(self.settings.get("Pantalla completa", False)) != prev_fullscreen:
+                self._apply_display_mode()
+
+        self._apply_loaded_controls(data.get("controls", {}))
+
+        loaded_skills = data.get("skills_inventory", {})
+        if isinstance(loaded_skills, dict):
+            for skill_name, skill_data in loaded_skills.items():
+                if skill_name in self.skills_inventory:
+                    self.skills_inventory[skill_name]["nivel"] = int(
+                        skill_data.get("nivel", 0)
+                    )
+
+        self.lista_logros.load_from_list(data.get("logros", []))
+
+        if self.settings.get("Volumen") is not None:
+            self.audio.apply_volume(self.settings["Volumen"])
+
+    def _save_to_slot(self, slot):
+        data = self._build_save_data()
+        try:
+            with open(self.save_slot_files[slot], "w", encoding="utf-8") as fh:
+                json.dump(data, fh, ensure_ascii=True, indent=2)
+            return True
+        except OSError:
+            return False
+
+    def _load_slot(self, slot):
+        if not self._save_slot_exists(slot):
+            return False
+        try:
+            with open(self.save_slot_files[slot], "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            return False
+        self._apply_loaded_save_data(data)
+        return True
+
+    def _delete_slot(self, slot):
+        if not self._save_slot_exists(slot):
+            return False
+        try:
+            os.remove(self.save_slot_files[slot])
+            return True
+        except OSError:
+            return False
+
+    def _save_game(self):
+        data = self._build_save_data()
+        try:
+            with open(self.save_file, "w", encoding="utf-8") as fh:
+                json.dump(data, fh, ensure_ascii=True, indent=2)
+            return True
+        except OSError:
+            return False
+
+    def _load_game(self):
+        try:
+            with open(self.save_file, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            return False
+        self._apply_loaded_save_data(data)
+        return True
+
+    def _confirm_save_slot(self):
+        if self.pause_pending_slot is None:
+            return
+        saved = self._save_to_slot(self.pause_pending_slot)
+        if saved:
+            self.message = f"Slot {self.pause_pending_slot + 1} sobrescrito."
+            self.audio.sfx_guardar()
+        else:
+            self.message = "No se pudo guardar la partida."
+        self.pause_overwrite_pending = False
+        self.pause_pending_slot = None
+
+    # ── Settings ──────────────────────────────────────────────────────────────
+
+    def _change_setting(self, direction):
+        key = self.setting_keys[self.selected_setting_index]
+        value = self.settings[key]
+
+        if key == "Pantalla completa":
+            self.settings[key] = not value
+            self._apply_display_mode()
+            return
+
+        if key == "Volumen":
+            self.settings[key] = max(0, min(100, value + (5 * direction)))
+            self.audio.apply_volume(self.settings[key])
+            return
+
+        if key == "Limite FPS":
+            fps_steps = [30, 60, 90, 120, 144, 165, 240]
+            current_idx = fps_steps.index(value) if value in fps_steps else 1
+            self.settings[key] = fps_steps[(current_idx + direction) % len(fps_steps)]
+            return
+
+        if isinstance(value, bool):
+            self.settings[key] = not value
+
+    # ── Layout helpers (compartidos con renderer y handlers) ──────────────────
+
+    def _settings_layout(self):
+        panel = pygame.Rect(self.width // 2 - 600, self.height // 2 - 370, 1200, 740)
+        row_h = 62
+        row_x = panel.x + 70
+        row_w = panel.width - 140
+        start_y = panel.y + 138
+        footer_y = panel.y + panel.height - 28
+        return panel, row_h, row_x, row_w, start_y, footer_y
+
+    def _controls_layout(self):
+        panel = pygame.Rect(self.width // 2 - 600, self.height // 2 - 320, 1200, 640)
+        row_h = 52
+        row_x = panel.x + 70
+        row_w = panel.width - 180
+        start_y = panel.y + 138
+        list_bottom = panel.bottom - 92
+        return panel, row_h, row_x, row_w, start_y, list_bottom
+
+    def _controls_reset_button_rect(self):
+        panel, _, _, _, _, _ = self._controls_layout()
+        return pygame.Rect(panel.x + 24, panel.bottom - 74, 360, 42)
+
+    def _clamp_controls_scroll(self):
+        _, row_h, _, _, start_y, list_bottom = self._controls_layout()
+        visible_rows = max(1, (list_bottom - start_y) // row_h)
+        max_scroll = max(0, len(self.control_labels) - visible_rows)
+        self.controls_scroll = max(0, min(self.controls_scroll, max_scroll))
+
+    def _ensure_selected_control_visible(self):
+        _, row_h, _, _, start_y, list_bottom = self._controls_layout()
+        visible_rows = max(1, (list_bottom - start_y) // row_h)
+        if self.selected_control_index < self.controls_scroll:
+            self.controls_scroll = self.selected_control_index
+        elif self.selected_control_index >= self.controls_scroll + visible_rows:
+            self.controls_scroll = self.selected_control_index - visible_rows + 1
+        self._clamp_controls_scroll()
+
+    # ── Personaje ─────────────────────────────────────────────────────────────
+
+    def _selected_part(self):
+        return self.custom_parts[self.selected_custom_index]
+
+    def _change_selected_color_channel(self, channel_index, delta):
+        part = self._selected_part()
+        color = list(self.character_colors[part])
+        color[channel_index] = max(0, min(255, color[channel_index] + delta))
+        self.character_colors[part] = tuple(color)
+
+    def _change_part_style(self, delta):
+        part = self._selected_part()
+        styles = self.part_styles[part]
+        self.current_style[part] = (self.current_style[part] + delta) % len(styles)
+
+    # ── Mundo y aventura ──────────────────────────────────────────────────────
+
+    def _rebuild_story_world(self, keep_player=True):
+        old_w = max(1, getattr(self, "story_world_width", self.width))
+        old_h = max(1, getattr(self, "story_world_height", self.height))
+        self.story_world_width = max(self.width, int(self.width * self.story_zoom))
+        self.story_world_height = max(self.height, int(self.height * self.story_zoom))
+        self.story_map_rect = pygame.Rect(0, 0, self.story_world_width, self.story_world_height)
+        if keep_player and hasattr(self, "player_rect"):
+            ratio_x = self.player_rect.centerx / old_w
+            ratio_y = self.player_rect.centery / old_h
+            self.player_rect.centerx = int(ratio_x * self.story_world_width)
+            self.player_rect.centery = int(ratio_y * self.story_world_height)
+            self.player_rect.clamp_ip(self.story_map_rect)
+        elif hasattr(self, "player_rect"):
+            self.player_rect.center = (self.story_world_width // 2, self.story_world_height // 2)
+            self.player_rect.clamp_ip(self.story_map_rect)
+
+    def _update_story_camera(self):
+        target_x = self.player_rect.centerx - (self.width // 2)
+        target_y = self.player_rect.centery - (self.height // 2)
+        max_x = max(0, self.story_world_width - self.width)
+        max_y = max(0, self.story_world_height - self.height)
+        self.story_camera_x = max(0, min(target_x, max_x))
+        self.story_camera_y = max(0, min(target_y, max_y))
+
+    def _start_adventure(self):
+        self.story_felicidad = 50
+        self.story_reputacion = 50
+        all_events = build_story_events()
+        first = next(e for e in all_events if e["id"] == "primer_dia")
+        rest = [e for e in all_events if e["id"] != "primer_dia"]
+        self.story_event_pool = rest
+        self.story_current_event = first
+        self.story_completed = 0
+        self.story_goal = STORY_GOAL
+        self.story_thought = ""
+        self.story_interaction_text = ""
+        self.story_previous_map_name = None
+        self.story_show_support = False
+        self.story_pending_end = False
+        self.story_final_key = ""
+        self.story_final_text = ""
+        self.story_is_seated = False
+        self.story_seated_hitbox = None
+        self.story_clock_day = 1
+        self.story_clock_hour = 7
+        self.story_clock_minute = 30
+        self.story_clock_accumulator_ms = 0
+        self.story_npc_sara_index = 0
+        self.story_npc_diego_index = 0
+        self.story_npc_anim_timer = 0
+        self.story_npc_positions = {}
+        self.story_npc_hitbox_cache = {}
+        self.decision_history = []
+        self.skills_inventory = {k: dict(v) for k, v in DEFAULT_SKILLS.items()}
+        self.lista_logros = Lista_Logros()
+        self.popup_logro_timer = 0
+        self.popup_logro_actual = None
+        self.player_rect = pygame.Rect(0, 0, 28, 28)
+        self._rebuild_story_world(keep_player=False)
+        self.story_walls = []
+        self._init_prologo()
+        self.aventura_fondo = None
+        self.aventura_personaje = None
+        ruta_imagenes = os.path.join(os.path.dirname(__file__), "Imagenes", "Personajes", "personaje_main")
+        try:
+            self.aventura_fondo = Fondo(self._resolve_image_path("HabDía.png"), 0, 0)
+        except (OSError, pygame.error):
+            self.aventura_fondo = None
+        self.story_walls = self._build_story_wall_hitboxes(
+            self.aventura_fondo.ruta_imagen if self.aventura_fondo else None
+        )
+        spawn_x, spawn_y = self._get_spawn_position_for_current_map()
+        try:
+            self.aventura_personaje = Personaje(
+                0, 0, ruta_imagenes,
+                velocidad=self.player_speed,
+                fps_animacion=8,
+                color=self.character_colors["Piel"],
+            )
+            self.aventura_personaje.hitbox.x = spawn_x
+            self.aventura_personaje.hitbox.y = spawn_y
+            self.aventura_personaje.sync_sprite_from_hitbox()
+            self.player_rect = self.aventura_personaje.hitbox.copy()
+        except (OSError, pygame.error, FileNotFoundError):
+            self.aventura_personaje = None
+        self.player_rect.clamp_ip(self.story_map_rect)
+        self._update_story_camera()
+        self.cached_background_scaled = None
+        self.cached_background_size = None
+        self.cached_background_source = None
+
+    def _init_prologo(self):
+        self.prologo_razon = random.choice(PROLOGO_RAZON_CHOICES)
+        self.prologo_textos = [
+            {"speaker": "Narrador", "text": "Escuela primaria antigua. Recreo en un patio pequeno y silencioso."},
+            {"speaker": "Narrador", "text": "Un grupo de ninos empieza a burlarse del protagonista."},
+            {"speaker": "Narrador", "text": "Otros estudiantes observan sin intervenir. Algunos se rien."},
+            {"speaker": "Narrador", "text": "Un adulto pasa cerca, pero no nota la situacion."},
+            {"speaker": "Narrador", "text": f"Esta vez las burlas empezaron por: {self.prologo_razon}."},
+            {"speaker": "NPC 1", "text": "Por que eres tan raro?"},
+            {"speaker": "NPC 2", "text": "Ni siquiera sabe responder."},
+            {"speaker": "NPC 3", "text": "Dejalo, siempre es asi."},
+            {"speaker": "Protagonista", "text": "Recuerdo pensar que alguien debia hacer algo... aunque fuera una sola persona."},
+            {"speaker": "Narrador", "text": "Pantalla negra. Transicion al presente."},
+        ]
+        self.prologo_paso = 0
+        self.prologo_activo = True
+
+    # ── Historia y decisiones ─────────────────────────────────────────────────
+
+    def _build_story_events(self):
+        return build_story_events()
+
+    def _condition_ok(self, condition):
+        from story import condition_ok
+        return condition_ok(condition, self.story_felicidad, self.story_reputacion, self.decision_history)
+
+    def _pick_next_event(self):
+        return pick_next_event(
+            self.story_event_pool,
+            self.story_felicidad,
+            self.story_reputacion,
+            self.decision_history,
+        )
+
+    def _apply_story_choice(self, option, option_idx=None):
+        """Aplica una opción de evento: stats, historial, skills, logros."""
+        event_id = self.story_current_event.get("id") if self.story_current_event else ""
+        df = option.get("dF", 0)
+        dr = option.get("dR", 0)
+
+        self.story_felicidad = max(0, min(100, self.story_felicidad + df))
+        self.story_reputacion = max(0, min(100, self.story_reputacion + dr))
+        self.story_thought = option.get("thought", "")
+        self.story_completed += 1
+        self.story_show_support = bool(
+            self.story_current_event.get("sensitive") if self.story_current_event else False
+        )
+
+        # Registrar en historial
+        self.decision_history.append({
+            "event_id": event_id,
+            "option_idx": option_idx,
+            "option_label": option.get("label", ""),
+            "thought": option.get("thought", ""),
+            "dF": df,
+            "dR": dr,
+        })
+
+        # Subir habilidades
+        if option_idx is not None:
+            skill_ups = SKILL_TRIGGERS.get((event_id, option_idx), {})
+            for skill_name, delta in skill_ups.items():
+                if skill_name in self.skills_inventory:
+                    skill = self.skills_inventory[skill_name]
+                    new_level = min(skill["max_nivel"], skill["nivel"] + delta)
+                    skill["nivel"] = new_level
+
+        # Desbloquear logros
+        if option_idx is not None:
+            self.lista_logros.desbloquear_por_evento(event_id, option_idx)
+            logro = self.lista_logros.consumir_popup()
+            if logro:
+                self.popup_logro_actual = logro
+                self.popup_logro_timer = 3000  # 3 segundos
+                self.audio.sfx_logro()
+
+        self.audio.sfx_decision()
+
+        self.story_current_event = self._pick_next_event()
+        if self.story_completed >= self.story_goal or self.story_current_event is None:
+            self._resolve_ending()
+
+    def _resolve_ending(self):
+        f = self.story_felicidad
+        r = self.story_reputacion
+        self.story_pending_end = True
+
+        if f >= 50 and r >= 50:
+            self.story_final_key = "FINAL POSITIVO — ALGUIEN HIZO ALGO"
+            self.story_final_text = "Tal vez cambiar todo era imposible, pero alguien tenia que empezar."
+            self.lista_logros.desbloquear_final_positivo()
+        elif f < 50 and r < 50:
+            self.story_final_key = "FINAL NEGATIVO — TODOS MIRARON"
+            self.story_final_text = "Lo peor nunca fue el ruido, fue acostumbrarse a el."
+        elif f < 50:
+            self.story_final_key = "FINAL NEUTRAL — FELICIDAD BAJA"
+            self.story_final_text = "Ser conocido no alcanzo para que todos se sintieran seguros."
+        else:
+            self.story_final_key = "FINAL NEUTRAL — REPUTACION BAJA"
+            self.story_final_text = "Ayudar importo, aunque no siempre fuera comprendido."
+
+        self.lista_logros.verificar_nunca_ignoraste(self.decision_history)
+        self.lista_logros.verificar_empatia_pura(self.decision_history)
+        self.audio.play_ending_bgm(self.story_final_key)
+
+    # ── Hitboxes de mundo ────────────────────────────────────────────────────
+
+    def _build_story_wall_hitboxes(self, image_path=None):
+        if image_path:
+            image_name = os.path.splitext(os.path.basename(image_path))[0]
+            export_path = os.path.join(os.path.dirname(__file__), "Hitboxes", f"{image_name}_hitboxes.json")
+            objects_path = os.path.join(os.path.dirname(__file__), "Objetos", f"{image_name}_objetos.json")
+            # Buscar también en Hitboxes/ para los _objetos.json
+            hitbox_objects_path = os.path.join(os.path.dirname(__file__), "Hitboxes", f"{image_name}_objetos.json")
+            if not os.path.exists(objects_path) and os.path.exists(hitbox_objects_path):
+                objects_path = hitbox_objects_path
+        else:
+            export_path = os.path.join(os.path.dirname(__file__), "Hitboxes", "hitboxes_export.json")
+            objects_path = None
+
+        object_hitboxes = self._load_story_object_hitboxes(objects_path)
+
+        try:
+            with open(export_path, "r", encoding="utf-8") as fh:
+                payload = json.load(fh)
+            boxes = payload.get("hitboxes", [])
+            spawn_data = payload.get("spawn", {})
+            npc_positions = payload.get("npc_positions", {})
+            self.story_spawn_world = None
+            self.story_spawn_by_origin = {}
+            self.story_npc_positions = {}
+
+            if isinstance(npc_positions, dict):
+                cleaned = {}
+                for npc_name, ndata in npc_positions.items():
+                    if isinstance(ndata, dict) and "rx" in ndata and "ry" in ndata:
+                        cleaned[str(npc_name).lower()] = {
+                            "rx": float(ndata.get("rx", 0.5)),
+                            "ry": float(ndata.get("ry", 0.5)),
+                            "rw": float(ndata.get("rw", 96 / max(1, self.story_world_width))),
+                            "rh": float(ndata.get("rh", 96 / max(1, self.story_world_height))),
+                        }
+                self.story_npc_positions = cleaned
+
+            if isinstance(spawn_data, dict):
+                if "default" in spawn_data or "by_origin" in spawn_data:
+                    default_spawn = spawn_data.get("default")
+                    if isinstance(default_spawn, dict) and "rx" in default_spawn:
+                        sx = int(float(default_spawn.get("rx", 0.5)) * self.story_world_width)
+                        sy = int(float(default_spawn.get("ry", 0.5)) * self.story_world_height)
+                        self.story_spawn_world = (sx, sy)
+                    by_origin = spawn_data.get("by_origin", {})
+                    if isinstance(by_origin, dict):
+                        for origin_name, sdata in by_origin.items():
+                            if isinstance(sdata, dict) and "rx" in sdata:
+                                ox = int(float(sdata.get("rx", 0.5)) * self.story_world_width)
+                                oy = int(float(sdata.get("ry", 0.5)) * self.story_world_height)
+                                self.story_spawn_by_origin[str(origin_name)] = (ox, oy)
+                elif "rx" in spawn_data and "ry" in spawn_data:
+                    sx = int(float(spawn_data.get("rx", 0.5)) * self.story_world_width)
+                    sy = int(float(spawn_data.get("ry", 0.5)) * self.story_world_height)
+                    self.story_spawn_world = (sx, sy)
+
+            for h in boxes:
+                h.setdefault("type", "rect")
+                h.setdefault("role", "wall")
+                if h["role"] == "interactable":
+                    h.setdefault("action", "puerta")
+                    h.setdefault("target_image", "")
+
+            return boxes + object_hitboxes
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+            pass
+
+        self.story_spawn_world = None
+        self.story_spawn_by_origin = {}
+        self.story_npc_positions = {}
+        return object_hitboxes
+
+    def _load_story_object_hitboxes(self, objects_path):
+        if not objects_path:
+            return []
+        try:
+            with open(objects_path, "r", encoding="utf-8") as fh:
+                payload = json.load(fh)
+            objects = payload.get("objects", [])
+        except (OSError, json.JSONDecodeError, TypeError):
+            return []
+        hitboxes = []
+        for obj in objects:
+            if not isinstance(obj, dict):
+                continue
+            try:
+                hitbox = {
+                    "type": "rect",
+                    "role": "interactable",
+                    "action": "objeto",
+                    "blocking": True,
+                    "object_name": str(obj.get("name", "")),
+                    "rx": float(obj["x"]),
+                    "ry": float(obj["y"]),
+                    "rw": float(obj["w"]),
+                    "rh": float(obj["h"]),
+                }
+                crop = obj.get("crop")
+                if isinstance(crop, dict):
+                    try:
+                        hitbox["crop"] = {
+                            "x": float(crop.get("x", 0.0)),
+                            "y": float(crop.get("y", 0.0)),
+                            "w": float(crop.get("w", 1.0)),
+                            "h": float(crop.get("h", 1.0)),
+                        }
+                    except (TypeError, ValueError):
+                        pass
+                hitboxes.append(hitbox)
+            except (KeyError, TypeError, ValueError):
+                continue
+        return hitboxes
+
+    def _get_spawn_position_for_current_map(self):
+        if self.story_previous_map_name:
+            by_origin = self.story_spawn_by_origin.get(self.story_previous_map_name)
+            if by_origin is not None:
+                sx, sy = by_origin
+                return (
+                    max(0, min(self.story_world_width, sx)),
+                    max(0, min(self.story_world_height, sy)),
+                )
+        if self.story_spawn_world is not None:
+            sx, sy = self.story_spawn_world
+            return (
+                max(0, min(self.story_world_width, sx)),
+                max(0, min(self.story_world_height, sy)),
+            )
+        sx = max(0, min(self.story_world_width, (self.story_world_width // 2) + SPAWN_OFFSET_X))
+        sy = max(0, min(self.story_world_height, (self.story_world_height // 2) + SPAWN_OFFSET_Y))
+        return sx, sy
+
+    # ── Colisiones ────────────────────────────────────────────────────────────
+
+    def _collides_with_hitbox(self, personaje_rect, h):
+        mw, mh = self.story_world_width, self.story_world_height
+        if h["type"] == "rect":
+            r = pygame.Rect(
+                int(mw * h["rx"]), int(mh * h["ry"]),
+                max(8, int(mw * h["rw"])), max(8, int(mh * h["rh"])),
+            )
+            return personaje_rect.colliderect(r)
+        elif h["type"] == "circle":
+            cx = int(mw * h["cx"])
+            cy = int(mh * h["cy"])
+            radius = max(8, int(mw * h["r"]))
+            nx = max(personaje_rect.left, min(cx, personaje_rect.right))
+            ny = max(personaje_rect.top, min(cy, personaje_rect.bottom))
+            return (cx - nx) ** 2 + (cy - ny) ** 2 <= radius ** 2
+        elif h["type"] == "line":
+            x1 = int(mw * h["x1"]); y1 = int(mh * h["y1"])
+            x2 = int(mw * h["x2"]); y2 = int(mh * h["y2"])
+            steps = max(1, int(max(abs(x2 - x1), abs(y2 - y1)) / 4))
+            thickness_px = max(1, int(float(h.get("thickness", 8 / max(1, mw))) * mw))
+            pr = max(2, thickness_px // 2)
+            for i in range(steps + 1):
+                t = i / steps
+                px = int(x1 + (x2 - x1) * t)
+                py = int(y1 + (y2 - y1) * t)
+                if personaje_rect.colliderect(pygame.Rect(px - pr, py - pr, pr * 2, pr * 2)):
+                    return True
+        return False
+
+    def _is_blocking_hitbox(self, h):
+        return h.get("role", "wall") != "interactable" or bool(h.get("blocking", False))
+
+    def _collides_with_interaction_area(self, personaje_rect, h):
+        margin = int(getattr(self, "story_interaction_margin", 42))
+        mw, mh = self.story_world_width, self.story_world_height
+        if h.get("type") == "rect":
+            rect = pygame.Rect(
+                int(mw * h["rx"]), int(mh * h["ry"]),
+                max(8, int(mw * h["rw"])), max(8, int(mh * h["rh"])),
+            )
+            return personaje_rect.colliderect(rect.inflate(margin * 2, margin * 2))
+        probe = personaje_rect.inflate(margin * 2, margin * 2)
+        return self._collides_with_hitbox(probe, h)
+
+    def _get_player_interactable(self):
+        probe = self.player_rect
+        if self.aventura_personaje is not None:
+            probe = self.aventura_personaje.interactable_hitbox
+        for h in self.story_walls:
+            if h.get("role", "wall") == "interactable" and self._collides_with_interaction_area(probe, h):
+                return h
+        return None
+
+    def _should_show_interactable_prompt(self):
+        interactable = self._get_player_interactable()
+        if interactable is None:
+            return False
+        return interactable.get("action", "puerta") != "npc"
+
+    def _interactable_center(self, h):
+        mw, mh = self.story_world_width, self.story_world_height
+        if h["type"] == "rect":
+            r = pygame.Rect(
+                int(mw * h["rx"]), int(mh * h["ry"]),
+                max(8, int(mw * h["rw"])), max(8, int(mh * h["rh"])),
+            )
+            return r.center
+        if h["type"] == "circle":
+            return (int(mw * h["cx"]), int(mh * h["cy"]))
+        if h["type"] == "line":
+            x1 = int(mw * h["x1"]); y1 = int(mh * h["y1"])
+            x2 = int(mw * h["x2"]); y2 = int(mh * h["y2"])
+            return ((x1 + x2) // 2, (y1 + y2) // 2)
+        return self.player_rect.center
+
+    def _set_player_center(self, center):
+        self.player_rect.center = center
+        self.player_rect.clamp_ip(self.story_map_rect)
+        if self.aventura_personaje is not None:
+            self.aventura_personaje.hitbox.x = self.player_rect.x
+            self.aventura_personaje.hitbox.y = self.player_rect.y
+            self.aventura_personaje.sync_sprite_from_hitbox()
+
+    def _toggle_seat_state(self, interactable):
+        if self.story_is_seated:
+            self.story_is_seated = False
+            self.story_seated_hitbox = None
+            self.story_thought = "Te levantaste de la silla."
+            self.story_interaction_text = "Ya no estas sentado."
+            self.audio.sfx_sentarse()
+            return
+        center = self._interactable_center(interactable)
+        self._set_player_center(center)
+        self.story_is_seated = True
+        self.story_seated_hitbox = interactable
+        self.story_thought = "Te sentaste."
+        self.story_interaction_text = "Estas sentado. Presiona E para levantarte."
+        self.audio.sfx_sentarse()
+        if (
+            self.story_current_event is not None
+            and self.story_current_event.get("id") == "primer_dia"
+            and self._is_first_day_classroom_context()
+        ):
+            silla_idx = None
+            for i, hb in enumerate(self.story_walls, start=1):
+                if hb is interactable:
+                    silla_idx = i
+                    break
+            options = self.story_current_event.get("options", [])
+            if silla_idx == 42 and len(options) >= 1:
+                self._apply_story_choice(options[0], option_idx=0)
+                self.story_interaction_text = "Elegiste sentarte con Sara."
+            elif silla_idx == 43 and len(options) >= 2:
+                self._apply_story_choice(options[1], option_idx=1)
+                self.story_interaction_text = "Elegiste sentarte con Diego."
+
+    def _change_adventure_background(self, target_image_name):
+        if not target_image_name:
+            self.story_interaction_text = "Esta puerta no tiene destino."
+            return
+        prev_name = (
+            os.path.basename(self.aventura_fondo.ruta_imagen)
+            if self.aventura_fondo is not None else None
+        )
+        target_path = self._resolve_image_path(target_image_name)
+        if not os.path.exists(target_path):
+            self.story_interaction_text = f"Destino no encontrado: {target_image_name}"
+            return
+        try:
+            self.aventura_fondo = Fondo(target_path, 0, 0)
+        except (OSError, pygame.error):
+            self.story_interaction_text = f"No se pudo cargar: {target_image_name}"
+            return
+        self.cached_background_scaled = None
+        self.cached_background_size = None
+        self.cached_background_source = None
+        self.story_previous_map_name = prev_name
+        self.story_walls = self._build_story_wall_hitboxes(self.aventura_fondo.ruta_imagen)
+        self._rebuild_story_world(keep_player=False)
+        spawn_x, spawn_y = self._get_spawn_position_for_current_map()
+        self.player_rect.x = spawn_x
+        self.player_rect.y = spawn_y
+        self.player_rect.clamp_ip(self.story_map_rect)
+        if self.aventura_personaje is not None:
+            self.aventura_personaje.hitbox.x = self.player_rect.x
+            self.aventura_personaje.hitbox.y = self.player_rect.y
+            self.aventura_personaje.sync_sprite_from_hitbox()
+        self._update_story_camera()
+        self.story_interaction_text = f"Entraste a: {target_image_name}"
+        self.audio.sfx_puerta()
+
+    def _execute_interactable_action(self, interactable):
+        action = interactable.get("action", "puerta")
+        if action == "puerta":
+            if self.story_is_seated:
+                self.story_is_seated = False
+                self.story_seated_hitbox = None
+            self.story_thought = "Cruzaste una puerta."
+            self._change_adventure_background(interactable.get("target_image", ""))
+            return
+        if action == "silla":
+            self._toggle_seat_state(interactable)
+            return
+        if action == "npc":
+            npc_name = interactable.get("npc_character", "NPC")
+            self.story_interaction_text = f"{npc_name} esta ocupado/a."
+            self.audio.sfx_interactuar()
+            return
+        if action == "objeto":
+            object_name = os.path.splitext(interactable.get("object_name", "objeto"))[0]
+            self.story_interaction_text = f"Interactuaste con {object_name}."
+            self.story_thought = "Hay algo interesante aqui."
+            self.audio.sfx_interactuar()
+            return
+        self.story_interaction_text = f"Accion no soportada: {action}"
+
+    def _move_player_with_walls(self, dx, dy):
+        currently_stuck = any(
+            self._is_blocking_hitbox(w) and self._collides_with_hitbox(self.player_rect, w)
+            for w in self.story_walls
+        )
+        prev_x = self.player_rect.x
+        self.player_rect.x += dx
+        self.player_rect.clamp_ip(self.story_map_rect)
+        if not currently_stuck:
+            for wall in self.story_walls:
+                if self._is_blocking_hitbox(wall) and self._collides_with_hitbox(self.player_rect, wall):
+                    self.player_rect.x = prev_x
+                    break
+        prev_y = self.player_rect.y
+        self.player_rect.y += dy
+        self.player_rect.clamp_ip(self.story_map_rect)
+        if not currently_stuck:
+            for wall in self.story_walls:
+                if self._is_blocking_hitbox(wall) and self._collides_with_hitbox(self.player_rect, wall):
+                    self.player_rect.y = prev_y
+                    break
+
+    # ── Culling de objetos (Tarea 9) ──────────────────────────────────────────
+
+    def _get_visible_hitboxes(self):
+        """Retorna solo hitboxes dentro de 2× el tamaño de pantalla del jugador."""
+        player_cx = self.player_rect.centerx
+        player_cy = self.player_rect.centery
+        threshold_x = self.width * 2
+        threshold_y = self.height * 2
+        mw, mh = self.story_world_width, self.story_world_height
+        visible = []
+        for h in self.story_walls:
+            if h.get("type") == "rect":
+                hx = int(mw * h.get("rx", 0)) + int(mw * h.get("rw", 0)) / 2
+                hy = int(mh * h.get("ry", 0)) + int(mh * h.get("rh", 0)) / 2
+            elif h.get("type") == "circle":
+                hx = int(mw * h.get("cx", 0.5))
+                hy = int(mh * h.get("cy", 0.5))
+            else:
+                hx = int(mw * h.get("x1", 0.5))
+                hy = int(mh * h.get("y1", 0.5))
+            if abs(hx - player_cx) <= threshold_x and abs(hy - player_cy) <= threshold_y:
+                visible.append(h)
+        return visible
+
+    # ── Actualización de aventura ─────────────────────────────────────────────
+
+    def _update_adventure(self):
+        if self.current_screen != "aventura" or self.story_pending_end:
+            return
+        dt_ms = self.clock.get_time()
+
+        # Popup de logro
+        if self.popup_logro_timer > 0:
+            self.popup_logro_timer -= dt_ms
+            if self.popup_logro_timer <= 0:
+                self.popup_logro_actual = None
+
+        self.story_npc_anim_timer += dt_ms
+        if self.story_npc_anim_timer >= 1000000:
+            self.story_npc_anim_timer = 0
+
+        if self._is_first_day_classroom_context():
+            self.story_clock_accumulator_ms += dt_ms
+            while self.story_clock_accumulator_ms >= 4000:
+                self.story_clock_accumulator_ms -= 4000
+                self.story_clock_minute += 1
+                if self.story_clock_minute >= 60:
+                    self.story_clock_minute = 0
+                    self.story_clock_hour += 1
+                    if self.story_clock_hour >= 24:
+                        self.story_clock_hour = 0
+                        self.story_clock_day += 1
+            if self.story_npc_sara_frames:
+                self.story_npc_sara_index = (self.story_npc_anim_timer // 220) % len(self.story_npc_sara_frames)
+            if self.story_npc_diego_frames:
+                self.story_npc_diego_index = (self.story_npc_anim_timer // 220) % len(self.story_npc_diego_frames)
+
+        if self.story_is_seated:
+            if self.aventura_personaje is not None:
+                self.aventura_personaje.moviendose = False
+                self.aventura_personaje.frame_actual = 0
+                self.aventura_personaje.contador_animacion = 0
+            self._update_story_camera()
+            return
+
+        keys = pygame.key.get_pressed()
+        sprint = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
+        speed = self.player_speed * (1.8 if sprint else 1.0)
+        move_x = (
+            (1 if keys[self.controls["mover_derecha"]] else 0)
+            - (1 if keys[self.controls["mover_izquierda"]] else 0)
+        ) * speed
+        move_y = (
+            (1 if keys[self.controls["mover_abajo"]] else 0)
+            - (1 if keys[self.controls["mover_arriba"]] else 0)
+        ) * speed
+        prev_x = self.player_rect.x
+        prev_y = self.player_rect.y
+        self._move_player_with_walls(move_x, move_y)
+        actual_dx = self.player_rect.x - prev_x
+        actual_dy = self.player_rect.y - prev_y
+        self._update_story_camera()
+        if self.aventura_personaje is not None:
+            self.aventura_personaje.hitbox.x = self.player_rect.x
+            self.aventura_personaje.hitbox.y = self.player_rect.y
+            self.aventura_personaje.sync_sprite_from_hitbox()
+            self.aventura_personaje.moviendose = (actual_dx != 0 or actual_dy != 0)
+            if move_x > 0:
+                self.aventura_personaje.direccion = "right"
+            elif move_x < 0:
+                self.aventura_personaje.direccion = "left"
+            elif move_y > 0:
+                self.aventura_personaje.direccion = "down"
+            elif move_y < 0:
+                self.aventura_personaje.direccion = "up"
+            if self.aventura_personaje.moviendose:
+                self.aventura_personaje.contador_animacion += 1
+                if self.aventura_personaje.contador_animacion >= self.aventura_personaje.fps_animacion:
+                    self.aventura_personaje.contador_animacion = 0
+                    total = len(self.aventura_personaje.animaciones[self.aventura_personaje.direccion])
+                    self.aventura_personaje.frame_actual = (self.aventura_personaje.frame_actual + 1) % total
+            else:
+                self.aventura_personaje.frame_actual = 0
+                self.aventura_personaje.contador_animacion = 0
+
+    # ── Simulación ────────────────────────────────────────────────────────────
+
+    def _init_simulacion(self):
+        if self.simulacion_activa:
+            return
+        base_path = os.path.dirname(__file__)
+        ruta_imagenes = os.path.join(base_path, "Imagenes", "Personajes", "personaje_main")
+        self.simulacion_fondo = Fondo(self._resolve_image_path("HabDía.png"), 0, 0)
+        self.simulacion_personaje = Personaje(
+            600, 280, ruta_imagenes, velocidad=4, fps_animacion=8,
+            color=self.character_colors["Piel"]
+        )
+        self.simulacion_animacion = Animacion(
+            self._resolve_image_path("INTERACTUAR.webp"), 5, fps_animacion=5, x=800, y=400,
+        )
+        self.simulacion_animacion.velocidad = 3
+        self.simulacion_animacion.mover_lateral(100, 700)
+        try:
+            self.simulacion_aviso = pygame.image.load(
+                self._resolve_image_path("INTERACTUAR.webp")
+            ).convert_alpha()
+        except (OSError, pygame.error):
+            self.simulacion_aviso = None
+        self.simulacion_pared1 = pygame.Rect(290, 290, 100, 100)
+        self.simulacion_pared2 = pygame.Rect(500, 290, 100, 100)
+        self.simulacion_mostrar_aviso = False
+        self.simulacion_activa = True
+
+    def _update_simulacion(self):
+        if self.current_screen != "simulacion" or not self.simulacion_activa:
+            return
+        x_prev = self.simulacion_personaje.x
+        y_prev = self.simulacion_personaje.y
+        self.simulacion_personaje.actualizar()
+        if (
+            self.simulacion_personaje.hitbox.colliderect(self.simulacion_pared1)
+            or self.simulacion_personaje.hitbox.colliderect(self.simulacion_pared2)
+        ):
+            self.simulacion_personaje.x = x_prev
+            self.simulacion_personaje.y = y_prev
+            self.simulacion_personaje.hitbox.x = x_prev
+            self.simulacion_personaje.hitbox.y = y_prev
+        self.simulacion_mostrar_aviso = self.simulacion_personaje.hitbox.colliderect(self.simulacion_pared2)
+        self.simulacion_animacion.actualizar()
+        self.simulacion_animacion.mover_lateral(100, 700)
+
+    def _reinit_simulacion_personaje(self):
+        base_path = os.path.dirname(__file__)
+        ruta_imagenes = os.path.join(base_path, "Imagenes", "Personajes", "personaje_main")
+        self.simulacion_personaje = Personaje(
+            600, 280, ruta_imagenes, velocidad=4, fps_animacion=8,
+            color=self.character_colors["Piel"]
+        )
+
+    # ── Utilidades de imagen ──────────────────────────────────────────────────
+
+    def _resolve_image_path(self, image_ref):
+        images_dir = os.path.join(os.path.dirname(__file__), "Imagenes")
+        if not image_ref:
+            image_ref = "HabDía.png"
+        normalized = os.path.normpath(str(image_ref).strip())
+        direct = normalized if os.path.isabs(normalized) else os.path.join(os.path.dirname(__file__), normalized)
+        if os.path.exists(direct):
+            return direct
+        file_name = os.path.basename(normalized)
+        by_name = os.path.join(images_dir, file_name)
+        if os.path.exists(by_name):
+            return by_name
+        file_name_lower = file_name.lower()
+        try:
+            for root, _, files in os.walk(images_dir):
+                for name in files:
+                    if name.lower() == file_name_lower:
+                        return os.path.join(root, name)
+        except OSError:
+            pass
+        return by_name
+
+    def _is_first_day_classroom_context(self):
+        event_id = self.story_current_event.get("id") if isinstance(self.story_current_event, dict) else None
+        if event_id != "primer_dia":
+            return False
+        if self.aventura_fondo is None:
+            return False
+        return "salon" in os.path.basename(self.aventura_fondo.ruta_imagen).lower()
+
+    # ── Carga de sprites NPC ──────────────────────────────────────────────────
+
+    def _load_sprite_sheet_frames(self, path):
+        frames = []
+        try:
+            sheet = pygame.image.load(path).convert_alpha()
+        except (OSError, pygame.error):
+            return frames
+        sw, sh = sheet.get_size()
+        file_name = os.path.basename(str(path)).lower()
+        is_static = any(t in file_name for t in ("sentado", "parado", "idle", "stand"))
+        frame_count = 1 if is_static else (4 if sw >= 4 else 1)
+        frame_w = max(1, sw // frame_count)
+        for i in range(frame_count):
+            rect = pygame.Rect(i * frame_w, 0, frame_w, sh)
+            frame = sheet.subsurface(rect).copy()
+            h = max(76, int(frame.get_height() * 0.82))
+            w = max(42, int(frame.get_width() * (h / max(1, frame.get_height()))))
+            frames.append(pygame.transform.smoothscale(frame, (w, h)))
+        return frames
+
+    def _load_npc_animation_frames(self, character_name, animation_file):
+        key = (str(character_name), str(animation_file))
+        if key in self.story_npc_hitbox_cache:
+            return self.story_npc_hitbox_cache[key]
+        # Tarea 8: Cargar sprite del NPC por nombre desde Imagenes/Personajes/<Nombre>/
+        npc_dir = os.path.join(os.path.dirname(__file__), "Imagenes", "Personajes", str(character_name))
+        # Fallback para NPC2 incompleto: usar NPC1
+        # 🖼️ ASSET_IMG: Imagenes/Personajes/NPC2/parado.png   | mismas dims que NPC1 | NPC2 sprite parado
+        # 🖼️ ASSET_IMG: Imagenes/Personajes/NPC2/sentado.png  | mismas dims que NPC1 | NPC2 sprite sentado
+        # 🖼️ ASSET_IMG: Imagenes/Personajes/NPC2/hablando.png | mismas dims que NPC1 | NPC2 sprite hablando
+        if not os.path.isdir(npc_dir):
+            fallback_dir = os.path.join(os.path.dirname(__file__), "Imagenes", "Personajes", "NPC1")
+            if os.path.isdir(fallback_dir):
+                npc_dir = fallback_dir
+        npc_path = os.path.join(npc_dir, str(animation_file))
+        frames = self._load_sprite_sheet_frames(npc_path)
+        self.story_npc_hitbox_cache[key] = frames
+        return frames
+
+    def _load_story_interact_prompt(self):
+        prompt_path = self._resolve_image_path("INTERACTUAR.webp")
+        try:
+            self.story_interact_prompt_img = pygame.image.load(prompt_path).convert_alpha()
+            base_w = max(22, int(self.story_interact_prompt_img.get_width() * 0.24))
+            base_h = max(22, int(self.story_interact_prompt_img.get_height() * 0.24))
+            self.story_interact_prompt_scaled = pygame.transform.smoothscale(
+                self.story_interact_prompt_img, (base_w, base_h)
+            )
+        except (OSError, pygame.error):
+            self.story_interact_prompt_img = None
+            self.story_interact_prompt_scaled = None
+
+    def _load_story_seated_sprite(self):
+        seated_path = self._resolve_image_path("seated.png")
+        try:
+            raw = pygame.image.load(seated_path).convert_alpha()
+            self.story_seated_sprite = pygame.transform.smoothscale(
+                raw,
+                (max(24, int(raw.get_width() * 2.8)), max(24, int(raw.get_height() * 2.8))),
+            )
+        except (OSError, pygame.error):
+            self.story_seated_sprite = None
+
+    def _load_story_event_npc_sprites(self):
+        base_dir = os.path.join(os.path.dirname(__file__), "Imagenes", "Personajes")
+        sara_sheet = os.path.join(base_dir, "Sara", "Sara_dibujando.png")
+        diego_sheet = os.path.join(base_dir, "Diego", "Diego_hablando.png")
+        self.story_npc_sara_frames = self._load_sprite_sheet_frames(sara_sheet)
+        self.story_npc_diego_frames = self._load_sprite_sheet_frames(diego_sheet)
+
+    def _load_object_interactable_image(self, object_name):
+        if not object_name:
+            return None
+        cached = self.story_object_image_cache.get(object_name)
+        if cached is not None:
+            return cached
+        object_path = os.path.join(os.path.dirname(__file__), "Imagenes", "Interactuables", object_name)
+        try:
+            image = pygame.image.load(object_path).convert_alpha()
+        except (OSError, pygame.error):
+            image = None
+        self.story_object_image_cache[object_name] = image
+        return image
+
+    def _get_cropped_object_image(self, image, crop):
+        if not isinstance(crop, dict):
+            return image
+        iw, ih = image.get_size()
+        try:
+            cx = max(0.0, min(1.0, float(crop.get("x", 0.0))))
+            cy = max(0.0, min(1.0, float(crop.get("y", 0.0))))
+            cw = max(0.001, min(1.0 - cx, float(crop.get("w", 1.0))))
+            ch = max(0.001, min(1.0 - cy, float(crop.get("h", 1.0))))
+        except (TypeError, ValueError):
+            return image
+        rect = pygame.Rect(
+            max(0, min(iw - 1, int(cx * iw))),
+            max(0, min(ih - 1, int(cy * ih))),
+            1, 1,
+        )
+        rect.width = max(1, min(iw - rect.x, int(cw * iw)))
+        rect.height = max(1, min(ih - rect.y, int(ch * ih)))
+        if rect.topleft == (0, 0) and rect.size == image.get_size():
+            return image
+        return image.subsurface(rect)
+
+    # ── Fuentes y display ─────────────────────────────────────────────────────
+
+    def _find_custom_font_path(self):
+        base_dir = os.path.dirname(__file__)
+        candidates = [
+            os.path.join(base_dir, "Fuentes", "DeterminationMonoWebRegular-Z5oq.ttf"),
+            os.path.join(base_dir, "Fuentes", "DeterminationMonoWeb.ttf"),
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                return path
+        return None
+
+    def _pick_readable_font(self):
+        for name in ("determination mono web", "segoeui", "arial", "verdana", "tahoma", "calibri"):
+            if pygame.font.match_font(name):
+                return name
+        return None
+
+    def _build_fonts(self):
+        custom = self._find_custom_font_path()
+        if custom:
+            return {
+                "title":    pygame.font.Font(custom, 56),
+                "subtitle": pygame.font.Font(custom, 28),
+                "button":   pygame.font.Font(custom, 30),
+                "body":     pygame.font.Font(custom, 26),
+                "small":    pygame.font.Font(custom, 22),
+            }
+        name = self._pick_readable_font()
+        return {
+            "title":    pygame.font.SysFont(name, 56, bold=True),
+            "subtitle": pygame.font.SysFont(name, 28, bold=True),
+            "button":   pygame.font.SysFont(name, 30, bold=True),
+            "body":     pygame.font.SysFont(name, 26),
+            "small":    pygame.font.SysFont(name, 22),
+        }
+
+    def _apply_display_mode(self):
+        if self.settings["Pantalla completa"]:
+            self.screen = pygame.display.set_mode(
+                (self.display_width, self.display_height), pygame.FULLSCREEN
+            )
+        else:
+            self.screen = pygame.display.set_mode(self.windowed_size)
+        self.width, self.height = self.screen.get_size()
+        self.cached_background_scaled = None
+        self.cached_background_size = None
+        self.cached_background_source = None
+        if self.current_screen == "aventura":
+            self._rebuild_story_world(keep_player=True)
+            self.story_walls = self._build_story_wall_hitboxes(
+                self.aventura_fondo.ruta_imagen if getattr(self, "aventura_fondo", None) else None
+            )
+        self.button_width = min(460, int(self.width * 0.34))
+        self.buttons = self._build_menu_buttons()
+        self.play_buttons = self._build_play_buttons()
+        self.pause_buttons = self._build_pause_buttons()
+
+    # ── Acciones de menú ──────────────────────────────────────────────────────
+
+    def _open_action(self, action):
+        if action == "salir":
+            self.running = False
+            return
+        if action in ("jugar", "partida_nueva", "cargar_partida",
+                      "simulacion", "pause_guardar", "pause_salir_menu",
+                      "volver_menu", "configuracion"):
+            if action == "jugar":
+                self.transitions.request(self, "jugar")
+            elif action == "partida_nueva":
+                self.transitions.request(self, "creador")
+            elif action == "cargar_partida":
+                self.save_slot_selected = 0
+                self.pause_overwrite_pending = False
+                self.pause_pending_slot = None
+                self.message = "Selecciona un slot para cargar o borrar."
+                self.transitions.request(self, "load_slots")
+            elif action == "simulacion":
+                self._init_simulacion()
+                self.transitions.request(self, "simulacion")
+            elif action == "pause_guardar":
+                self.current_screen = "pause_guardar"
+                self.save_slot_selected = 0
+                self.pause_overwrite_pending = False
+                self.pause_pending_slot = None
+            elif action == "pause_salir_menu":
+                self.transitions.request(self, "menu")
+            elif action == "volver_menu":
+                self.transitions.request(self, "menu")
+            elif action == "configuracion":
+                self.previous_screen = self.current_screen
+                self.transitions.request(self, "configuracion")
+            self.audio.sfx_click()
+            return
+        self.transitions.request(self, action)
+        self.audio.sfx_click()
