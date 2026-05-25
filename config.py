@@ -88,7 +88,9 @@ SPAWN_OFFSET_X = -180
 SPAWN_OFFSET_Y = -120
 
 # Número de eventos de historia que el jugador debe completar para terminar el juego.
-STORY_GOAL = 12
+# 14 eventos en total (7 sin condición + 7 condicionales mutuamente excluyentes).
+# Con goal=10, siempre hay eventos de sobra y el pool jamás se agota antes del final.
+STORY_GOAL = 10
 
 # Versión del schema de guardado; incrementar si cambia la estructura del JSON.
 SAVE_VERSION = 3

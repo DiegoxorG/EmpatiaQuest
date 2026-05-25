@@ -4,7 +4,7 @@ import pygame
 
 from config import (
     DEFAULT_FPS, CUSTOM_PARTS, PART_STYLES, DEFAULT_CHARACTER_COLORS,
-    DEFAULT_SETTINGS, PALETTE_COLORS,
+    DEFAULT_SETTINGS, PALETTE_COLORS, STORY_GOAL,
 )
 from game_state import GameStateMixin
 from renderer import RendererMixin
@@ -109,7 +109,7 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         self.story_felicidad = 50
         self.story_reputacion = 50
         self.story_completed = 0
-        self.story_goal = 12
+        self.story_goal = STORY_GOAL
         self.story_thought = ""
         self.story_interaction_text = ""
         self.story_pending_end = False

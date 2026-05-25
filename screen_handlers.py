@@ -388,6 +388,24 @@ class ScreenHandlersMixin:
     # ──────────────────────────────────────────────────────────────────────────
 
     def _handle_adventure_events(self, event):
+        # Click de ratón sobre las opciones del evento narrativo
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if (
+                self.story_current_event is not None
+                and not self.story_pending_end
+                and not self.story_show_support
+            ):
+                footer_h = 220
+                event_box = pygame.Rect(26, self.height - footer_h + 20, self.width - 52, footer_h - 28)
+                opts = self.story_current_event.get("options", [])
+                y = event_box.y + 76
+                for i, opt in enumerate(opts):
+                    opt_rect = pygame.Rect(event_box.x, y - 14, event_box.width // 2, 28)
+                    if opt_rect.collidepoint(event.pos):
+                        self._apply_story_choice(opt, option_idx=i)
+                        return
+                    y += 28
+
         if event.type == pygame.KEYDOWN:
             # TAB — panel de habilidades
             if event.key == pygame.K_TAB:
@@ -425,9 +443,6 @@ class ScreenHandlersMixin:
                 return
 
             if self.story_current_event is None:
-                return
-
-            if self.story_current_event.get("id") == "primer_dia":
                 return
 
             key_to_idx = {

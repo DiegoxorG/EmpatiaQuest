@@ -633,7 +633,7 @@ def condition_ok(condition, felicidad, reputacion=50, decision_history=None):
         return reputacion < 30
     if condition == "prev_ignored":
         if not decision_history:
-            return True  # Sin historial, permitir el evento
+            return False  # Sin historial de decisiones negativas, no mostrar aún
         return any(d.get("dF", 0) <= -8 for d in decision_history)
     return False
 

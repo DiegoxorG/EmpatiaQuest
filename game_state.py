@@ -801,23 +801,6 @@ class GameStateMixin:
         self.story_thought = "Te sentaste."
         self.story_interaction_text = "Estas sentado. Presiona E para levantarte."
         self.audio.sfx_sentarse()
-        if (
-            self.story_current_event is not None
-            and self.story_current_event.get("id") == "primer_dia"
-            and self._is_first_day_classroom_context()
-        ):
-            silla_idx = None
-            for i, hb in enumerate(self.story_walls, start=1):
-                if hb is interactable:
-                    silla_idx = i
-                    break
-            options = self.story_current_event.get("options", [])
-            if silla_idx == 42 and len(options) >= 1:
-                self._apply_story_choice(options[0], option_idx=0)
-                self.story_interaction_text = "Elegiste sentarte con Sara."
-            elif silla_idx == 43 and len(options) >= 2:
-                self._apply_story_choice(options[1], option_idx=1)
-                self.story_interaction_text = "Elegiste sentarte con Diego."
 
     def _change_adventure_background(self, target_image_name):
         if not target_image_name:
@@ -931,12 +914,6 @@ class GameStateMixin:
         if self.current_screen != "aventura" or self.story_pending_end:
             return
         dt_ms = self.clock.get_time()
-
-        # Popup de logro
-        if self.popup_logro_timer > 0:
-            self.popup_logro_timer -= dt_ms
-            if self.popup_logro_timer <= 0:
-                self.popup_logro_actual = None
 
         self.story_npc_anim_timer += dt_ms
         if self.story_npc_anim_timer >= 1000000:
@@ -1086,11 +1063,7 @@ class GameStateMixin:
 
     def _is_first_day_classroom_context(self):
         event_id = self.story_current_event.get("id") if isinstance(self.story_current_event, dict) else None
-        if event_id != "primer_dia":
-            return False
-        if self.aventura_fondo is None:
-            return False
-        return "salon" in os.path.basename(self.aventura_fondo.ruta_imagen).lower()
+        return event_id == "primer_dia"
 
     # ── Carga de sprites NPC ──────────────────────────────────────────────────
 
@@ -1258,41 +1231,3 @@ class GameStateMixin:
         self.play_buttons = self._build_play_buttons()
         self.pause_buttons = self._build_pause_buttons()
 
-    # ── Acciones de menú ──────────────────────────────────────────────────────
-
-    def _open_action(self, action):
-        if action == "salir":
-            self.running = False
-            return
-        if action in ("jugar", "partida_nueva", "cargar_partida",
-                      "simulacion", "pause_guardar", "pause_salir_menu",
-                      "volver_menu", "configuracion"):
-            if action == "jugar":
-                self.transitions.request(self, "jugar")
-            elif action == "partida_nueva":
-                self.transitions.request(self, "creador")
-            elif action == "cargar_partida":
-                self.save_slot_selected = 0
-                self.pause_overwrite_pending = False
-                self.pause_pending_slot = None
-                self.message = "Selecciona un slot para cargar o borrar."
-                self.transitions.request(self, "load_slots")
-            elif action == "simulacion":
-                self._init_simulacion()
-                self.transitions.request(self, "simulacion")
-            elif action == "pause_guardar":
-                self.current_screen = "pause_guardar"
-                self.save_slot_selected = 0
-                self.pause_overwrite_pending = False
-                self.pause_pending_slot = None
-            elif action == "pause_salir_menu":
-                self.transitions.request(self, "menu")
-            elif action == "volver_menu":
-                self.transitions.request(self, "menu")
-            elif action == "configuracion":
-                self.previous_screen = self.current_screen
-                self.transitions.request(self, "configuracion")
-            self.audio.sfx_click()
-            return
-        self.transitions.request(self, action)
-        self.audio.sfx_click()
