@@ -10,6 +10,7 @@ import screens.historia as historia_screen
 import screens.progreso as progreso_screen
 import screens.tutorial as tutorial_screen
 import screens.creditos as creditos_screen
+from minigame_manager import MinigameManager
 
 
 class ScreenHandlersMixin:
@@ -735,6 +736,15 @@ class ScreenHandlersMixin:
             self._handle_escape()
             return
 
+        # F5 / F6 — test rápido de minijuego (cualquier pantalla, sin historia)
+        if event.type == pygame.KEYDOWN and self.current_screen != "minijuego":
+            if event.key == pygame.K_F5:
+                self._trigger_minijuego("agresivo")
+                return
+            if event.key == pygame.K_F6:
+                self._trigger_minijuego("pacifico")
+                return
+
         screen = self.current_screen
         if screen == "menu":
             self._handle_menu_events(event)
@@ -760,6 +770,8 @@ class ScreenHandlersMixin:
             self._handle_simulacion_events(event)
         elif screen == "aventura":
             self._handle_adventure_events(event)
+        elif screen == "minijuego":
+            self._handle_minijuego_events(event)
         elif screen == "historia":
             historia_screen.handle_event(self, event)
         elif screen == "progreso":
@@ -768,6 +780,155 @@ class ScreenHandlersMixin:
             tutorial_screen.handle_event(self, event)
         elif screen == "creditos":
             creditos_screen.handle_event(self, event)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Minijuego estilo Undertale
+    # ──────────────────────────────────────────────────────────────────────────
+
+    # Opciones del menú de pausa del minijuego
+    _MINIJUEGO_PAUSE_OPTIONS = [
+        "Continuar",
+        "Ver hitboxes: OFF",
+        "Configuracion",
+        "Volver a la historia",
+    ]
+
+    def _trigger_minijuego(self, tipo: str):
+        """
+        Inicia el minijuego del tipo dado ("agresivo" o "pacifico").
+        Guarda los deltas de stats para aplicarlos al terminar.
+        """
+        self.minijuego_manager = MinigameManager(tipo, self.width, self.height)
+        self.minijuego_pending_tipo = tipo
+        self.minijuego_paused = False
+        self.minijuego_pause_idx = 0
+        self.minijuego_show_hitboxes = False
+        self.current_screen = "minijuego"
+        # 🎶 ASSET_BGM: Audio/BGM/minijuego_batalla.ogg | musica tensa 60s
+        audio = getattr(self, "audio", None)
+        if audio is not None and hasattr(audio, "play_bgm"):
+            try:
+                audio.play_bgm("minijuego_batalla")
+            except Exception:
+                pass
+
+    def _minijuego_pause_options(self):
+        """Devuelve la lista de opciones con el estado actual de hitboxes."""
+        hb_state = "ON" if getattr(self, "minijuego_show_hitboxes", False) else "OFF"
+        return [
+            "Continuar",
+            f"Ver hitboxes: {hb_state}",
+            "Configuracion",
+            "Volver a la historia",
+        ]
+
+    def _handle_minijuego_events(self, event):
+        """Delega eventos al MinigameManager activo o al menú de pausa."""
+        mgr = getattr(self, "minijuego_manager", None)
+        if mgr is None:
+            return
+
+        paused = getattr(self, "minijuego_paused", False)
+
+        if event.type == pygame.KEYDOWN:
+            if paused:
+                opts = self._minijuego_pause_options()
+                idx  = getattr(self, "minijuego_pause_idx", 0)
+
+                if event.key in (pygame.K_UP, pygame.K_w):
+                    self.minijuego_pause_idx = (idx - 1) % len(opts)
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    self.minijuego_pause_idx = (idx + 1) % len(opts)
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_KP_ENTER):
+                    self._minijuego_pause_select(idx)
+            else:
+                mgr.handle_event(event)
+
+    def _minijuego_pause_select(self, idx: int):
+        """Ejecuta la opción seleccionada en el menú de pausa del minijuego."""
+        mgr = getattr(self, "minijuego_manager", None)
+
+        if idx == 0:  # Continuar
+            self.minijuego_paused = False
+
+        elif idx == 1:  # Ver hitboxes toggle
+            self.minijuego_show_hitboxes = not getattr(self, "minijuego_show_hitboxes", False)
+
+        elif idx == 2:  # Configuracion
+            self.minijuego_paused = False
+            self.previous_screen = "minijuego"
+            self.current_screen = "configuracion"
+
+        elif idx == 3:  # Volver a la historia
+            tipo = getattr(self, "minijuego_pending_tipo", "agresivo")
+            if mgr is not None:
+                self._handle_minijuego_result({"gano": False, "tipo": tipo})
+
+    def _update_minijuego(self, dt_ms: int):
+        """
+        Llamado cada frame desde main.run().
+        Actualiza el minijuego y, si terminó, aplica efectos y logros.
+        Congela la lógica cuando está en pausa.
+        """
+        if self.current_screen != "minijuego":
+            return
+        if getattr(self, "minijuego_paused", False):
+            return  # lógica congelada durante pausa
+        mgr = getattr(self, "minijuego_manager", None)
+        if mgr is None:
+            self.current_screen = "aventura"
+            return
+
+        result = mgr.update(dt_ms)
+        if result is not None:
+            self._handle_minijuego_result(result)
+
+    def _handle_minijuego_result(self, result: dict):
+        """Aplica stats, desbloquea logros y regresa a aventura."""
+        gano  = result.get("gano", result.get("ganó", False))
+        tipo  = result.get("tipo", getattr(self, "minijuego_pending_tipo", "agresivo"))
+
+        # Deltas de stats (se aplican siempre, gane o pierda)
+        if tipo == "agresivo":
+            df, dr = +1, -2
+        else:
+            df, dr = +4, -3
+
+        self.story_felicidad   = max(0, min(100, self.story_felicidad   + df))
+        self.story_reputacion  = max(0, min(100, self.story_reputacion  + dr))
+
+        self.decision_history.append({
+            "event_id":    f"minijuego_{tipo}",
+            "option_label": f"Defender {'agresivamente' if tipo == 'agresivo' else 'pacificamente'}",
+            "gano":        gano,
+            "dF":          df,
+            "dR":          dr,
+        })
+
+        # Logros (solo si ganó)
+        lista = getattr(self, "lista_logros", None)
+        if lista is not None and gano:
+            if tipo == "agresivo":
+                lista.desbloquear("rey_de_los_bullies")
+            else:
+                lista.desbloquear("irrefutable")
+            # Mostrar popup si hay logro recién desbloqueado
+            if getattr(self, "popup_logro_timer", 0) <= 0:
+                siguiente = lista.consumir_popup()
+                if siguiente is not None:
+                    self.popup_logro_actual = siguiente
+                    self.popup_logro_timer  = 3500
+
+        # Incrementar contador de decisiones completadas
+        self.story_completed += 1
+        if self.story_completed >= getattr(self, "story_goal", 10):
+            self._resolve_ending()
+
+        # Limpiar y volver a la aventura
+        self.minijuego_manager = None
+        transitions = getattr(self, "transitions", None)
+        self._transition_to("aventura", transitions)
+
 
     def _handle_escape(self):
         """Lógica de ESC por pantalla."""
@@ -799,6 +960,13 @@ class ScreenHandlersMixin:
                 self.waiting_control_action = None
             else:
                 self.current_screen = "configuracion"
+        elif screen == "minijuego":
+            # ESC en minijuego: abre/cierra el menú de pausa
+            if getattr(self, "minijuego_paused", False):
+                self.minijuego_paused = False   # ESC de nuevo cierra la pausa
+            else:
+                self.minijuego_paused = True
+                self.minijuego_pause_idx = 0
         else:
             # historia, progreso, tutorial, creditos → menu
             transitions = getattr(self, "transitions", None)

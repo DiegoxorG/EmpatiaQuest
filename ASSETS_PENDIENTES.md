@@ -66,6 +66,14 @@ automáticamente en la próxima ejecución.
 
 ## 🎵 Efectos de sonido (`ASSET_SFX`)
 
+> **Minijuego Undertale — nuevos SFX**
+
+| Archivo | Descripción |
+|---|---|
+| `Audio/SFX/hit_corazon.ogg` | Golpe recibido por el corazón del jugador |
+| `Audio/SFX/minijuego_ganar.ogg` | Fanfare breve de victoria al sobrevivir 60s |
+| `Audio/SFX/minijuego_perder.ogg` | Sonido de derrota al perder las 3 vidas |
+
 > **Día 1 — nuevos SFX (CAMBIO 4)**
 
 | Archivo | Descripción |
@@ -104,6 +112,7 @@ Ruta base: `Audio/BGM/`
 | `final_positivo.ogg` | Esperanzador y cálido — final positivo |
 | `final_negativo.ogg` | Sombrío y melancólico — final negativo |
 | `final_neutral.ogg` | Ambiguo — los dos finales neutrales |
+| `minijuego_batalla.ogg` | Música tensa estilo Undertale durante los 60s del minijuego |
 
 ---
 

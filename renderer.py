@@ -153,6 +153,10 @@ class RendererMixin:
             "Mouse o flechas + Enter. ESC vuelve al menu.",
             self.width // 2, self.height - 40, "small", (194, 216, 248), True,
         )
+        self.draw_pixel_text(
+            "F5: test pelea  |  F6: test palabras",
+            self.width // 2, self.height - 18, "small", (90, 100, 130), True,
+        )
 
     def _draw_panel_screen(self, title, lines):
         self._draw_pixel_background()
@@ -1259,6 +1263,76 @@ class RendererMixin:
     # Dispatcher principal
     # ──────────────────────────────────────────────────────────────────────────
 
+    def _draw_minijuego_screen(self):
+        """Delegado de renderizado al MinigameManager activo."""
+        mgr = getattr(self, "minijuego_manager", None)
+        if mgr is None:
+            self.screen.fill((10, 10, 16))
+            return
+        show_hb = getattr(self, "minijuego_show_hitboxes", False)
+        mgr.draw(self.screen, self.base_fonts, show_hitboxes=show_hb)
+
+        if getattr(self, "minijuego_paused", False):
+            self._draw_minijuego_pause_overlay()
+
+    def _draw_minijuego_pause_overlay(self):
+        """Menú de pausa sobre el minijuego (ESC)."""
+        w, h = self.width, self.height
+
+        # Fondo semitransparente
+        overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+        overlay.fill((8, 8, 18, 200))
+        self.screen.blit(overlay, (0, 0))
+
+        # Panel central
+        pw, ph = 540, 420
+        panel = pygame.Rect(w // 2 - pw // 2, h // 2 - ph // 2, pw, ph)
+        shadow = panel.move(6, 6)
+        pygame.draw.rect(self.screen, (8, 8, 18), shadow)
+        pygame.draw.rect(self.screen, CARD, panel)
+        pygame.draw.rect(self.screen, CARD_BORDER, panel, width=4)
+
+        self.draw_pixel_text("PAUSA", w // 2, panel.y + 46, "title", TEXT_MAIN, True)
+        self.draw_pixel_text(
+            "↑↓ navegar   ENTER seleccionar   ESC continuar",
+            w // 2, panel.y + 92, "small", TEXT_SOFT, True,
+        )
+
+        # Opciones
+        mgr   = getattr(self, "minijuego_manager", None)
+        tipo  = getattr(self, "minijuego_pending_tipo", "agresivo")
+        hb_on = getattr(self, "minijuego_show_hitboxes", False)
+        opts  = [
+            "Continuar",
+            f"Ver hitboxes: {'ON' if hb_on else 'OFF'}",
+            "Configuracion",
+            "Volver a la historia",
+        ]
+        sel_idx   = getattr(self, "minijuego_pause_idx", 0)
+        opt_start = panel.y + 130
+        opt_h     = 56
+
+        for i, label in enumerate(opts):
+            opt_rect = pygame.Rect(panel.x + 28, opt_start + i * opt_h, pw - 56, opt_h - 6)
+            is_sel   = i == sel_idx
+
+            if is_sel:
+                pygame.draw.rect(self.screen, CARD_HOVER, opt_rect, border_radius=6)
+                pygame.draw.rect(self.screen, CARD_BORDER, opt_rect, 2, border_radius=6)
+                color = TEXT_MAIN
+            else:
+                color = TEXT_SOFT
+
+            self.draw_pixel_text(label, opt_rect.centerx, opt_rect.centery, "body", color, True)
+
+        # Subtítulo con el tipo de minijuego activo
+        tipo_label = "Pelea agresiva" if tipo == "agresivo" else "Defensa con palabras"
+        self.draw_pixel_text(
+            f"Modo: {tipo_label}",
+            w // 2, panel.bottom - 26, "small", TEXT_SOFT, True,
+        )
+
+
     def _render_current_screen(self):
         if self.current_screen == "menu":
             self._draw_menu()
@@ -1305,6 +1379,8 @@ class RendererMixin:
             self._draw_load_screen()
         elif self.current_screen == "simulacion":
             self._draw_simulacion_screen()
+        elif self.current_screen == "minijuego":
+            self._draw_minijuego_screen()
 
         # Overlays globales (siempre encima de la pantalla actual)
         if getattr(self, "show_skills_inventory", False):

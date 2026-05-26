@@ -65,6 +65,16 @@ LOGROS_DEFINIDOS = [
         "nombre": "Valiente",
         "descripcion": "Dijiste no cuando era lo correcto, aunque costara.",
     },
+    {
+        "id": "rey_de_los_bullies",
+        "nombre": "Rey de los bullies",
+        "descripcion": "Ganaste una pelea fisica contra el agresor.",
+    },
+    {
+        "id": "irrefutable",
+        "nombre": "Irrefutable",
+        "descripcion": "Defendiste con palabras y nadie pudo rebatirte.",
+    },
 ]
 
 # ─── Disparadores: (event_id, option_idx) → lista de logro IDs ───────────────

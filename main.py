@@ -214,6 +214,9 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         self.audio = AudioManager()
         self.transitions = TransitionManager()
 
+        # Minijuego Undertale
+        self.minijuego_manager = None   # MinigameManager activo, o None
+
         # ── Carga diferida de assets ──────────────────────────────────────────
         self._load_story_interact_prompt()
         self._load_story_seated_sprite()
@@ -255,6 +258,7 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
             # Actualizar lógica de juego
             self._update_adventure()
             self._update_simulacion()
+            self._update_minijuego(dt_ms)
             if self.current_screen == "nombre_input":
                 self._update_nombre_cursor(dt_ms)
 
