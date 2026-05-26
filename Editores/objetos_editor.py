@@ -53,16 +53,170 @@ def load_objects(in_path):
     return objects, payload.get("image", "")
 
 
+def choose_image_gui(scan_dir, title="Elegir imagen"):
+    """Selector visual de fondos con thumbnails. Devuelve ruta absoluta o None."""
+    valid_ext = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+    entries = []
+    if os.path.isdir(scan_dir):
+        for root, _, files in os.walk(scan_dir):
+            for f in sorted(files):
+                if os.path.splitext(f)[1].lower() in valid_ext:
+                    fp = os.path.join(root, f)
+                    entries.append((os.path.relpath(fp, scan_dir), fp))
+    entries.sort(key=lambda x: x[0].lower())
+    if not entries:
+        return None
+
+    THUMB_W, THUMB_H = 200, 130
+    LABEL_H, GAP, PADDING, SEARCH_H = 34, 10, 14, 48
+    CELL_W = THUMB_W + GAP
+    CELL_H = THUMB_H + LABEL_H + GAP
+
+    di = pygame.display.Info()
+    WIN_W = min(1400, di.current_w)
+    WIN_H = min(900, di.current_h)
+    cols = max(1, (WIN_W - PADDING * 2) // CELL_W)
+    screen = pygame.display.set_mode((WIN_W, WIN_H))
+    pygame.display.set_caption(title)
+    pick_clock = pygame.time.Clock()
+    font = pygame.font.SysFont("consolas", 15)
+    big_font = pygame.font.SysFont("consolas", 20, bold=True)
+    thumb_cache = {}
+
+    def get_thumb(fp):
+        if fp in thumb_cache:
+            return thumb_cache[fp]
+        try:
+            img = pygame.image.load(fp)
+            iw, ih = img.get_size()
+            s = min(THUMB_W / iw, THUMB_H / ih, 1.0)
+            thumb_cache[fp] = pygame.transform.smoothscale(
+                img, (max(1, int(iw * s)), max(1, int(ih * s))))
+        except Exception:
+            thumb_cache[fp] = None
+        return thumb_cache[fp]
+
+    filter_text, scroll_y, selected_idx = "", 0, 0
+    grid_top = SEARCH_H + 4
+    running, result = True, None
+
+    while running:
+        ft = filter_text.lower()
+        images = [(r, fp) for r, fp in entries if not ft or ft in r.lower()]
+        rows = math.ceil(len(images) / cols) if images else 0
+        grid_area_h = WIN_H - grid_top
+        max_scroll = max(0, rows * CELL_H + PADDING - grid_area_h)
+        scroll_y = min(scroll_y, max_scroll)
+        if images and 0 <= selected_idx < len(images):
+            sr = selected_idx // cols
+            if sr * CELL_H < scroll_y:
+                scroll_y = sr * CELL_H
+            elif (sr + 1) * CELL_H > scroll_y + grid_area_h:
+                scroll_y = (sr + 1) * CELL_H - grid_area_h
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEWHEEL:
+                scroll_y = max(0, min(scroll_y - event.y * 40, max_scroll))
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+                if my >= grid_top and images:
+                    ci = (mx - PADDING) // CELL_W
+                    ri = (my - grid_top + scroll_y) // CELL_H
+                    if 0 <= ci < cols:
+                        idx = ri * cols + ci
+                        if 0 <= idx < len(images):
+                            if idx == selected_idx:
+                                result = images[idx][1]; running = False
+                            else:
+                                selected_idx = idx
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    if images and 0 <= selected_idx < len(images):
+                        result = images[selected_idx][1]; running = False
+                elif event.key == pygame.K_BACKSPACE:
+                    filter_text = filter_text[:-1]; selected_idx = 0; scroll_y = 0
+                elif event.key == pygame.K_RIGHT:
+                    selected_idx = min(len(images) - 1, selected_idx + 1)
+                elif event.key == pygame.K_LEFT:
+                    selected_idx = max(0, selected_idx - 1)
+                elif event.key == pygame.K_DOWN:
+                    selected_idx = min(len(images) - 1, selected_idx + cols)
+                elif event.key == pygame.K_UP:
+                    selected_idx = max(0, selected_idx - cols)
+                elif event.unicode and event.unicode.isprintable():
+                    filter_text += event.unicode; selected_idx = 0; scroll_y = 0
+
+        screen.fill((22, 22, 32))
+        pygame.draw.rect(screen, (35, 36, 52), pygame.Rect(0, 0, WIN_W, SEARCH_H))
+        screen.blit(big_font.render(title, True, (210, 215, 240)), (PADDING, 8))
+        screen.blit(font.render(
+            f"  Filtro: {filter_text}_   {len(images)} fondos  |  "
+            "Flechas=navegar  Enter/DblClick=abrir  Escribe=filtrar  ESC=salir",
+            True, (140, 200, 160)), (PADDING + big_font.size(title)[0] + 12, 14))
+        pygame.draw.line(screen, (55, 58, 78), (0, SEARCH_H), (WIN_W, SEARCH_H), 1)
+
+        screen.set_clip(pygame.Rect(0, grid_top, WIN_W, grid_area_h))
+        for i, (rel, fp) in enumerate(images):
+            ci, ri = i % cols, i // cols
+            cx = PADDING + ci * CELL_W
+            cy = grid_top + ri * CELL_H - scroll_y + GAP // 2
+            if cy + CELL_H < grid_top or cy > WIN_H:
+                continue
+            is_sel = (i == selected_idx)
+            cr = pygame.Rect(cx, cy, CELL_W - GAP, CELL_H - GAP)
+            pygame.draw.rect(screen, (52, 58, 82) if is_sel else (34, 36, 50), cr, border_radius=6)
+            pygame.draw.rect(screen, (100, 150, 255) if is_sel else (50, 54, 72),
+                             cr, 2 if is_sel else 1, border_radius=6)
+            thumb = get_thumb(fp)
+            if thumb:
+                tw, th = thumb.get_size()
+                screen.blit(thumb, (cx + 2 + (THUMB_W - 4 - tw) // 2,
+                                    cy + 2 + (THUMB_H - 4 - th) // 2))
+            else:
+                pygame.draw.rect(screen, (44, 46, 64),
+                                 pygame.Rect(cx + 2, cy + 2, THUMB_W - 4, THUMB_H - 4), border_radius=4)
+            name = os.path.basename(rel)
+            if font.size(name)[0] > CELL_W - GAP - 8:
+                while font.size(name + "…")[0] > CELL_W - GAP - 8 and name:
+                    name = name[:-1]
+                name += "…"
+            lbl = font.render(name, True, (230, 235, 255) if is_sel else (150, 155, 180))
+            screen.blit(lbl, (cx + (CELL_W - GAP - lbl.get_width()) // 2, cy + THUMB_H + 6))
+        screen.set_clip(None)
+
+        if max_scroll > 0:
+            sb_h = max(20, int(grid_area_h * grid_area_h / max(rows * CELL_H + PADDING, 1)))
+            sb_y = grid_top + int(scroll_y / max_scroll * (grid_area_h - sb_h)) if max_scroll else grid_top
+            pygame.draw.rect(screen, (90, 100, 140),
+                             pygame.Rect(WIN_W - 8, sb_y, 6, sb_h), border_radius=3)
+
+        pygame.display.flip()
+        pick_clock.tick(60)
+
+    return result
+
+
 def main():
     pygame.init()
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(base_dir)
-    
+
     if len(sys.argv) > 1:
         image_path = sys.argv[1]
+        if not os.path.isabs(image_path):
+            image_path = os.path.join(project_root, image_path)
     else:
-        image_path = choose_image_from_console(project_root)
+        backgrounds_dir = os.path.join(project_root, "Imagenes", "Fondos")
+        image_path = choose_image_gui(backgrounds_dir,
+                                      "Elegir fondo — Editor de Objetos  (doble clic o Enter)")
+        if image_path is None:
+            pygame.quit()
+            return
 
     if not os.path.isabs(image_path):
         image_path = os.path.join(project_root, image_path)

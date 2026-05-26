@@ -1063,7 +1063,14 @@ class GameStateMixin:
 
     def _is_first_day_classroom_context(self):
         event_id = self.story_current_event.get("id") if isinstance(self.story_current_event, dict) else None
-        return event_id == "primer_dia"
+        if event_id != "primer_dia":
+            return False
+        # Solo activa cuando el fondo activo tiene NPCs en su JSON (estamos en el salón,
+        # no en la casa o el pasillo). Esto evita que Sara/Diego aparezcan en fondos incorrectos.
+        return any(
+            h.get("role") == "interactable" and h.get("action") == "npc"
+            for h in self.story_walls
+        )
 
     # ── Carga de sprites NPC ──────────────────────────────────────────────────
 
@@ -1076,7 +1083,7 @@ class GameStateMixin:
         sw, sh = sheet.get_size()
         file_name = os.path.basename(str(path)).lower()
         is_static = any(t in file_name for t in ("sentado", "parado", "idle", "stand"))
-        frame_count = 1 if is_static else (4 if sw >= 4 else 1)
+        frame_count = 1 if is_static else max(1, round(sw / max(1, sh)))
         frame_w = max(1, sw // frame_count)
         for i in range(frame_count):
             rect = pygame.Rect(i * frame_w, 0, frame_w, sh)

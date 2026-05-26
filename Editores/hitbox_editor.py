@@ -1,14 +1,17 @@
-﻿import json
+import json
 import os
 import sys
 import pygame
 import math
 import copy
 
+PANEL_W = 230   # right sidebar width
+STATUS_H = 36   # bottom status bar height
+
+# ── Helper functions ──────────────────────────────────────────────────────────
+
 def load_image(path):
-    # No usamos convert_alpha aqui porque requiere que ya exista un video mode.
-    img = pygame.image.load(path)
-    return img
+    return pygame.image.load(path)
 
 
 def clamp_rect_to_image(rect, img_rect):
@@ -16,11 +19,7 @@ def clamp_rect_to_image(rect, img_rect):
     y1 = max(img_rect.top, min(rect.top, img_rect.bottom))
     x2 = max(img_rect.left, min(rect.right, img_rect.right))
     y2 = max(img_rect.top, min(rect.bottom, img_rect.bottom))
-    left = min(x1, x2)
-    top = min(y1, y2)
-    width = abs(x2 - x1)
-    height = abs(y2 - y1)
-    return pygame.Rect(left, top, width, height)
+    return pygame.Rect(min(x1, x2), min(y1, y2), abs(x2 - x1), abs(y2 - y1))
 
 
 def normalize_rect(rect, img_rect):
@@ -45,19 +44,15 @@ def point_to_line_distance(point, line_start, line_end):
     px, py = point
     x1, y1 = line_start
     x2, y2 = line_end
-    dx = x2 - x1
-    dy = y2 - y1
+    dx, dy = x2 - x1, y2 - y1
     if dx == 0 and dy == 0:
         return math.hypot(px - x1, py - y1)
-    t = ((px - x1) * dx + (py - y1) * dy) / (dx*dx + dy*dy)
-    t = max(0, min(1, t))
-    closest_x = x1 + t * dx
-    closest_y = y1 + t * dy
-    return math.hypot(px - closest_x, py - closest_y)
+    t = max(0, min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)))
+    return math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
+
 
 def line_thickness_px(hitbox, img_rect, default_px=8):
-    thickness_norm = hitbox.get("thickness", default_px / img_rect.width)
-    return max(1, int(thickness_norm * img_rect.width))
+    return max(1, int(hitbox.get("thickness", default_px / img_rect.width) * img_rect.width))
 
 
 def collides_rect_with_hitbox(rect, h, img_rect):
@@ -67,11 +62,9 @@ def collides_rect_with_hitbox(rect, h, img_rect):
         cx = img_rect.x + int(h["cx"] * img_rect.width)
         cy = img_rect.y + int(h["cy"] * img_rect.height)
         r = max(4, int(h["r"] * img_rect.width))
-        nearest_x = max(rect.left, min(cx, rect.right))
-        nearest_y = max(rect.top, min(cy, rect.bottom))
-        dx = cx - nearest_x
-        dy = cy - nearest_y
-        return (dx * dx + dy * dy) <= (r * r)
+        nx = max(rect.left, min(cx, rect.right))
+        ny = max(rect.top, min(cy, rect.bottom))
+        return (cx - nx) ** 2 + (cy - ny) ** 2 <= r * r
     if h["type"] == "line":
         x1 = img_rect.x + h["x1"] * img_rect.width
         y1 = img_rect.y + h["y1"] * img_rect.height
@@ -84,25 +77,25 @@ def collides_rect_with_hitbox(rect, h, img_rect):
             t = i / steps
             px = int(x1 + (x2 - x1) * t)
             py = int(y1 + (y2 - y1) * t)
-            probe = pygame.Rect(px - radius, py - radius, radius * 2, radius * 2)
-            if rect.colliderect(probe):
+            if rect.colliderect(pygame.Rect(px - radius, py - radius, radius * 2, radius * 2)):
                 return True
-        return False
     return False
 
 
 def collides_with_any_hitbox(rect, hitboxes, img_rect):
-    for h in hitboxes:
-        if collides_rect_with_hitbox(rect, h, img_rect):
-            return True
-    return False
+    return any(collides_rect_with_hitbox(rect, h, img_rect) for h in hitboxes)
 
-def save_hitboxes(out_path, hitboxes, img_rect, image_path, spawn_data=None, npc_positions=None):
+
+def save_hitboxes(out_path, hitboxes, img_rect, image_path,
+                  spawn_data=None, npc_positions=None, decoracion=None):
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     abs_image_path = os.path.abspath(image_path)
     abs_images_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Imagenes"))
     if abs_image_path.startswith(abs_images_root):
-        image_rel = os.path.relpath(abs_image_path, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+        image_rel = os.path.relpath(
+            abs_image_path,
+            os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        )
     else:
         image_rel = os.path.join("Imagenes", os.path.basename(image_path))
     payload = {
@@ -111,6 +104,7 @@ def save_hitboxes(out_path, hitboxes, img_rect, image_path, spawn_data=None, npc
         "hitboxes": hitboxes,
         "spawn": spawn_data or {},
         "npc_positions": npc_positions or {},
+        "decoracion": decoracion or [],
     }
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2)
@@ -120,7 +114,6 @@ def load_hitboxes(in_path):
     with open(in_path, "r", encoding="utf-8") as fh:
         payload = json.load(fh)
     hitboxes = payload.get("hitboxes", [])
-    # Backward compatibility: if no "type", assume "rect"
     for h in hitboxes:
         if "type" not in h:
             h["type"] = "rect"
@@ -131,15 +124,16 @@ def load_hitboxes(in_path):
         if h["role"] == "interactable" and "target_image" not in h:
             h["target_image"] = ""
         if h["role"] == "interactable" and h.get("action") == "npc":
-            if "npc_character" not in h:
-                h["npc_character"] = "Sara"
-            if "npc_animation" not in h:
-                h["npc_animation"] = "Sara_dibujando.png"
-    return hitboxes, payload.get("spawn", {}), payload.get("npc_positions", {})
+            h.setdefault("npc_character", "Sara")
+            h.setdefault("npc_animation", "Sara_dibujando.png")
+    return (hitboxes,
+            payload.get("spawn", {}),
+            payload.get("npc_positions", {}),
+            payload.get("decoracion", None))   # None = key absent (migration needed)
 
 
 def choose_image_from_console(project_root):
-    print("Ruta de imagen del fondo (enter = usar Imagenes/Salon(1).jpg):")
+    print("Ruta de imagen del fondo (enter = usar Imagenes/Fondos/Salon(1).jpg):")
     user = input().strip().strip('"')
     if user:
         return user
@@ -147,7 +141,7 @@ def choose_image_from_console(project_root):
         for name in files:
             if name.lower() == "salon(1).jpg":
                 return os.path.relpath(os.path.join(root, name), project_root)
-    return os.path.join("Imagenes", "Salon(1).jpg")
+    return os.path.join("Imagenes", "Fondos", "Salon(1).jpg")
 
 
 def build_dummy_from_game_logic(project_root, img_rect):
@@ -156,12 +150,11 @@ def build_dummy_from_game_logic(project_root, img_rect):
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
         from Movimiento.Personaje import Personaje
-
         rutas = os.path.join(project_root, "Imagenes", "Personajes", "personaje_main")
-        # Replica _start_adventure de main.py para el spawn base.
-        sprite_spawn_x = img_rect.width // 2 - 14
-        sprite_spawn_y = img_rect.height // 2 - 14
-        personaje = Personaje(sprite_spawn_x, sprite_spawn_y, rutas, velocidad=4, fps_animacion=8)
+        personaje = Personaje(
+            img_rect.width // 2 - 14, img_rect.height // 2 - 14,
+            rutas, velocidad=4, fps_animacion=8
+        )
         hb = personaje.hitbox.copy()
         hb.x += img_rect.x
         hb.y += img_rect.y
@@ -171,48 +164,258 @@ def build_dummy_from_game_logic(project_root, img_rect):
         return default
 
 
+# ── Image picker GUI ─────────────────────────────────────────────────────────
+
+def choose_image_gui(scan_dir, title="Elegir imagen"):
+    """
+    Muestra un selector visual de imágenes con thumbnails.
+    Devuelve la ruta absoluta elegida, o None si el usuario cancela.
+    Asume que pygame.init() ya fue llamado.
+    """
+    valid_ext = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+
+    # Recopilar imágenes
+    entries = []
+    if os.path.isdir(scan_dir):
+        for root, _, files in os.walk(scan_dir):
+            for f in sorted(files):
+                if os.path.splitext(f)[1].lower() in valid_ext:
+                    fp = os.path.join(root, f)
+                    rel = os.path.relpath(fp, scan_dir)
+                    entries.append((rel, fp))
+    entries.sort(key=lambda x: x[0].lower())
+
+    if not entries:
+        return None
+
+    THUMB_W, THUMB_H = 200, 130
+    LABEL_H = 34
+    GAP = 10
+    CELL_W = THUMB_W + GAP
+    CELL_H = THUMB_H + LABEL_H + GAP
+    SEARCH_H = 48
+    PADDING = 14
+
+    di = pygame.display.Info()
+    WIN_W = min(1400, di.current_w)
+    WIN_H = min(900, di.current_h)
+    cols = max(1, (WIN_W - PADDING * 2) // CELL_W)
+
+    screen = pygame.display.set_mode((WIN_W, WIN_H))
+    pygame.display.set_caption(title)
+    picker_clock = pygame.time.Clock()
+    font = pygame.font.SysFont("consolas", 15)
+    big_font = pygame.font.SysFont("consolas", 20, bold=True)
+
+    thumb_cache = {}
+
+    def get_thumb(fp):
+        if fp in thumb_cache:
+            return thumb_cache[fp]
+        try:
+            img = pygame.image.load(fp)
+            iw, ih = img.get_size()
+            s = min(THUMB_W / iw, THUMB_H / ih, 1.0)
+            t = pygame.transform.smoothscale(img, (max(1, int(iw * s)), max(1, int(ih * s))))
+            thumb_cache[fp] = t
+        except Exception:
+            thumb_cache[fp] = None
+        return thumb_cache[fp]
+
+    filter_text = ""
+    scroll_y = 0
+    selected_idx = 0
+    grid_top = SEARCH_H + 4
+
+    def filtered():
+        ft = filter_text.lower()
+        return [(r, fp) for r, fp in entries if not ft or ft in r.lower()]
+
+    running = True
+    result = None
+
+    while running:
+        images = filtered()
+        rows = math.ceil(len(images) / cols) if images else 0
+        grid_area_h = WIN_H - grid_top
+        total_h = rows * CELL_H + PADDING
+        max_scroll = max(0, total_h - grid_area_h)
+        scroll_y = min(scroll_y, max_scroll)
+
+        # Mantener selected visible
+        if images and 0 <= selected_idx < len(images):
+            sel_row = selected_idx // cols
+            sel_top = sel_row * CELL_H
+            sel_bot = sel_top + CELL_H
+            if sel_top < scroll_y:
+                scroll_y = sel_top
+            elif sel_bot > scroll_y + grid_area_h:
+                scroll_y = sel_bot - grid_area_h
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEWHEEL:
+                scroll_y = max(0, min(scroll_y - event.y * 40, max_scroll))
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+                if my >= grid_top and images:
+                    col_i = (mx - PADDING) // CELL_W
+                    row_i = (my - grid_top + scroll_y) // CELL_H
+                    if 0 <= col_i < cols:
+                        idx = row_i * cols + col_i
+                        if 0 <= idx < len(images):
+                            if idx == selected_idx:
+                                result = images[idx][1]
+                                running = False
+                            else:
+                                selected_idx = idx
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    if images and 0 <= selected_idx < len(images):
+                        result = images[selected_idx][1]
+                        running = False
+                elif event.key == pygame.K_BACKSPACE:
+                    filter_text = filter_text[:-1]
+                    selected_idx = 0
+                    scroll_y = 0
+                elif event.key == pygame.K_RIGHT:
+                    selected_idx = min(len(images) - 1, selected_idx + 1)
+                elif event.key == pygame.K_LEFT:
+                    selected_idx = max(0, selected_idx - 1)
+                elif event.key == pygame.K_DOWN:
+                    selected_idx = min(len(images) - 1, selected_idx + cols)
+                elif event.key == pygame.K_UP:
+                    selected_idx = max(0, selected_idx - cols)
+                elif event.unicode and event.unicode.isprintable():
+                    filter_text += event.unicode
+                    selected_idx = 0
+                    scroll_y = 0
+
+        # ── Render picker ─────────────────────────────────────────────────────
+        screen.fill((22, 22, 32))
+
+        # Barra superior
+        pygame.draw.rect(screen, (35, 36, 52), pygame.Rect(0, 0, WIN_W, SEARCH_H))
+        screen.blit(big_font.render(title, True, (210, 215, 240)), (PADDING, 8))
+        filter_lbl = font.render(
+            f"  Filtro: {filter_text}_    {len(images)} imagen{'es' if len(images) != 1 else ''} "
+            f"   Flechas=navegar  Enter=abrir  Escribe=filtrar  ESC=salir",
+            True, (140, 200, 160))
+        screen.blit(filter_lbl, (PADDING + big_font.size(title)[0] + 16, 14))
+        pygame.draw.line(screen, (55, 58, 78), (0, SEARCH_H), (WIN_W, SEARCH_H), 1)
+
+        # Grid de thumbnails
+        screen.set_clip(pygame.Rect(0, grid_top, WIN_W, grid_area_h))
+        for i, (rel, fp) in enumerate(images):
+            col_i = i % cols
+            row_i = i // cols
+            cx = PADDING + col_i * CELL_W
+            cy = grid_top + row_i * CELL_H - scroll_y + GAP // 2
+            if cy + CELL_H < grid_top or cy > WIN_H:
+                continue
+
+            is_sel = (i == selected_idx)
+            bg_col = (52, 58, 82) if is_sel else (34, 36, 50)
+            border_col = (100, 150, 255) if is_sel else (50, 54, 72)
+            cell_r = pygame.Rect(cx, cy, CELL_W - GAP, CELL_H - GAP)
+            pygame.draw.rect(screen, bg_col, cell_r, border_radius=6)
+            pygame.draw.rect(screen, border_col, cell_r, 2 if is_sel else 1, border_radius=6)
+
+            # Thumbnail
+            thumb = get_thumb(fp)
+            thumb_area = pygame.Rect(cx + 2, cy + 2, THUMB_W - 4, THUMB_H - 4)
+            if thumb:
+                tw, th = thumb.get_size()
+                tx = cx + 2 + (THUMB_W - 4 - tw) // 2
+                ty = cy + 2 + (THUMB_H - 4 - th) // 2
+                screen.blit(thumb, (tx, ty))
+            else:
+                pygame.draw.rect(screen, (44, 46, 64), thumb_area, border_radius=4)
+                q = font.render("sin preview", True, (80, 80, 100))
+                screen.blit(q, q.get_rect(center=thumb_area.center))
+
+            # Nombre
+            name = os.path.basename(rel)
+            if font.size(name)[0] > CELL_W - GAP - 8:
+                while font.size(name + "…")[0] > CELL_W - GAP - 8 and name:
+                    name = name[:-1]
+                name += "…"
+            col_txt = (230, 235, 255) if is_sel else (150, 155, 180)
+            lbl = font.render(name, True, col_txt)
+            screen.blit(lbl, (cx + (CELL_W - GAP - lbl.get_width()) // 2,
+                               cy + THUMB_H + 6))
+
+        screen.set_clip(None)
+
+        # Scrollbar
+        if max_scroll > 0:
+            sb_track = pygame.Rect(WIN_W - 8, grid_top, 6, grid_area_h)
+            pygame.draw.rect(screen, (40, 42, 58), sb_track)
+            sb_h = max(20, int(grid_area_h * grid_area_h / max(total_h, 1)))
+            sb_y = grid_top + int(scroll_y / max_scroll * (grid_area_h - sb_h))
+            pygame.draw.rect(screen, (90, 100, 140),
+                             pygame.Rect(WIN_W - 8, sb_y, 6, sb_h), border_radius=3)
+
+        pygame.display.flip()
+        picker_clock.tick(60)
+
+    return result
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
 def main():
     pygame.init()
+    clock = pygame.time.Clock()
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(base_dir)
+
     if len(sys.argv) > 1:
         image_path = sys.argv[1]
+        if not os.path.isabs(image_path):
+            image_path = os.path.join(project_root, image_path)
     else:
-        image_path = choose_image_from_console(project_root)
+        backgrounds_dir = os.path.join(project_root, "Imagenes", "Fondos")
+        image_path = choose_image_gui(backgrounds_dir,
+                                      "Elegir fondo — Editor de Hitboxes  (doble clic o Enter)")
+        if image_path is None:
+            pygame.quit()
+            return
 
     if not os.path.isabs(image_path):
         image_path = os.path.join(project_root, image_path)
-
     if not os.path.exists(image_path):
         print(f"No existe la imagen: {image_path}")
         return
 
-    image = load_image(image_path)
-    iw, ih = image.get_size()
-
+    raw_image = load_image(image_path)
+    iw, ih = raw_image.get_size()
     max_w, max_h = 1600, 950
-    scale = min(max_w / iw, max_h / ih, 1.0)
-    view_w = int(iw * scale)
-    view_h = int(ih * scale)
+    fit_scale = min(max_w / iw, max_h / ih, 1.0)
+    view_w = int(iw * fit_scale)
+    view_h = int(ih * fit_scale)
     zoom_factor = 1.35
     world_w = max(view_w, int(view_w * zoom_factor))
     world_h = max(view_h, int(view_h * zoom_factor))
-    image_view = pygame.transform.smoothscale(image, (world_w, world_h))
+    image_view = pygame.transform.smoothscale(raw_image, (world_w, world_h))
 
     padding = 20
-    ui_h = 210
+    ui_h = 180
     display_info = pygame.display.Info()
     win_w = display_info.current_w
     win_h = display_info.current_h
 
     screen = pygame.display.set_mode((win_w, win_h), pygame.NOFRAME)
     pygame.display.set_caption("Editor de Hitboxes")
-    # Ahora que ya existe ventana, convertimos para acelerar blit.
-    image = image.convert_alpha()
+    image_view = image_view.convert()
 
     font = pygame.font.SysFont("consolas", 20)
     small = pygame.font.SysFont("consolas", 16)
+    tiny = pygame.font.SysFont("consolas", 13)
 
     def draw_wrapped_text(surface, text, font_obj, color, x, y, max_width, line_gap=4):
         words = text.split(" ")
@@ -231,70 +434,62 @@ def main():
             yy += font_obj.get_height() + line_gap
         return yy
 
-    viewport_w = max(100, win_w - (padding * 2))
-    viewport_h = max(100, win_h - (padding * 2) - ui_h)
+    # ── Layout ────────────────────────────────────────────────────────────────
+    viewport_w = max(100, win_w - padding * 2 - PANEL_W)
+    viewport_h = max(100, win_h - padding * 2 - ui_h - STATUS_H)
     viewport_rect = pygame.Rect(padding, padding, viewport_w, viewport_h)
+    panel_x = win_w - PANEL_W
+    panel_rect = pygame.Rect(panel_x, 0, PANEL_W, win_h - STATUS_H)
+    status_rect_layout = pygame.Rect(0, win_h - STATUS_H, win_w, STATUS_H)
     world_rect = pygame.Rect(0, 0, world_w, world_h)
     camera_x = 0
     camera_y = 0
 
     def clamp_camera():
         nonlocal camera_x, camera_y
-        max_x = max(0, world_rect.width - viewport_rect.width)
-        max_y = max(0, world_rect.height - viewport_rect.height)
-        camera_x = max(0, min(camera_x, max_x))
-        camera_y = max(0, min(camera_y, max_y))
+        camera_x = max(0, min(camera_x, max(0, world_rect.width - viewport_rect.width)))
+        camera_y = max(0, min(camera_y, max(0, world_rect.height - viewport_rect.height)))
 
     def center_camera_on_rect(rect):
         nonlocal camera_x, camera_y
-        camera_x = rect.centerx - (viewport_rect.width // 2)
-        camera_y = rect.centery - (viewport_rect.height // 2)
+        camera_x = rect.centerx - viewport_rect.width // 2
+        camera_y = rect.centery - viewport_rect.height // 2
         clamp_camera()
 
     def screen_to_world(pos):
         sx, sy = pos
         if not viewport_rect.collidepoint(sx, sy):
             return None
-        wx = sx - viewport_rect.x + camera_x
-        wy = sy - viewport_rect.y + camera_y
-        return (wx, wy)
+        return (sx - viewport_rect.x + camera_x, sy - viewport_rect.y + camera_y)
 
     def world_to_screen(pos):
         wx, wy = pos
-        sx = wx - camera_x + viewport_rect.x
-        sy = wy - camera_y + viewport_rect.y
-        return (sx, sy)
+        return (wx - camera_x + viewport_rect.x, wy - camera_y + viewport_rect.y)
 
+    # ── Available backgrounds ─────────────────────────────────────────────────
     images_dir = os.path.join(project_root, "Imagenes", "Fondos")
     valid_ext = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
-
     available_backgrounds = []
-
     if os.path.isdir(images_dir):
         for root, _, files in os.walk(images_dir):
             for f in files:
                 if os.path.splitext(f)[1].lower() in valid_ext:
-
-                    rel_path = os.path.relpath(
-                        os.path.join(root, f),
-                        images_dir
-                    )
-
-                    available_backgrounds.append(rel_path)
-
+                    available_backgrounds.append(
+                        os.path.relpath(os.path.join(root, f), images_dir))
     available_backgrounds.sort()
-
     if not available_backgrounds:
         available_backgrounds = [os.path.basename(image_path)]
 
+    # ── Core hitbox state ─────────────────────────────────────────────────────
     hitboxes = []
     history = [copy.deepcopy(hitboxes)]
     history_index = 0
     dragging = False
     moving_hitbox = None
     selected_hitbox_idx = None
+    selected_set = set()          # multi-select (Ctrl+A)
     move_offset = (0, 0)
-    move_mode = False   
+    move_mode = False
     start_pos = (0, 0)
     current_rect = None
     current_shape = "rect"
@@ -310,12 +505,33 @@ def main():
     test_speed = 4
     test_player = pygame.Rect(0, 0, 28, 28)
 
+    # ── Display options ───────────────────────────────────────────────────────
+    show_walls = True
+    show_interactables = True
+    show_objects = True
+    show_labels = True
+    grid_snap = False
+    GRID_SIZE = 0.01    # 1% of world per axis
+
+    def snap_val(val, world_dim):
+        if not grid_snap:
+            return val
+        step = max(1, int(GRID_SIZE * world_dim))
+        return round(val / step) * step
+
+    # ── Editor mode ───────────────────────────────────────────────────────────
+    editor_mode = "hitbox"   # "hitbox" | "object"
+
+    # ── Panel state ───────────────────────────────────────────────────────────
+    panel_scroll = 0
+    panel_hovered = None
+    PANEL_ROW_H = 22
+    EYE_W = 24
+
+    # ── Spawn system ──────────────────────────────────────────────────────────
     hb_template = build_dummy_from_game_logic(project_root, world_rect)
     spawn_rect = hb_template.copy()
-    spawn_rules = {
-        "default": None,
-        "by_origin": {},
-    }
+    spawn_rules = {"default": None, "by_origin": {}}
     spawn_modal_active = False
     spawn_modal_options = ["Cualquier fondo"] + available_backgrounds
     spawn_modal_selected = 0
@@ -328,56 +544,6 @@ def main():
     npc_default_site_w = 96
     npc_default_site_h = 96
 
-    personajes_dir = os.path.join(project_root, "Imagenes", "Personajes")
-    npc_character_options = []
-    if os.path.isdir(personajes_dir):
-        for entry in os.listdir(personajes_dir):
-            full = os.path.join(personajes_dir, entry)
-            if os.path.isdir(full):
-                npc_character_options.append(entry)
-    npc_character_options.sort()
-    if not npc_character_options:
-        npc_character_options = ["Sara", "Diego"]
-    current_npc_character_idx = 0
-
-    def _animations_for_character(char_name):
-        char_dir = os.path.join(personajes_dir, char_name)
-        options = []
-        if os.path.isdir(char_dir):
-            for fn in os.listdir(char_dir):
-                if fn.lower().endswith(".png"):
-                    options.append(fn)
-        options.sort()
-        if not options:
-            options = ["idle_down.png"]
-        return options
-
-    current_npc_animation_options = _animations_for_character(npc_character_options[current_npc_character_idx])
-    current_npc_animation_idx = 0
-    npc_preview_cache = {}
-
-    def _load_npc_preview_frames(character_name, animation_file):
-        key = (str(character_name), str(animation_file))
-        cached = npc_preview_cache.get(key)
-        if cached is not None:
-            return cached
-        anim_path = os.path.join(personajes_dir, str(character_name), str(animation_file))
-        frames = []
-        try:
-            sheet = pygame.image.load(anim_path).convert_alpha()
-            sw, sh = sheet.get_size()
-            file_name = str(animation_file).lower()
-            is_static_anim = any(token in file_name for token in ("sentado", "parado", "idle", "stand"))
-            frame_count = 1 if is_static_anim else (4 if sw >= 4 else 1)
-            frame_w = max(1, sw // frame_count)
-            for i in range(frame_count):
-                frame = sheet.subsurface(pygame.Rect(i * frame_w, 0, frame_w, sh)).copy()
-                frames.append(frame)
-        except (OSError, pygame.error):
-            frames = []
-        npc_preview_cache[key] = frames
-        return frames
-
     def clamp_spawn_rect():
         nonlocal spawn_rect
         spawn_rect.width = hb_template.width
@@ -385,25 +551,19 @@ def main():
         spawn_rect.clamp_ip(world_rect)
 
     def reset_test_player_to_spawn():
-        spawn = spawn_rect.copy()
-        spawn.clamp_ip(world_rect)
-        test_player.x = spawn.x
-        test_player.y = spawn.y
-        test_player.width = spawn_rect.width
-        test_player.height = spawn_rect.height
+        s = spawn_rect.copy()
+        s.clamp_ip(world_rect)
+        test_player.topleft = s.topleft
+        test_player.size = spawn_rect.size
 
     def _resolve_to_nearest_free(base_rect):
         candidate = base_rect.copy()
         candidate.clamp_ip(world_rect)
         if not collides_with_any_hitbox(candidate, hitboxes, world_rect):
             return candidate
-        step = 8
-        max_radius = max(world_rect.width, world_rect.height)
-        for radius in range(step, max_radius + step, step):
-            for dx, dy in (
-                (radius, 0), (-radius, 0), (0, radius), (0, -radius),
-                (radius, radius), (radius, -radius), (-radius, radius), (-radius, -radius),
-            ):
+        for radius in range(8, max(world_rect.width, world_rect.height) + 8, 8):
+            for dx, dy in ((radius, 0), (-radius, 0), (0, radius), (0, -radius),
+                           (radius, radius), (radius, -radius), (-radius, radius), (-radius, -radius)):
                 probe = base_rect.copy()
                 probe.x += dx
                 probe.y += dy
@@ -423,22 +583,22 @@ def main():
         pending_spawn_rect = base
 
     def _serialize_spawn_rect(rect):
-        return {
-            "rx": rect.x / world_rect.width,
-            "ry": rect.y / world_rect.height,
-            "rw": rect.width / world_rect.width,
-            "rh": rect.height / world_rect.height,
-        }
+        return {"rx": rect.x / world_rect.width, "ry": rect.y / world_rect.height,
+                "rw": rect.width / world_rect.width, "rh": rect.height / world_rect.height}
+
+    def _spawn_rect_from_data(sdata):
+        return pygame.Rect(
+            int(float(sdata.get("rx", 0.5)) * world_rect.width),
+            int(float(sdata.get("ry", 0.5)) * world_rect.height),
+            spawn_rect.width, spawn_rect.height,
+        )
 
     def _apply_loaded_spawn(spawn_payload):
-        nonlocal spawn_rules, spawn_rect
-        nonlocal active_spawn_label
+        nonlocal spawn_rules, spawn_rect, active_spawn_label
         spawn_rules = {"default": None, "by_origin": {}}
         active_spawn_label = "Cualquier fondo"
         if not isinstance(spawn_payload, dict):
             return
-
-        # New format: {"default": {...}, "by_origin": {...}}
         if "default" in spawn_payload or "by_origin" in spawn_payload:
             default_spawn = spawn_payload.get("default")
             if isinstance(default_spawn, dict):
@@ -447,44 +607,26 @@ def main():
                 spawn_rect.y = int(default_spawn.get("ry", 0.5) * world_rect.height)
             by_origin = spawn_payload.get("by_origin", {})
             if isinstance(by_origin, dict):
-                cleaned = {}
-                for k, v in by_origin.items():
-                    if isinstance(v, dict) and "rx" in v and "ry" in v:
-                        cleaned[str(k)] = v
-                spawn_rules["by_origin"] = cleaned
-            clamp_spawn_rect()
-            reset_test_player_to_spawn()
-            return
-
-        # Backward compatibility: old single spawn dict
-        if "rx" in spawn_payload and "ry" in spawn_payload:
+                spawn_rules["by_origin"] = {
+                    str(k): v for k, v in by_origin.items()
+                    if isinstance(v, dict) and "rx" in v and "ry" in v
+                }
+        elif "rx" in spawn_payload and "ry" in spawn_payload:
             spawn_rules["default"] = spawn_payload
             spawn_rect.x = int(spawn_payload.get("rx", 0.5) * world_rect.width)
             spawn_rect.y = int(spawn_payload.get("ry", 0.5) * world_rect.height)
-            clamp_spawn_rect()
-            reset_test_player_to_spawn()
-
-    def _spawn_rect_from_data(sdata):
-        return pygame.Rect(
-            int(float(sdata.get("rx", 0.5)) * world_rect.width),
-            int(float(sdata.get("ry", 0.5)) * world_rect.height),
-            spawn_rect.width,
-            spawn_rect.height,
-        )
+        clamp_spawn_rect()
+        reset_test_player_to_spawn()
 
     def _delete_spawn_at_world_pos(world_pos):
         nonlocal spawn_status_message, spawn_status_timer
-        # Primero intenta borrar spawns por procedencia (mas especificos).
         for origin_name in list(spawn_rules.get("by_origin", {}).keys()):
             sdata = spawn_rules["by_origin"].get(origin_name)
-            if not isinstance(sdata, dict):
-                continue
-            if _spawn_rect_from_data(sdata).collidepoint(world_pos):
+            if isinstance(sdata, dict) and _spawn_rect_from_data(sdata).collidepoint(world_pos):
                 del spawn_rules["by_origin"][origin_name]
                 spawn_status_message = f"Spawn eliminado: '{origin_name}'."
                 spawn_status_timer = 180
                 return True
-        # Luego intenta borrar el default.
         default_data = spawn_rules.get("default")
         if isinstance(default_data, dict) and _spawn_rect_from_data(default_data).collidepoint(world_pos):
             spawn_rules["default"] = None
@@ -494,16 +636,12 @@ def main():
         return False
 
     def _serialize_world_point(world_pos):
-        return {
-            "rx": (world_pos[0] - world_rect.x) / world_rect.width,
-            "ry": (world_pos[1] - world_rect.y) / world_rect.height,
-        }
+        return {"rx": (world_pos[0] - world_rect.x) / world_rect.width,
+                "ry": (world_pos[1] - world_rect.y) / world_rect.height}
 
     def _denormalize_world_point(data):
-        return (
-            int(world_rect.x + float(data.get("rx", 0.5)) * world_rect.width),
-            int(world_rect.y + float(data.get("ry", 0.5)) * world_rect.height),
-        )
+        return (int(world_rect.x + float(data.get("rx", 0.5)) * world_rect.width),
+                int(world_rect.y + float(data.get("ry", 0.5)) * world_rect.height))
 
     def _set_npc_at_mouse(npc_name, mouse_pos):
         nonlocal spawn_status_message, spawn_status_timer
@@ -546,104 +684,301 @@ def main():
                 return True
         return False
 
-    # Definir out_path basado en el nombre de la imagen
+    # ── NPC character / animation system ─────────────────────────────────────
+    personajes_dir = os.path.join(project_root, "Imagenes", "Personajes")
+    npc_character_options = []
+    if os.path.isdir(personajes_dir):
+        npc_character_options = sorted([e for e in os.listdir(personajes_dir)
+                                        if os.path.isdir(os.path.join(personajes_dir, e))])
+    if not npc_character_options:
+        npc_character_options = ["Sara", "Diego"]
+    current_npc_character_idx = 0
+
+    def _animations_for_character(char_name):
+        char_dir = os.path.join(personajes_dir, char_name)
+        if not os.path.isdir(char_dir):
+            return ["idle_down.png"]
+        opts = sorted([fn for fn in os.listdir(char_dir) if fn.lower().endswith(".png")])
+        return opts or ["idle_down.png"]
+
+    current_npc_animation_options = _animations_for_character(npc_character_options[0])
+    current_npc_animation_idx = 0
+    npc_preview_cache = {}
+
+    def _load_npc_preview_frames(character_name, animation_file):
+        key = (str(character_name), str(animation_file))
+        if key in npc_preview_cache:
+            return npc_preview_cache[key]
+        anim_path = os.path.join(personajes_dir, str(character_name), str(animation_file))
+        frames = []
+        try:
+            sheet = pygame.image.load(anim_path).convert_alpha()
+            sw, sh = sheet.get_size()
+            fn_lower = str(animation_file).lower()
+            is_static = any(t in fn_lower for t in ("sentado", "parado", "idle", "stand"))
+            frame_count = 1 if is_static else max(1, round(sw / max(1, sh)))
+            frame_w = max(1, sw // frame_count)
+            for i in range(frame_count):
+                frames.append(sheet.subsurface(pygame.Rect(i * frame_w, 0, frame_w, sh)).copy())
+        except (OSError, pygame.error):
+            pass
+        npc_preview_cache[key] = frames
+        return frames
+
+    # ── Visual NPC/animation selector modals ──────────────────────────────────
+    npc_char_modal = False
+    npc_anim_modal = False
+    npc_modal_selected = 0
+    npc_anim_modal_selected = 0
+    npc_modal_scroll = 0
+    npc_anim_scroll = 0
+    thumbnail_cache = {}
+    THUMB = 72
+    THUMB_COLS = 3
+    THUMB_GAP = 8
+
+    def _load_thumbnail(char_name, anim_file=None):
+        key = (char_name, anim_file)
+        if key in thumbnail_cache:
+            return thumbnail_cache[key]
+        img = None
+        try:
+            if anim_file is not None:
+                frames = _load_npc_preview_frames(char_name, anim_file)
+                if frames:
+                    f = frames[0]
+                    fw, fh = f.get_size()
+                    s = min(THUMB / fw, THUMB / fh, 1.0)
+                    img = pygame.transform.smoothscale(f, (max(1, int(fw * s)), max(1, int(fh * s))))
+            else:
+                char_dir = os.path.join(personajes_dir, char_name)
+                for fn in sorted(os.listdir(char_dir)):
+                    if fn.lower().endswith(".png"):
+                        frames = _load_npc_preview_frames(char_name, fn)
+                        if frames:
+                            f = frames[0]
+                            fw, fh = f.get_size()
+                            s = min(THUMB / fw, THUMB / fh, 1.0)
+                            img = pygame.transform.smoothscale(f, (max(1, int(fw * s)), max(1, int(fh * s))))
+                            break
+        except Exception:
+            pass
+        thumbnail_cache[key] = img
+        return img
+
+    # ── Object / decoracion system ────────────────────────────────────────────
+    interactables_dir = os.path.join(project_root, "Imagenes", "Interactuables")
+    valid_obj_ext = {".png", ".jpg", ".jpeg"}
+    available_objects = []
+    if os.path.isdir(interactables_dir):
+        available_objects = sorted([f for f in os.listdir(interactables_dir)
+                                    if os.path.splitext(f)[1].lower() in valid_obj_ext
+                                    and os.path.isfile(os.path.join(interactables_dir, f))])
+    current_object_idx = 0
+    object_cache = {}
+    placement_sizes = {}
+    decoracion = []
+    deco_history = [copy.deepcopy(decoracion)]
+    deco_history_index = 0
+    selected_deco_idx = None
+    moving_deco_idx = None
+    deco_move_offset = (0, 0)
+    DECO_SCALE_STEP = 1.18
+    MIN_DECO = 4
+
+    def load_object_image(obj_name):
+        if obj_name in object_cache:
+            return object_cache[obj_name]
+        path = os.path.join(interactables_dir, obj_name)
+        try:
+            img = pygame.image.load(path).convert_alpha()
+            object_cache[obj_name] = img
+            return img
+        except (OSError, pygame.error):
+            return None
+
+    def get_deco_world_rect(obj):
+        return pygame.Rect(
+            int(obj["x"] * world_rect.width),
+            int(obj["y"] * world_rect.height),
+            max(MIN_DECO, int(obj["w"] * world_rect.width)),
+            max(MIN_DECO, int(obj["h"] * world_rect.height)),
+        )
+
+    def normalize_deco(x, y, w, h):
+        return {"x": x / world_rect.width, "y": y / world_rect.height,
+                "w": w / world_rect.width, "h": h / world_rect.height}
+
+    def clamp_deco_pos(x, y, w, h):
+        return (max(0, min(x, world_rect.width - w)),
+                max(0, min(y, world_rect.height - h)))
+
+    def get_initial_deco_size(obj_img):
+        w, h = obj_img.get_size()
+        s = min(96 / max(w, h), 1.0)
+        return max(MIN_DECO, int(w * s)), max(MIN_DECO, int(h * s))
+
+    def get_placement_size(obj_name, obj_img):
+        if obj_name not in placement_sizes:
+            placement_sizes[obj_name] = get_initial_deco_size(obj_img)
+        return placement_sizes[obj_name]
+
+    def find_deco_at(world_pos):
+        for idx in range(len(decoracion) - 1, -1, -1):
+            if get_deco_world_rect(decoracion[idx]).collidepoint(world_pos):
+                return idx
+        return None
+
+    def push_deco_history():
+        nonlocal deco_history, deco_history_index
+        deco_history = deco_history[:deco_history_index + 1]
+        deco_history.append(copy.deepcopy(decoracion))
+        deco_history_index += 1
+
+    def scale_selected_deco(factor):
+        if selected_deco_idx is None or not (0 <= selected_deco_idx < len(decoracion)):
+            return
+        obj = decoracion[selected_deco_idx]
+        r = get_deco_world_rect(obj)
+        nw = max(MIN_DECO, int(r.width * factor))
+        nh = max(MIN_DECO, int(r.height * factor))
+        nx, ny = clamp_deco_pos(r.centerx - nw // 2, r.centery - nh // 2, nw, nh)
+        obj.update(normalize_deco(nx, ny, nw, nh))
+        push_deco_history()
+
+    def scale_placement_deco(factor):
+        if not available_objects:
+            return
+        obj_name = available_objects[current_object_idx]
+        obj_img = load_object_image(obj_name)
+        if obj_img is None:
+            return
+        cw, ch = get_placement_size(obj_name, obj_img)
+        placement_sizes[obj_name] = (
+            max(MIN_DECO, int(cw * factor)),
+            max(MIN_DECO, int(ch * factor)),
+        )
+
+    # ── File paths ────────────────────────────────────────────────────────────
     image_name = os.path.splitext(os.path.basename(image_path))[0]
     out_path = os.path.join(project_root, "Hitboxes", f"{image_name}_hitboxes.json")
     clipboard_path = os.path.join(project_root, "Hitboxes", "_clipboard.json")
     selected_clipboard_path = os.path.join(project_root, "Hitboxes", "_clipboard_selected.json")
+    legacy_objects_path = os.path.join(project_root, "Objetos", f"{image_name}_objetos.json")
 
-    # Cargar hitboxes automáticamente si existe el archivo
+    # ── Auto-load ─────────────────────────────────────────────────────────────
     try:
         if os.path.exists(out_path):
-            hitboxes, loaded_spawn, loaded_npcs = load_hitboxes(out_path)
+            hitboxes, loaded_spawn, loaded_npcs, loaded_deco = load_hitboxes(out_path)
             _apply_loaded_spawn(loaded_spawn)
             if isinstance(loaded_npcs, dict):
                 npc_positions = {k: v for k, v in loaded_npcs.items() if isinstance(v, dict)}
+            if loaded_deco is not None:
+                decoracion = [obj for obj in loaded_deco
+                              if isinstance(obj, dict) and "name" in obj]
+            elif os.path.exists(legacy_objects_path):
+                # Migrate from old Objetos/ JSON (one-time, saved on next Enter)
+                with open(legacy_objects_path, "r", encoding="utf-8") as fh:
+                    legacy = json.load(fh)
+                decoracion = [obj for obj in legacy.get("objects", [])
+                              if isinstance(obj, dict) and "name" in obj]
+                print(f"Migrados {len(decoracion)} objetos desde {legacy_objects_path}")
             history = [copy.deepcopy(hitboxes)]
             history_index = 0
-            print(f"Hitboxes cargadas automáticamente desde: {out_path}")
+            deco_history = [copy.deepcopy(decoracion)]
+            deco_history_index = 0
+            print(f"Cargado desde: {out_path}")
     except Exception as e:
-        print(f"Error cargando hitboxes: {e}")
+        print(f"Error cargando: {e}")
         hitboxes = []
         history = [copy.deepcopy(hitboxes)]
         history_index = 0
 
     reset_test_player_to_spawn()
 
+    # ── History helpers ───────────────────────────────────────────────────────
     def push_history():
-        nonlocal history, history_index, hitboxes
-        history = history[: history_index + 1]
+        nonlocal history, history_index
+        history = history[:history_index + 1]
         history.append(copy.deepcopy(hitboxes))
         history_index += 1
 
+    def copy_walls_to_clipboard():
+        copied = [copy.deepcopy(h) for h in hitboxes if h.get("role") == "wall"]
+        try:
+            with open(clipboard_path, "w", encoding="utf-8") as fh:
+                json.dump(copied, fh, indent=2)
+            print(f"{len(copied)} hitboxes pared copiadas.")
+        except Exception as e:
+            print(f"Error copiando: {e}")
 
-    def copy_hitboxes():
-        copied = []
-
-        for h in hitboxes:
-            # SOLO copiar paredes
-            if h.get("role") == "wall":
-                copied.append(copy.deepcopy(h))
-
-        return copied
-
-    def copy_selected_hitbox():
-        if selected_hitbox_idx is None or not (0 <= selected_hitbox_idx < len(hitboxes)):
-            print("No hay hitbox seleccionada para copiar.")
-            return None
-        return copy.deepcopy(hitboxes[selected_hitbox_idx])
-
-    def paste_hitboxes():
-        nonlocal hitboxes
-
+    def paste_walls_from_clipboard():
         if not os.path.exists(clipboard_path):
-            print("No existe clipboard.")
             return
-
         try:
             with open(clipboard_path, "r", encoding="utf-8") as fh:
                 pasted = json.load(fh)
-
-            if not isinstance(pasted, list):
-                print("Clipboard invalido.")
-                return
-
-            hitboxes.extend(copy.deepcopy(pasted))
-
-            push_history()
-
-            print(f"{len(pasted)} hitboxes pared pegadas.")
-
+            if isinstance(pasted, list):
+                hitboxes.extend(copy.deepcopy(pasted))
+                push_history()
+                print(f"{len(pasted)} hitboxes pegadas.")
         except Exception as e:
-            print(f"Error pegando hitboxes: {e}")
+            print(f"Error pegando: {e}")
+
+    def copy_selected_hitbox():
+        if selected_hitbox_idx is None or not (0 <= selected_hitbox_idx < len(hitboxes)):
+            return
+        try:
+            with open(selected_clipboard_path, "w", encoding="utf-8") as fh:
+                json.dump(copy.deepcopy(hitboxes[selected_hitbox_idx]), fh, indent=2)
+            print("Hitbox seleccionada copiada.")
+        except Exception as e:
+            print(f"Error: {e}")
 
     def paste_selected_hitbox():
-        nonlocal hitboxes, selected_hitbox_idx
-
+        nonlocal selected_hitbox_idx
         if not os.path.exists(selected_clipboard_path):
-            print("No existe clipboard de hitbox seleccionada.")
             return
-
         try:
             with open(selected_clipboard_path, "r", encoding="utf-8") as fh:
                 pasted = json.load(fh)
-
-            if not isinstance(pasted, dict) or "type" not in pasted:
-                print("Clipboard seleccionado invalido.")
-                return
-
-            hitboxes.append(copy.deepcopy(pasted))
-            selected_hitbox_idx = len(hitboxes) - 1
-            push_history()
-            print("Hitbox seleccionada pegada.")
-
+            if isinstance(pasted, dict) and "type" in pasted:
+                hitboxes.append(copy.deepcopy(pasted))
+                selected_hitbox_idx = len(hitboxes) - 1
+                push_history()
+                print("Hitbox seleccionada pegada.")
         except Exception as e:
-            print(f"Error pegando hitbox seleccionada: {e}")
+            print(f"Error: {e}")
 
+    def duplicate_selected_hitbox():
+        nonlocal selected_hitbox_idx
+        if selected_hitbox_idx is None or not (0 <= selected_hitbox_idx < len(hitboxes)):
+            return
+        dup = copy.deepcopy(hitboxes[selected_hitbox_idx])
+        offset = 0.02
+        if dup["type"] == "rect":
+            dup["rx"] = min(1.0 - dup.get("rw", 0), dup.get("rx", 0) + offset)
+            dup["ry"] = min(1.0 - dup.get("rh", 0), dup.get("ry", 0) + offset)
+        elif dup["type"] == "circle":
+            dup["cx"] = min(1.0, dup.get("cx", 0.5) + offset)
+            dup["cy"] = min(1.0, dup.get("cy", 0.5) + offset)
+        elif dup["type"] == "line":
+            for k in ("x1", "x2", "y1", "y2"):
+                dup[k] = min(1.0, dup.get(k, 0.5) + offset)
+        hitboxes.append(dup)
+        selected_hitbox_idx = len(hitboxes) - 1
+        push_history()
+
+    def select_all_of_role():
+        nonlocal selected_set, selected_hitbox_idx
+        selected_set = {i for i, h in enumerate(hitboxes) if h.get("role") == current_role}
+        if selected_set:
+            selected_hitbox_idx = min(selected_set)
+            center_camera_on_rect(denormalize_rect(hitboxes[selected_hitbox_idx], world_rect))
+        print(f"Seleccionadas {len(selected_set)} hitboxes de tipo '{current_role}'.")
 
     def _build_hitbox_payload(shape_data):
         payload = {"role": current_role, **shape_data}
-
         if current_role == "interactable":
             payload["action"] = current_interactable_action
             if current_interactable_action == "puerta":
@@ -651,22 +986,114 @@ def main():
             elif current_interactable_action == "npc":
                 payload["npc_character"] = npc_character_options[current_npc_character_idx]
                 payload["npc_animation"] = current_npc_animation_options[current_npc_animation_idx]
-
         return payload
 
     def _interactable_label(action):
-        if str(action).lower() == "silla":
-            return "Silla"
-        if str(action).lower() == "npc":
-            return "NPC"
-        return "Puerta"
+        return {"silla": "Silla", "npc": "NPC"}.get(str(action).lower(), "Puerta")
 
+    # ── Panel helpers ─────────────────────────────────────────────────────────
+    def _panel_items():
+        """Returns list of (label, color, index_type, real_idx) for the panel list."""
+        items = []
+        for i, h in enumerate(hitboxes):
+            role = h.get("role", "wall")
+            if role == "wall" and not show_walls:
+                continue
+            if role == "interactable" and not show_interactables:
+                continue
+            act = h.get("action", "")
+            char = h.get("npc_character", "")
+            shape = h["type"]
+            if role == "wall":
+                label = f"W{i+1} {shape[:3]}"
+                color = (100, 160, 255)
+            elif act == "npc":
+                label = f"N{i+1} {char[:10]}"
+                color = (255, 200, 80)
+            elif act == "silla":
+                label = f"S{i+1} silla"
+                color = (255, 200, 80)
+            else:
+                label = f"P{i+1} puerta"
+                color = (255, 200, 80)
+            items.append((label, color, "hitbox", i))
+        if show_objects:
+            for j, obj in enumerate(decoracion):
+                name = obj.get("name", "?")[:14]
+                items.append((f"D{j+1} {name}", (120, 220, 120), "deco", j))
+        return items
+
+    def _panel_click(mouse_y):
+        nonlocal selected_hitbox_idx, selected_deco_idx, panel_scroll, editor_mode
+        items = _panel_items()
+        list_top = panel_rect.y + 80   # after the toggle buttons
+        row = (mouse_y - list_top + panel_scroll) // PANEL_ROW_H
+        if 0 <= row < len(items):
+            label, color, kind, real_idx = items[row]
+            if kind == "hitbox":
+                selected_hitbox_idx = real_idx
+                selected_set.clear()
+                selected_set.add(real_idx)
+                editor_mode = "hitbox"
+                center_camera_on_rect(denormalize_rect(hitboxes[real_idx], world_rect))
+            else:
+                selected_deco_idx = real_idx
+                editor_mode = "object"
+                center_camera_on_rect(get_deco_world_rect(decoracion[real_idx]))
+
+    # ── Save ─────────────────────────────────────────────────────────────────
+    def do_save():
+        spawn_data = {
+            "default": spawn_rules.get("default"),
+            "by_origin": spawn_rules.get("by_origin", {}),
+        }
+        save_hitboxes(out_path, hitboxes, world_rect, image_path,
+                      spawn_data=spawn_data, npc_positions=npc_positions,
+                      decoracion=decoracion)
+        print(f"Guardado: {out_path}")
+
+    def do_load():
+        nonlocal hitboxes, history, history_index, decoracion, deco_history, deco_history_index
+        nonlocal selected_hitbox_idx, selected_deco_idx
+        if not os.path.exists(out_path):
+            return
+        try:
+            hitboxes, loaded_spawn, loaded_npcs, loaded_deco = load_hitboxes(out_path)
+            _apply_loaded_spawn(loaded_spawn)
+            if isinstance(loaded_npcs, dict):
+                npc_positions.clear()
+                npc_positions.update({k: v for k, v in loaded_npcs.items() if isinstance(v, dict)})
+            if loaded_deco is not None:
+                decoracion = [o for o in loaded_deco if isinstance(o, dict) and "name" in o]
+            selected_hitbox_idx = None
+            selected_deco_idx = None
+            selected_set.clear()
+            history = [copy.deepcopy(hitboxes)]
+            history_index = 0
+            deco_history = [copy.deepcopy(decoracion)]
+            deco_history_index = 0
+            print(f"Recargado desde: {out_path}")
+        except Exception as e:
+            print(f"Error recargando: {e}")
+
+    # ── Main loop ─────────────────────────────────────────────────────────────
     running = True
     while running:
+        dt_ms = clock.tick(60)
+        fps = clock.get_fps()
+        mouse_pos_screen = pygame.mouse.get_pos()
+        mouse_world = screen_to_world(mouse_pos_screen)
+        norm_cursor = (
+            f"{mouse_world[0] / world_rect.width:.3f}, {mouse_world[1] / world_rect.height:.3f}"
+            if mouse_world else "---, ---"
+        )
+        any_modal = spawn_modal_active or npc_char_modal or npc_anim_modal
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
+            # ── Spawn modal ───────────────────────────────────────────────────
             if spawn_modal_active:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
@@ -682,35 +1109,27 @@ def main():
                         spawn_data = _serialize_spawn_rect(pending_spawn_rect)
                         if selected == "Cualquier fondo":
                             if spawn_rules.get("default") is not None:
-                                spawn_status_message = (
-                                    "Ya existe spawn para 'Cualquier fondo'. "
-                                    "Elige una procedencia especifica."
-                                )
+                                spawn_status_message = "Ya existe spawn para 'Cualquier fondo'."
                                 spawn_status_timer = 240
                                 continue
                             spawn_rules["default"] = spawn_data
-                            spawn_rect = pending_spawn_rect.copy()
+                            spawn_rect.topleft = pending_spawn_rect.topleft
                             active_spawn_label = "Cualquier fondo"
                             clamp_spawn_rect()
                             reset_test_player_to_spawn()
                             spawn_status_message = "Spawn por defecto creado."
-                            spawn_status_timer = 180
                         else:
                             if selected in spawn_rules["by_origin"]:
-                                spawn_status_message = (
-                                    f"Ya existe un spawn para '{selected}'. "
-                                    "Elige otra procedencia."
-                                )
+                                spawn_status_message = f"Ya existe spawn para '{selected}'."
                                 spawn_status_timer = 240
                                 continue
-                            else:
-                                spawn_rules["by_origin"][selected] = spawn_data
-                                spawn_rect = pending_spawn_rect.copy()
-                                active_spawn_label = selected
-                                clamp_spawn_rect()
-                                reset_test_player_to_spawn()
-                                spawn_status_message = f"Spawn creado para '{selected}'."
-                                spawn_status_timer = 180
+                            spawn_rules["by_origin"][selected] = spawn_data
+                            spawn_rect.topleft = pending_spawn_rect.topleft
+                            active_spawn_label = selected
+                            clamp_spawn_rect()
+                            reset_test_player_to_spawn()
+                            spawn_status_message = f"Spawn creado para '{selected}'."
+                        spawn_status_timer = 180
                         pending_spawn_rect = None
                         spawn_modal_active = False
                     elif event.key == pygame.K_ESCAPE:
@@ -718,452 +1137,461 @@ def main():
                         spawn_modal_active = False
                 continue
 
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if test_mode:
+            # ── NPC character selector modal ──────────────────────────────────
+            if npc_char_modal:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        npc_char_modal = False
+                    elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        current_npc_character_idx = npc_modal_selected
+                        current_npc_animation_options = _animations_for_character(
+                            npc_character_options[current_npc_character_idx])
+                        current_npc_animation_idx = 0
+                        npc_char_modal = False
+                    elif event.key == pygame.K_RIGHT:
+                        npc_modal_selected = (npc_modal_selected + 1) % len(npc_character_options)
+                    elif event.key == pygame.K_LEFT:
+                        npc_modal_selected = (npc_modal_selected - 1) % len(npc_character_options)
+                    elif event.key == pygame.K_DOWN:
+                        npc_modal_selected = min(len(npc_character_options) - 1,
+                                                 npc_modal_selected + THUMB_COLS)
+                    elif event.key == pygame.K_UP:
+                        npc_modal_selected = max(0, npc_modal_selected - THUMB_COLS)
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    # hit detection on modal cells is done in rendering pass (done below)
+                    pass
+                continue
+
+            # ── NPC animation selector modal ──────────────────────────────────
+            if npc_anim_modal:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        npc_anim_modal = False
+                    elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        current_npc_animation_idx = npc_anim_modal_selected
+                        npc_anim_modal = False
+                    elif event.key == pygame.K_RIGHT:
+                        npc_anim_modal_selected = (npc_anim_modal_selected + 1) % len(current_npc_animation_options)
+                    elif event.key == pygame.K_LEFT:
+                        npc_anim_modal_selected = (npc_anim_modal_selected - 1) % len(current_npc_animation_options)
+                    elif event.key == pygame.K_DOWN:
+                        npc_anim_modal_selected = min(len(current_npc_animation_options) - 1,
+                                                      npc_anim_modal_selected + THUMB_COLS)
+                    elif event.key == pygame.K_UP:
+                        npc_anim_modal_selected = max(0, npc_anim_modal_selected - THUMB_COLS)
+                continue
+
+            # ── Panel scroll ──────────────────────────────────────────────────
+            if event.type == pygame.MOUSEWHEEL:
+                if panel_rect.collidepoint(mouse_pos_screen):
+                    panel_scroll = max(0, panel_scroll - event.y * PANEL_ROW_H)
                     continue
+
+            # ── Panel click ───────────────────────────────────────────────────
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+                # Toggle buttons at top of panel
+                if panel_rect.collidepoint(mx, my):
+                    btn_y = panel_rect.y + 30
+                    btn_h = 20
+                    # W toggle
+                    if pygame.Rect(panel_rect.x + 4, btn_y, 60, btn_h).collidepoint(mx, my):
+                        show_walls = not show_walls
+                        continue
+                    # I toggle
+                    if pygame.Rect(panel_rect.x + 70, btn_y, 60, btn_h).collidepoint(mx, my):
+                        show_interactables = not show_interactables
+                        continue
+                    # O toggle
+                    if pygame.Rect(panel_rect.x + 140, btn_y, 60, btn_h).collidepoint(mx, my):
+                        show_objects = not show_objects
+                        continue
+                    # List area
+                    if my > panel_rect.y + 80:
+                        _panel_click(my)
+                        continue
+
+            # ── Test mode movement ────────────────────────────────────────────
+            if test_mode and event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                test_mode = False
+                continue
+
+            # ── Mouse events (viewport only) ──────────────────────────────────
+            if event.type == pygame.MOUSEBUTTONDOWN and not test_mode:
                 world_pos = screen_to_world(event.pos)
                 if event.button == 1 and world_pos is not None:
 
-                    # MODO MOVER
-                    if move_mode:
-                        for idx in range(len(hitboxes) - 1, -1, -1):
+                    # ── OBJECT MODE ──────────────────────────────────────────
+                    if editor_mode == "object":
+                        clicked_idx = find_deco_at(world_pos)
+                        if clicked_idx is not None:
+                            selected_deco_idx = clicked_idx
+                            r = get_deco_world_rect(decoracion[clicked_idx])
+                            moving_deco_idx = clicked_idx
+                            deco_move_offset = (world_pos[0] - r.x, world_pos[1] - r.y)
+                        else:
+                            selected_deco_idx = None
+                            if available_objects:
+                                obj_name = available_objects[current_object_idx]
+                                obj_img = load_object_image(obj_name)
+                                if obj_img:
+                                    ow, oh = get_placement_size(obj_name, obj_img)
+                                    ox = snap_val(int(world_pos[0] - ow / 2), world_rect.width)
+                                    oy = snap_val(int(world_pos[1] - oh / 2), world_rect.height)
+                                    ox = max(0, min(ox, world_rect.width - ow))
+                                    oy = max(0, min(oy, world_rect.height - oh))
+                                    new_obj = {"name": obj_name,
+                                               **normalize_deco(ox, oy, ow, oh)}
+                                    decoracion.append(new_obj)
+                                    selected_deco_idx = len(decoracion) - 1
+                                    push_deco_history()
 
-                            h = hitboxes[idx]
-
-                            # =========================
-                            # RECT
-                            # =========================
-                            if h["type"] == "rect":
-
-                                r = denormalize_rect(h, world_rect)
-
-                                if r.collidepoint(world_pos):
-
+                    # ── HITBOX MODE ──────────────────────────────────────────
+                    else:
+                        if move_mode:
+                            for idx in range(len(hitboxes) - 1, -1, -1):
+                                h = hitboxes[idx]
+                                hit = False
+                                if h["type"] == "rect":
+                                    r = denormalize_rect(h, world_rect)
+                                    if r.collidepoint(world_pos):
+                                        move_offset = (world_pos[0] - r.x, world_pos[1] - r.y)
+                                        hit = True
+                                elif h["type"] == "circle":
+                                    cx = world_rect.x + h["cx"] * world_rect.width
+                                    cy = world_rect.y + h["cy"] * world_rect.height
+                                    if math.hypot(world_pos[0] - cx, world_pos[1] - cy) <= h["r"] * world_rect.width:
+                                        move_offset = (world_pos[0] - cx, world_pos[1] - cy)
+                                        hit = True
+                                elif h["type"] == "line":
+                                    x1 = world_rect.x + h["x1"] * world_rect.width
+                                    y1 = world_rect.y + h["y1"] * world_rect.height
+                                    x2 = world_rect.x + h["x2"] * world_rect.width
+                                    y2 = world_rect.y + h["y2"] * world_rect.height
+                                    if point_to_line_distance(world_pos, (x1, y1), (x2, y2)) <= line_thickness_px(h, world_rect):
+                                        move_offset = (world_pos[0] - x1, world_pos[1] - y1)
+                                        hit = True
+                                if hit:
                                     moving_hitbox = idx
                                     selected_hitbox_idx = idx
-
-                                    move_offset = (
-                                        world_pos[0] - r.x,
-                                        world_pos[1] - r.y
-                                    )
-
-                                    print("Moviendo RECT")
-
+                                    selected_set = {idx}
                                     break
+                        else:
+                            dragging = True
+                            sx = snap_val(int(world_pos[0]), world_rect.width)
+                            sy = snap_val(int(world_pos[1]), world_rect.height)
+                            start_pos = (sx, sy)
+                            current_rect = pygame.Rect(sx, sy, 0, 0)
 
-                            # =========================
-                            # CIRCLE
-                            # =========================
+                elif event.button == 3 and world_pos is not None:
+                    if editor_mode == "object":
+                        idx = find_deco_at(world_pos)
+                        if idx is not None:
+                            decoracion.pop(idx)
+                            if selected_deco_idx == idx:
+                                selected_deco_idx = None
+                            elif selected_deco_idx is not None and selected_deco_idx > idx:
+                                selected_deco_idx -= 1
+                            push_deco_history()
+                    else:
+                        if _delete_npc_at_world_pos(world_pos):
+                            continue
+                        if _delete_spawn_at_world_pos(world_pos):
+                            continue
+                        for idx in range(len(hitboxes) - 1, -1, -1):
+                            h = hitboxes[idx]
+                            hit = False
+                            if h["type"] == "rect" and denormalize_rect(h, world_rect).collidepoint(world_pos):
+                                hit = True
                             elif h["type"] == "circle":
-
                                 cx = world_rect.x + h["cx"] * world_rect.width
                                 cy = world_rect.y + h["cy"] * world_rect.height
-                                radius = h["r"] * world_rect.width
-
-                                dist = math.hypot(
-                                    world_pos[0] - cx,
-                                    world_pos[1] - cy
-                                )
-
-                                if dist <= radius:
-
-                                    moving_hitbox = idx
-                                    selected_hitbox_idx = idx
-
-                                    move_offset = (
-                                        world_pos[0] - cx,
-                                        world_pos[1] - cy
-                                    )
-
-                                    print("Moviendo CIRCLE")
-
-                                    break
-
-                            # =========================
-                            # LINE
-                            # =========================
+                                hit = math.hypot(world_pos[0] - cx, world_pos[1] - cy) <= h["r"] * world_rect.width
                             elif h["type"] == "line":
-
                                 x1 = world_rect.x + h["x1"] * world_rect.width
                                 y1 = world_rect.y + h["y1"] * world_rect.height
-
                                 x2 = world_rect.x + h["x2"] * world_rect.width
                                 y2 = world_rect.y + h["y2"] * world_rect.height
+                                hit = point_to_line_distance(world_pos, (x1, y1), (x2, y2)) <= line_thickness_px(h, world_rect) / 2 + 4
+                            if hit:
+                                hitboxes.pop(idx)
+                                if selected_hitbox_idx == idx:
+                                    selected_hitbox_idx = None
+                                elif selected_hitbox_idx is not None and selected_hitbox_idx > idx:
+                                    selected_hitbox_idx -= 1
+                                selected_set.discard(idx)
+                                push_history()
+                                break
 
-                                dist = point_to_line_distance(
-                                    world_pos,
-                                    (x1, y1),
-                                    (x2, y2)
-                                )
+            elif event.type == pygame.MOUSEMOTION:
+                if moving_deco_idx is not None:
+                    world_pos = screen_to_world(event.pos)
+                    if world_pos is not None:
+                        obj = decoracion[moving_deco_idx]
+                        r = get_deco_world_rect(obj)
+                        nx = snap_val(int(world_pos[0] - deco_move_offset[0]), world_rect.width)
+                        ny = snap_val(int(world_pos[1] - deco_move_offset[1]), world_rect.height)
+                        nx, ny = clamp_deco_pos(nx, ny, r.width, r.height)
+                        obj.update(normalize_deco(nx, ny, r.width, r.height))
 
-                                thickness = line_thickness_px(h, world_rect)
-
-                                if dist <= thickness:
-
-                                    moving_hitbox = idx
-                                    selected_hitbox_idx = idx
-
-                                    move_offset = (
-                                        world_pos[0] - x1,
-                                        world_pos[1] - y1
-                                    )
-
-                                    print("Moviendo LINE")
-
-                                    break
-
-                    # MODO CREAR
-                    else:
-                        dragging = True
-                        start_pos = world_pos
-
-                        if current_shape == "rect":
-                            current_rect = pygame.Rect(
-                                world_pos[0],
-                                world_pos[1],
-                                0,
-                                0
-                            )
-                    if current_shape == "rect":
-                        current_rect = pygame.Rect(world_pos[0], world_pos[1], 0, 0)
-                elif event.button == 3 and world_pos is not None:
-                    if _delete_npc_at_world_pos(world_pos):
-                        continue
-                    if _delete_spawn_at_world_pos(world_pos):
-                        continue
-                    for idx in range(len(hitboxes) - 1, -1, -1):
-                        h = hitboxes[idx]
+                elif moving_hitbox is not None:
+                    world_pos = screen_to_world(event.pos)
+                    if world_pos is not None:
+                        h = hitboxes[moving_hitbox]
                         if h["type"] == "rect":
                             r = denormalize_rect(h, world_rect)
-                            if r.collidepoint(world_pos):
-                                hitboxes.pop(idx)
-                                if selected_hitbox_idx == idx:
-                                    selected_hitbox_idx = None
-                                elif selected_hitbox_idx is not None and selected_hitbox_idx > idx:
-                                    selected_hitbox_idx -= 1
-                                push_history()
-                                break
+                            r.x = snap_val(int(world_pos[0] - move_offset[0]), world_rect.width)
+                            r.y = snap_val(int(world_pos[1] - move_offset[1]), world_rect.height)
+                            r.clamp_ip(world_rect)
+                            hitboxes[moving_hitbox].update(normalize_rect(r, world_rect))
                         elif h["type"] == "circle":
-                            cx = world_rect.x + h["cx"] * world_rect.width
-                            cy = world_rect.y + h["cy"] * world_rect.height
-                            r = h["r"] * world_rect.width
-                            dist = math.hypot(world_pos[0] - cx, world_pos[1] - cy)
-                            if dist <= r:
-                                hitboxes.pop(idx)
-                                if selected_hitbox_idx == idx:
-                                    selected_hitbox_idx = None
-                                elif selected_hitbox_idx is not None and selected_hitbox_idx > idx:
-                                    selected_hitbox_idx -= 1
-                                push_history()
-                                break
+                            cx = world_pos[0] - move_offset[0]
+                            cy = world_pos[1] - move_offset[1]
+                            radius_px = h["r"] * world_rect.width
+                            cx = max(world_rect.left + radius_px, min(cx, world_rect.right - radius_px))
+                            cy = max(world_rect.top + radius_px, min(cy, world_rect.bottom - radius_px))
+                            h["cx"] = (cx - world_rect.x) / world_rect.width
+                            h["cy"] = (cy - world_rect.y) / world_rect.height
                         elif h["type"] == "line":
                             x1 = world_rect.x + h["x1"] * world_rect.width
                             y1 = world_rect.y + h["y1"] * world_rect.height
                             x2 = world_rect.x + h["x2"] * world_rect.width
                             y2 = world_rect.y + h["y2"] * world_rect.height
-                            dist = point_to_line_distance(world_pos, (x1, y1), (x2, y2))
-                            if dist <= (line_thickness_px(h, world_rect) / 2 + 4):
-                                hitboxes.pop(idx)
-                                if selected_hitbox_idx == idx:
-                                    selected_hitbox_idx = None
-                                elif selected_hitbox_idx is not None and selected_hitbox_idx > idx:
-                                    selected_hitbox_idx -= 1
-                                push_history()
-                                break
-            elif event.type == pygame.MOUSEMOTION and moving_hitbox is not None:
+                            dx = world_pos[0] - move_offset[0] - x1
+                            dy = world_pos[1] - move_offset[1] - y1
+                            x1 += dx; y1 += dy; x2 += dx; y2 += dy
+                            min_x, max_x = min(x1, x2), max(x1, x2)
+                            min_y, max_y = min(y1, y2), max(y1, y2)
+                            if min_x < world_rect.left:
+                                x1 += world_rect.left - min_x; x2 += world_rect.left - min_x
+                            if max_x > world_rect.right:
+                                x1 -= max_x - world_rect.right; x2 -= max_x - world_rect.right
+                            if min_y < world_rect.top:
+                                y1 += world_rect.top - min_y; y2 += world_rect.top - min_y
+                            if max_y > world_rect.bottom:
+                                y1 -= max_y - world_rect.bottom; y2 -= max_y - world_rect.bottom
+                            h["x1"] = (x1 - world_rect.x) / world_rect.width
+                            h["y1"] = (y1 - world_rect.y) / world_rect.height
+                            h["x2"] = (x2 - world_rect.x) / world_rect.width
+                            h["y2"] = (y2 - world_rect.y) / world_rect.height
 
-                world_pos = screen_to_world(event.pos)
-
-                if world_pos is not None:
-
-                    h = hitboxes[moving_hitbox]
-
-                    # =========================
-                    # RECT
-                    # =========================
-                    if h["type"] == "rect":
-
-                        r = denormalize_rect(h, world_rect)
-
-                        r.x = world_pos[0] - move_offset[0]
-                        r.y = world_pos[1] - move_offset[1]
-
-                        r.clamp_ip(world_rect)
-
-                        hitboxes[moving_hitbox].update(
-                            normalize_rect(r, world_rect)
-                        )
-
-                    # =========================
-                    # CIRCLE
-                    # =========================
-                    elif h["type"] == "circle":
-
-                        radius_px = h["r"] * world_rect.width
-
-                        cx = world_pos[0] - move_offset[0]
-                        cy = world_pos[1] - move_offset[1]
-
-                        cx = max(
-                            world_rect.left + radius_px,
-                            min(cx, world_rect.right - radius_px)
-                        )
-
-                        cy = max(
-                            world_rect.top + radius_px,
-                            min(cy, world_rect.bottom - radius_px)
-                        )
-
-                        h["cx"] = (cx - world_rect.x) / world_rect.width
-                        h["cy"] = (cy - world_rect.y) / world_rect.height
-
-                    # =========================
-                    # LINE
-                    # =========================
-                    elif h["type"] == "line":
-
-                        x1 = world_rect.x + h["x1"] * world_rect.width
-                        y1 = world_rect.y + h["y1"] * world_rect.height
-
-                        x2 = world_rect.x + h["x2"] * world_rect.width
-                        y2 = world_rect.y + h["y2"] * world_rect.height
-
-                        dx = world_pos[0] - move_offset[0] - x1
-                        dy = world_pos[1] - move_offset[1] - y1
-
-                        x1 += dx
-                        y1 += dy
-                        x2 += dx
-                        y2 += dy
-
-                        line_min_x = min(x1, x2)
-                        line_max_x = max(x1, x2)
-
-                        line_min_y = min(y1, y2)
-                        line_max_y = max(y1, y2)
-
-                        if line_min_x < world_rect.left:
-                            offset = world_rect.left - line_min_x
-                            x1 += offset
-                            x2 += offset
-
-                        if line_max_x > world_rect.right:
-                            offset = line_max_x - world_rect.right
-                            x1 -= offset
-                            x2 -= offset
-
-                        if line_min_y < world_rect.top:
-                            offset = world_rect.top - line_min_y
-                            y1 += offset
-                            y2 += offset
-
-                        if line_max_y > world_rect.bottom:
-                            offset = line_max_y - world_rect.bottom
-                            y1 -= offset
-                            y2 -= offset
-
-                        h["x1"] = (x1 - world_rect.x) / world_rect.width
-                        h["y1"] = (y1 - world_rect.y) / world_rect.height
-
-                        h["x2"] = (x2 - world_rect.x) / world_rect.width
-                        h["y2"] = (y2 - world_rect.y) / world_rect.height
-            elif event.type == pygame.MOUSEMOTION and dragging:
-                if current_shape == "rect":
-                    world_pos = screen_to_world(event.pos)
-                    if world_pos is None:
-                        continue
-                    x1, y1 = start_pos
-                    x2, y2 = world_pos
-                    current_rect = pygame.Rect(min(x1, x2), min(y1, y2), abs(x2 - x1), abs(y2 - y1))
+                elif dragging and editor_mode == "hitbox":
+                    if current_shape == "rect":
+                        world_pos = screen_to_world(event.pos)
+                        if world_pos is not None:
+                            x1, y1 = start_pos
+                            x2 = snap_val(int(world_pos[0]), world_rect.width)
+                            y2 = snap_val(int(world_pos[1]), world_rect.height)
+                            current_rect = pygame.Rect(min(x1, x2), min(y1, y2),
+                                                        abs(x2 - x1), abs(y2 - y1))
 
             elif event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1 and moving_hitbox is not None:
-                    moving_hitbox = None
-                    push_history()
-                if event.button == 1 and dragging:
-                    world_pos = screen_to_world(event.pos)
-                    if world_pos is None:
+                if event.button == 1:
+                    if moving_deco_idx is not None:
+                        moving_deco_idx = None
+                        push_deco_history()
+                    if moving_hitbox is not None:
+                        moving_hitbox = None
+                        push_history()
+                    if dragging and editor_mode == "hitbox":
+                        world_pos = screen_to_world(event.pos)
                         dragging = False
+                        if world_pos is not None and current_rect is not None:
+                            if current_shape == "rect":
+                                fixed = clamp_rect_to_image(current_rect, world_rect)
+                                if fixed.width > 6 and fixed.height > 6:
+                                    hitboxes.append(_build_hitbox_payload(
+                                        {"type": "rect", **normalize_rect(fixed, world_rect)}))
+                                    selected_hitbox_idx = len(hitboxes) - 1
+                                    selected_set = {selected_hitbox_idx}
+                                    push_history()
+                            elif current_shape == "circle":
+                                dx = world_pos[0] - start_pos[0]
+                                dy = world_pos[1] - start_pos[1]
+                                r = math.hypot(dx, dy)
+                                if r > 3:
+                                    hitboxes.append(_build_hitbox_payload({
+                                        "type": "circle",
+                                        "cx": (start_pos[0] - world_rect.x) / world_rect.width,
+                                        "cy": (start_pos[1] - world_rect.y) / world_rect.height,
+                                        "r": r / world_rect.width,
+                                    }))
+                                    selected_hitbox_idx = len(hitboxes) - 1
+                                    selected_set = {selected_hitbox_idx}
+                                    push_history()
+                            elif current_shape == "line":
+                                dx = abs(world_pos[0] - start_pos[0])
+                                dy = abs(world_pos[1] - start_pos[1])
+                                if dx > 3 or dy > 3:
+                                    hitboxes.append(_build_hitbox_payload({
+                                        "type": "line",
+                                        "x1": (start_pos[0] - world_rect.x) / world_rect.width,
+                                        "y1": (start_pos[1] - world_rect.y) / world_rect.height,
+                                        "x2": (world_pos[0] - world_rect.x) / world_rect.width,
+                                        "y2": (world_pos[1] - world_rect.y) / world_rect.height,
+                                        "thickness": current_line_thickness_px / world_rect.width,
+                                    }))
+                                    selected_hitbox_idx = len(hitboxes) - 1
+                                    selected_set = {selected_hitbox_idx}
+                                    push_history()
                         current_rect = None
-                        continue
-                    if current_shape == "rect" and current_rect is not None:
-                        fixed = clamp_rect_to_image(current_rect, world_rect)
-                        if fixed.width > 6 and fixed.height > 6:
-                            hitboxes.append(_build_hitbox_payload({"type": "rect", **normalize_rect(fixed, world_rect)}))
-                            selected_hitbox_idx = len(hitboxes) - 1
-                            push_history()
-                    elif current_shape == "circle":
-                        dx = world_pos[0] - start_pos[0]
-                        dy = world_pos[1] - start_pos[1]
-                        r = math.hypot(dx, dy)
-                        if r > 3:
-                            cx = start_pos[0]
-                            cy = start_pos[1]
-                            hitboxes.append(_build_hitbox_payload({
-                                "type": "circle",
-                                "cx": (cx - world_rect.x) / world_rect.width,
-                                "cy": (cy - world_rect.y) / world_rect.height,
-                                "r": r / world_rect.width
-                            }))
-                            selected_hitbox_idx = len(hitboxes) - 1
-                            push_history()
-                    elif current_shape == "line":
-                        dx = abs(world_pos[0] - start_pos[0])
-                        dy = abs(world_pos[1] - start_pos[1])
-                        if dx > 3 or dy > 3:
-                            x1 = start_pos[0]
-                            y1 = start_pos[1]
-                            x2 = world_pos[0]
-                            y2 = world_pos[1]
-                            hitboxes.append(_build_hitbox_payload({
-                                "type": "line",
-                                "x1": (x1 - world_rect.x) / world_rect.width,
-                                "y1": (y1 - world_rect.y) / world_rect.height,
-                                "x2": (x2 - world_rect.x) / world_rect.width,
-                                "y2": (y2 - world_rect.y) / world_rect.height,
-                                "thickness": current_line_thickness_px / world_rect.width,
-                            }))
-                            selected_hitbox_idx = len(hitboxes) - 1
-                            push_history()
-                    dragging = False
-                    current_rect = None
 
+            # ── Keyboard ──────────────────────────────────────────────────────
             elif event.type == pygame.KEYDOWN:
                 mods = pygame.key.get_mods()
-                ctrl_pressed = bool(mods & pygame.KMOD_CTRL)
-                shift_pressed = bool(mods & pygame.KMOD_SHIFT)
+                ctrl = bool(mods & pygame.KMOD_CTRL)
+                shift = bool(mods & pygame.KMOD_SHIFT)
 
-                if event.key == pygame.K_z and ctrl_pressed:
-                    if history_index > 0:
-                        history_index -= 1
-                        hitboxes = copy.deepcopy(history[history_index])
-                        if selected_hitbox_idx is not None and selected_hitbox_idx >= len(hitboxes):
-                            selected_hitbox_idx = None
-                elif event.key == pygame.K_y and ctrl_pressed:
-                    if history_index < len(history) - 1:
-                        history_index += 1
-                        hitboxes = copy.deepcopy(history[history_index])
-                        if selected_hitbox_idx is not None and selected_hitbox_idx >= len(hitboxes):
-                            selected_hitbox_idx = None
-                elif event.key == pygame.K_c and ctrl_pressed and shift_pressed:
-                    clipboard_hitbox = copy_selected_hitbox()
+                if event.key == pygame.K_ESCAPE:
+                    running = False
 
-                    if clipboard_hitbox is not None:
-                        try:
-                            with open(selected_clipboard_path, "w", encoding="utf-8") as fh:
-                                json.dump(clipboard_hitbox, fh, indent=2)
-
-                            print("Hitbox seleccionada copiada.")
-
-                        except Exception as e:
-                            print(f"Error copiando hitbox seleccionada: {e}")
-                elif event.key == pygame.K_c and ctrl_pressed:
-                    clipboard_hitboxes = copy_hitboxes()
-
-                    try:
-                        with open(clipboard_path, "w", encoding="utf-8") as fh:
-                            json.dump(clipboard_hitboxes, fh, indent=2)
-
-                        print(f"{len(clipboard_hitboxes)} hitboxes pared copiadas.")
-
-                    except Exception as e:
-                        print(f"Error copiando hitboxes: {e}")
-
-                elif event.key == pygame.K_v and ctrl_pressed:
-                    if shift_pressed:
-                        paste_selected_hitbox()
+                elif event.key == pygame.K_z and ctrl:
+                    if editor_mode == "object":
+                        if deco_history_index > 0:
+                            deco_history_index -= 1
+                            decoracion[:] = copy.deepcopy(deco_history[deco_history_index])
                     else:
-                        paste_hitboxes()
+                        if history_index > 0:
+                            history_index -= 1
+                            hitboxes[:] = copy.deepcopy(history[history_index])
+                            if selected_hitbox_idx is not None and selected_hitbox_idx >= len(hitboxes):
+                                selected_hitbox_idx = None
 
-                elif event.key == pygame.K_c:
-                    hitboxes = []
-                    selected_hitbox_idx = None
-                    push_history()
+                elif event.key == pygame.K_y and ctrl:
+                    if editor_mode == "object":
+                        if deco_history_index < len(deco_history) - 1:
+                            deco_history_index += 1
+                            decoracion[:] = copy.deepcopy(deco_history[deco_history_index])
+                    else:
+                        if history_index < len(history) - 1:
+                            history_index += 1
+                            hitboxes[:] = copy.deepcopy(history[history_index])
+                            if selected_hitbox_idx is not None and selected_hitbox_idx >= len(hitboxes):
+                                selected_hitbox_idx = None
+
+                elif event.key == pygame.K_d and ctrl:
+                    if editor_mode == "object" and selected_deco_idx is not None:
+                        dup = copy.deepcopy(decoracion[selected_deco_idx])
+                        r = get_deco_world_rect(dup)
+                        nx = min(world_rect.width - r.width, r.x + 16)
+                        ny = min(world_rect.height - r.height, r.y + 16)
+                        dup.update(normalize_deco(nx, ny, r.width, r.height))
+                        decoracion.append(dup)
+                        selected_deco_idx = len(decoracion) - 1
+                        push_deco_history()
+                    else:
+                        duplicate_selected_hitbox()
+
+                elif event.key == pygame.K_a and ctrl:
+                    select_all_of_role()
+
+                elif event.key == pygame.K_c and ctrl and shift:
+                    copy_selected_hitbox()
+                elif event.key == pygame.K_c and ctrl:
+                    copy_walls_to_clipboard()
+                elif event.key == pygame.K_v and ctrl and shift:
+                    paste_selected_hitbox()
+                elif event.key == pygame.K_v and ctrl:
+                    paste_walls_from_clipboard()
+                elif event.key == pygame.K_l and ctrl:
+                    do_load()
+
                 elif event.key == pygame.K_RETURN:
-                    spawn_data = {
-                        "default": spawn_rules.get("default"),
-                        "by_origin": spawn_rules.get("by_origin", {}),
-                    }
-                    save_hitboxes(
-                        out_path,
-                        hitboxes,
-                        world_rect,
-                        image_path,
-                        spawn_data=spawn_data,
-                        npc_positions=npc_positions,
-                    )
-                    print(f"Guardado en: {out_path}")
-                elif event.key == pygame.K_l:
-                    if os.path.exists(out_path):
-                        hitboxes, loaded_spawn, loaded_npcs = load_hitboxes(out_path)
-                        _apply_loaded_spawn(loaded_spawn)
-                        if isinstance(loaded_npcs, dict):
-                            npc_positions = {k: v for k, v in loaded_npcs.items() if isinstance(v, dict)}
-                        selected_hitbox_idx = None
-                        push_history()
-                        print(f"Cargado desde: {out_path}")
+                    do_save()
+
+                elif event.key == pygame.K_c and not ctrl:
+                    hitboxes.clear()
+                    selected_hitbox_idx = None
+                    selected_set.clear()
+                    push_history()
+
+                elif event.key == pygame.K_l and not ctrl:
+                    show_labels = not show_labels
+
+                elif event.key == pygame.K_g:
+                    grid_snap = not grid_snap
+                    print("Grid snap:", "ON" if grid_snap else "OFF")
+
+                elif event.key == pygame.K_o:
+                    editor_mode = "object" if editor_mode == "hitbox" else "hitbox"
+                    print("Modo:", editor_mode.upper())
+
                 elif event.key == pygame.K_f:
-                    if current_shape == "rect":
-                        current_shape = "circle"
-                    elif current_shape == "circle":
-                        current_shape = "line"
-                    else:
-                        current_shape = "rect"
+                    shapes = ["rect", "circle", "line"]
+                    current_shape = shapes[(shapes.index(current_shape) + 1) % 3]
+
                 elif event.key == pygame.K_i:
                     current_role = "interactable" if current_role == "wall" else "wall"
+
                 elif event.key == pygame.K_j:
-                    current_target_bg_idx = (current_target_bg_idx + 1) % len(available_backgrounds)
+                    if editor_mode == "object":
+                        current_object_idx = (current_object_idx + 1) % max(1, len(available_objects))
+                    else:
+                        current_target_bg_idx = (current_target_bg_idx + 1) % len(available_backgrounds)
+
                 elif event.key == pygame.K_h:
-                    current_target_bg_idx = (
-                        current_target_bg_idx - 1
-                    ) % len(available_backgrounds)
+                    if editor_mode == "object":
+                        current_object_idx = (current_object_idx - 1) % max(1, len(available_objects))
+                    else:
+                        current_target_bg_idx = (current_target_bg_idx - 1) % len(available_backgrounds)
+
                 elif event.key == pygame.K_k:
                     idx = interactable_actions.index(current_interactable_action)
                     current_interactable_action = interactable_actions[(idx + 1) % len(interactable_actions)]
+
                 elif event.key == pygame.K_n:
-                    current_npc_character_idx = (current_npc_character_idx + 1) % len(npc_character_options)
-                    current_npc_animation_options = _animations_for_character(npc_character_options[current_npc_character_idx])
-                    current_npc_animation_idx = 0
+                    npc_modal_selected = current_npc_character_idx
+                    npc_char_modal = True
+
                 elif event.key == pygame.K_b:
-                    if current_npc_animation_options:
-                        current_npc_animation_idx = (current_npc_animation_idx + 1) % len(current_npc_animation_options)
+                    npc_anim_modal_selected = current_npc_animation_idx
+                    npc_anim_modal = True
+
                 elif event.key == pygame.K_m:
-                    move_mode = not move_mode      
-                    if move_mode:
-                        print("MODO MOVER ACTIVADO")
-                    else:
-                        print("MODO MOVER DESACTIVADO")         
-                elif event.key == pygame.K_ESCAPE:
-                    running = False
+                    move_mode = not move_mode
+                    print("Modo mover:", "ON" if move_mode else "OFF")
+
                 elif event.key == pygame.K_t:
                     test_mode = not test_mode
                     if test_mode:
                         reset_test_player_to_spawn()
                         center_camera_on_rect(test_player)
-                elif event.key in (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS):
-                    current_line_thickness_px = min(64, current_line_thickness_px + 1)
-                elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
-                    current_line_thickness_px = max(1, current_line_thickness_px - 1)
+
                 elif event.key == pygame.K_p:
-                    if event.mod & pygame.KMOD_SHIFT:
-                        set_spawn_to_mouse(pygame.mouse.get_pos())
-                        # Evita sobrescribir por accidente el spawn por defecto:
-                        # selecciona de entrada la primera procedencia sin spawn.
+                    if shift:
+                        set_spawn_to_mouse(mouse_pos_screen)
                         spawn_modal_selected = 0
-                        for idx, opt in enumerate(spawn_modal_options):
-                            if opt == "Cualquier fondo":
-                                continue
-                            if opt not in spawn_rules.get("by_origin", {}):
-                                spawn_modal_selected = idx
+                        for sidx, opt in enumerate(spawn_modal_options):
+                            if opt != "Cualquier fondo" and opt not in spawn_rules.get("by_origin", {}):
+                                spawn_modal_selected = sidx
                                 break
                         spawn_modal_active = True
                     else:
                         reset_test_player_to_spawn()
                         center_camera_on_rect(test_player)
-                elif event.key == pygame.K_1 and event.mod & pygame.KMOD_SHIFT:
-                    _set_npc_at_mouse("sara", pygame.mouse.get_pos())
-                elif event.key == pygame.K_2 and event.mod & pygame.KMOD_SHIFT:
-                    _set_npc_at_mouse("diego", pygame.mouse.get_pos())
+
+                elif event.key in (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS):
+                    if editor_mode == "object":
+                        if selected_deco_idx is not None:
+                            scale_selected_deco(DECO_SCALE_STEP)
+                        else:
+                            scale_placement_deco(DECO_SCALE_STEP)
+                    else:
+                        current_line_thickness_px = min(64, current_line_thickness_px + 1)
+
+                elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
+                    if editor_mode == "object":
+                        if selected_deco_idx is not None:
+                            scale_selected_deco(1 / DECO_SCALE_STEP)
+                        else:
+                            scale_placement_deco(1 / DECO_SCALE_STEP)
+                    else:
+                        current_line_thickness_px = max(1, current_line_thickness_px - 1)
+
+                elif event.key == pygame.K_1 and shift:
+                    _set_npc_at_mouse("sara", mouse_pos_screen)
+                elif event.key == pygame.K_2 and shift:
+                    _set_npc_at_mouse("diego", mouse_pos_screen)
                 elif event.key == pygame.K_1:
                     selected_npc_name = "sara"
                     spawn_status_message = "NPC seleccionado: Sara."
@@ -1172,113 +1600,171 @@ def main():
                     selected_npc_name = "diego"
                     spawn_status_message = "NPC seleccionado: Diego."
                     spawn_status_timer = 120
-                elif event.key in (pygame.K_LEFTBRACKET, pygame.K_KP_MINUS):
+                elif event.key in (pygame.K_LEFTBRACKET,):
                     _change_npc_site_size(selected_npc_name, -8)
-                elif event.key in (pygame.K_RIGHTBRACKET, pygame.K_KP_PLUS):
+                elif event.key in (pygame.K_RIGHTBRACKET,):
                     _change_npc_site_size(selected_npc_name, 8)
 
+        # ── Test mode physics ─────────────────────────────────────────────────
         if test_mode:
             keys = pygame.key.get_pressed()
-            move_x = ((1 if keys[pygame.K_d] else 0) - (1 if keys[pygame.K_a] else 0)) * test_speed
-            move_y = ((1 if keys[pygame.K_s] else 0) - (1 if keys[pygame.K_w] else 0)) * test_speed
+            mx = ((1 if keys[pygame.K_d] else 0) - (1 if keys[pygame.K_a] else 0)) * test_speed
+            my = ((1 if keys[pygame.K_s] else 0) - (1 if keys[pygame.K_w] else 0)) * test_speed
             prev_x = test_player.x
-            test_player.x += move_x
+            test_player.x += mx
             test_player.clamp_ip(world_rect)
             for h in hitboxes:
-                if h.get("role", "wall") == "interactable":
+                if h.get("role") != "wall":
                     continue
                 if collides_rect_with_hitbox(test_player, h, world_rect):
                     test_player.x = prev_x
                     break
             prev_y = test_player.y
-            test_player.y += move_y
+            test_player.y += my
             test_player.clamp_ip(world_rect)
             for h in hitboxes:
-                if h.get("role", "wall") == "interactable":
+                if h.get("role") != "wall":
                     continue
                 if collides_rect_with_hitbox(test_player, h, world_rect):
                     test_player.y = prev_y
                     break
-            # En modo test, la camara sigue siempre al dummy.
             center_camera_on_rect(test_player)
         else:
             keys = pygame.key.get_pressed()
-            camera_speed = 10
-            camera_x += ((1 if keys[pygame.K_d] else 0) - (1 if keys[pygame.K_a] else 0)) * camera_speed
-            camera_y += ((1 if keys[pygame.K_s] else 0) - (1 if keys[pygame.K_w] else 0)) * camera_speed
+            cam_speed = 10
+            camera_x += ((1 if keys[pygame.K_d] else 0) - (1 if keys[pygame.K_a] else 0)) * cam_speed
+            camera_y += ((1 if keys[pygame.K_s] else 0) - (1 if keys[pygame.K_w] else 0)) * cam_speed
             clamp_camera()
 
+        # ── RENDER ────────────────────────────────────────────────────────────
         screen.fill((28, 28, 34))
+
+        # Clip rendering to viewport
         camera_view = pygame.Rect(camera_x, camera_y, viewport_rect.width, viewport_rect.height)
         screen.blit(image_view, viewport_rect.topleft, area=camera_view)
 
-        pygame.draw.rect(screen, (235, 235, 235), viewport_rect, 2)
+        # Grid overlay
+        if grid_snap:
+            step_x = max(1, int(GRID_SIZE * world_rect.width))
+            step_y = max(1, int(GRID_SIZE * world_rect.height))
+            grid_col = (55, 55, 70)
+            start_wx = (camera_x // step_x) * step_x
+            wx = start_wx
+            while wx <= camera_x + viewport_rect.width:
+                sx = wx - camera_x + viewport_rect.x
+                pygame.draw.line(screen, grid_col, (sx, viewport_rect.y), (sx, viewport_rect.bottom), 1)
+                wx += step_x
+            start_wy = (camera_y // step_y) * step_y
+            wy = start_wy
+            while wy <= camera_y + viewport_rect.height:
+                sy = wy - camera_y + viewport_rect.y
+                pygame.draw.line(screen, grid_col, (viewport_rect.x, sy), (viewport_rect.right, sy), 1)
+                wy += step_y
 
-        for i, h in enumerate(hitboxes, start=1):
+        # Decoracion objects
+        if show_objects:
+            for j, obj in enumerate(decoracion):
+                obj_img = load_object_image(obj["name"])
+                if obj_img:
+                    r = get_deco_world_rect(obj)
+                    sx, sy = world_to_screen((r.x, r.y))
+                    scaled = pygame.transform.smoothscale(obj_img, (r.width, r.height))
+                    screen.blit(scaled, (sx, sy))
+                    sr = pygame.Rect(sx, sy, r.width, r.height)
+                    border_col = (255, 235, 80) if selected_deco_idx == j else (80, 220, 100)
+                    pygame.draw.rect(screen, border_col, sr, 2 if selected_deco_idx != j else 3)
+                    if show_labels:
+                        lbl = tiny.render(f"D{j+1} {obj['name'][:12]}", True, (130, 240, 130))
+                        screen.blit(lbl, (sr.x + 2, sr.y + 2))
+
+        # Object mode placement preview
+        if editor_mode == "object" and not moving_deco_idx and available_objects:
+            obj_name = available_objects[current_object_idx]
+            obj_img = load_object_image(obj_name)
+            if obj_img and mouse_world and viewport_rect.collidepoint(mouse_pos_screen):
+                ow, oh = get_placement_size(obj_name, obj_img)
+                px = int(mouse_world[0] - ow / 2)
+                py = int(mouse_world[1] - oh / 2)
+                sx, sy = world_to_screen((px, py))
+                prev = pygame.transform.smoothscale(obj_img, (ow, oh)).copy()
+                prev.set_alpha(100)
+                screen.blit(prev, (sx, sy))
+
+        # Hitboxes
+        anim_frame_idx = (pygame.time.get_ticks() // 180)
+        for i, h in enumerate(hitboxes):
             role = h.get("role", "wall")
+            if role == "wall" and not show_walls:
+                continue
+            if role == "interactable" and not show_interactables:
+                continue
+            is_selected = (selected_hitbox_idx == i) or (i in selected_set)
             color = (90, 160, 255) if role == "wall" else (255, 210, 80)
             label_color = (160, 210, 255) if role == "wall" else (255, 235, 150)
+
             if h["type"] == "rect":
                 r = denormalize_rect(h, world_rect)
-                r = r.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
-                pygame.draw.rect(screen, color, r, 2)
-                if selected_hitbox_idx == i - 1:
-                    pygame.draw.rect(screen, (255, 255, 255), r, 4)
-                label = small.render(str(i), True, label_color)
-                screen.blit(label, (r.x + 4, r.y + 2))
+                sr = r.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
+                pygame.draw.rect(screen, color, sr, 2)
+                if is_selected:
+                    pygame.draw.rect(screen, (255, 255, 255), sr, 4)
+                if show_labels:
+                    screen.blit(tiny.render(str(i + 1), True, label_color), (sr.x + 4, sr.y + 2))
                 if role == "interactable":
-                    action_lbl = _interactable_label(h.get("action", "puerta"))
-                    door_lbl = small.render(action_lbl, True, (255, 245, 180))
-                    door_rect = door_lbl.get_rect(center=r.center)
-                    screen.blit(door_lbl, door_rect)
-                    if h.get("action") == "npc":
-                        frames = _load_npc_preview_frames(h.get("npc_character", "Sara"), h.get("npc_animation", ""))
+                    action = h.get("action", "puerta")
+                    act_lbl = _interactable_label(action)
+                    if show_labels:
+                        lbl = small.render(act_lbl, True, (255, 245, 180))
+                        screen.blit(lbl, lbl.get_rect(center=sr.center))
+                    if action == "npc":
+                        frames = _load_npc_preview_frames(h.get("npc_character", "Sara"),
+                                                          h.get("npc_animation", ""))
                         if frames:
-                            idx_anim = (pygame.time.get_ticks() // 180) % len(frames)
-                            frame = frames[int(idx_anim)]
-                            max_preview = 160
-                            target_w = min(max(12, r.width), max_preview)
-                            target_h = min(max(12, r.height), max_preview)
-                            frame_w, frame_h = frame.get_size()
-                            scale = min(target_w / frame_w, target_h / frame_h, 1.0)
-                            scaled_w = max(12, int(frame_w * scale))
-                            scaled_h = max(12, int(frame_h * scale))
-                            scaled = pygame.transform.smoothscale(frame, (scaled_w, scaled_h))
-                            screen.blit(scaled, scaled.get_rect(center=r.center))
-                        npc_info = f"{h.get('npc_character', 'NPC')} | {h.get('npc_animation', '')}"
-                        npc_lbl = small.render(npc_info, True, (255, 205, 150))
-                        screen.blit(npc_lbl, (r.x + 4, r.bottom + 2))
+                            fidx = anim_frame_idx % len(frames)
+                            frame = frames[fidx]
+                            fw, fh = frame.get_size()
+                            s = min(min(max(12, sr.width), 160) / fw,
+                                    min(max(12, sr.height), 160) / fh, 1.0)
+                            scaled = pygame.transform.smoothscale(frame,
+                                (max(12, int(fw * s)), max(12, int(fh * s))))
+                            screen.blit(scaled, scaled.get_rect(center=sr.center))
+                        if show_labels:
+                            info = f"{h.get('npc_character','NPC')} | {h.get('npc_animation','')}"
+                            screen.blit(tiny.render(info, True, (255, 205, 150)),
+                                        (sr.x + 4, sr.bottom + 2))
+                    elif action == "puerta" and show_labels:
+                        dest = h.get("target_image", "")
+                        if dest:
+                            screen.blit(tiny.render(f"→ {dest[:20]}", True, (200, 200, 255)),
+                                        (sr.x + 4, sr.bottom + 2))
+
             elif h["type"] == "circle":
                 cx = world_rect.x + h["cx"] * world_rect.width
                 cy = world_rect.y + h["cy"] * world_rect.height
-                r = h["r"] * world_rect.width
+                rr = h["r"] * world_rect.width
                 sx, sy = world_to_screen((cx, cy))
-                pygame.draw.circle(screen, color, (int(sx), int(sy)), int(r), 2)
-                if selected_hitbox_idx == i - 1:
-                    pygame.draw.circle(screen, (255, 255, 255), (int(sx), int(sy)), int(r), 4)
-                label = small.render(str(i), True, label_color)
-                screen.blit(label, (sx - 10, sy - 10))
+                pygame.draw.circle(screen, color, (int(sx), int(sy)), int(rr), 2)
+                if is_selected:
+                    pygame.draw.circle(screen, (255, 255, 255), (int(sx), int(sy)), int(rr), 4)
+                if show_labels:
+                    screen.blit(tiny.render(str(i + 1), True, label_color), (sx - 10, sy - 10))
                 if role == "interactable":
-                    action_lbl = _interactable_label(h.get("action", "puerta"))
-                    door_lbl = small.render(action_lbl, True, (255, 245, 180))
-                    door_rect = door_lbl.get_rect(center=(int(sx), int(sy)))
-                    screen.blit(door_lbl, door_rect)
-                    if h.get("action") == "npc":
-                        frames = _load_npc_preview_frames(h.get("npc_character", "Sara"), h.get("npc_animation", ""))
+                    action = h.get("action", "puerta")
+                    if show_labels:
+                        lbl = small.render(_interactable_label(action), True, (255, 245, 180))
+                        screen.blit(lbl, lbl.get_rect(center=(int(sx), int(sy))))
+                    if action == "npc":
+                        frames = _load_npc_preview_frames(h.get("npc_character", "Sara"),
+                                                          h.get("npc_animation", ""))
                         if frames:
-                            idx_anim = (pygame.time.get_ticks() // 180) % len(frames)
-                            frame = frames[int(idx_anim)]
-                            diam = max(12, int(r * 2))
-                            diam = min(diam, 160)
-                            frame_w, frame_h = frame.get_size()
-                            scale = min(diam / frame_w, diam / frame_h, 1.0)
-                            scaled_w = max(12, int(frame_w * scale))
-                            scaled_h = max(12, int(frame_h * scale))
-                            scaled = pygame.transform.smoothscale(frame, (scaled_w, scaled_h))
+                            frame = frames[anim_frame_idx % len(frames)]
+                            diam = min(max(12, int(rr * 2)), 160)
+                            fw, fh = frame.get_size()
+                            s = min(diam / fw, diam / fh, 1.0)
+                            scaled = pygame.transform.smoothscale(frame,
+                                (max(12, int(fw * s)), max(12, int(fh * s))))
                             screen.blit(scaled, scaled.get_rect(center=(int(sx), int(sy))))
-                        npc_info = f"{h.get('npc_character', 'NPC')} | {h.get('npc_animation', '')}"
-                        npc_lbl = small.render(npc_info, True, (255, 205, 150))
-                        screen.blit(npc_lbl, (int(sx) + 8, int(sy) + 12))
+
             elif h["type"] == "line":
                 x1 = world_rect.x + h["x1"] * world_rect.width
                 y1 = world_rect.y + h["y1"] * world_rect.height
@@ -1288,83 +1774,57 @@ def main():
                 sx2, sy2 = world_to_screen((x2, y2))
                 thickness = line_thickness_px(h, world_rect)
                 pygame.draw.line(screen, color, (sx1, sy1), (sx2, sy2), thickness)
-                if selected_hitbox_idx == i - 1:
-                    pygame.draw.line(screen, (255, 255, 255), (sx1, sy1), (sx2, sy2), max(thickness + 4, 5))
-                label = small.render(str(i), True, label_color)
-                screen.blit(label, ((sx1 + sx2) / 2 - 10, (sy1 + sy2) / 2 - 10))
-                if role == "interactable":
-                    midx = int((sx1 + sx2) / 2)
-                    midy = int((sy1 + sy2) / 2)
-                    action_lbl = _interactable_label(h.get("action", "puerta"))
-                    door_lbl = small.render(action_lbl, True, (255, 245, 180))
-                    door_rect = door_lbl.get_rect(center=(midx, midy - 14))
-                    screen.blit(door_lbl, door_rect)
-                    if h.get("action") == "npc":
-                        frames = _load_npc_preview_frames(h.get("npc_character", "Sara"), h.get("npc_animation", ""))
-                        if frames:
-                            idx_anim = (pygame.time.get_ticks() // 180) % len(frames)
-                            frame = frames[int(idx_anim)]
-                            size = max(24, thickness * 3)
-                            size = min(size, 160)
-                            frame_w, frame_h = frame.get_size()
-                            scale = min(size / frame_w, size / frame_h, 1.0)
-                            scaled_w = max(24, int(frame_w * scale))
-                            scaled_h = max(24, int(frame_h * scale))
-                            scaled = pygame.transform.smoothscale(frame, (scaled_w, scaled_h))
-                            screen.blit(scaled, scaled.get_rect(center=(midx, midy)))
-                        npc_info = f"{h.get('npc_character', 'NPC')} | {h.get('npc_animation', '')}"
-                        npc_lbl = small.render(npc_info, True, (255, 205, 150))
-                        screen.blit(npc_lbl, (midx + 8, midy + 2))
+                if is_selected:
+                    pygame.draw.line(screen, (255, 255, 255), (sx1, sy1), (sx2, sy2),
+                                     max(thickness + 4, 5))
+                if show_labels:
+                    mx_pt = ((sx1 + sx2) / 2, (sy1 + sy2) / 2)
+                    screen.blit(tiny.render(str(i + 1), True, label_color),
+                                (mx_pt[0] - 10, mx_pt[1] - 10))
 
+        # Dragging preview
         if current_rect is not None:
-            preview = clamp_rect_to_image(current_rect, world_rect)
-            preview = preview.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
-            pygame.draw.rect(screen, (120, 200, 255), preview, 2)
-        elif dragging and current_shape == "circle":
-            mouse_world = screen_to_world(pygame.mouse.get_pos())
-            if mouse_world is not None:
-                dx = mouse_world[0] - start_pos[0]
-                dy = mouse_world[1] - start_pos[1]
-                r = math.hypot(dx, dy)
-                screen_start = world_to_screen(start_pos)
-                pygame.draw.circle(screen, (120, 200, 255), (int(screen_start[0]), int(screen_start[1])), int(r), 2)
-        elif dragging and current_shape == "line":
-            mouse_world = screen_to_world(pygame.mouse.get_pos())
-            if mouse_world is not None:
-                screen_start = world_to_screen(start_pos)
-                screen_mouse = world_to_screen(mouse_world)
-                pygame.draw.line(screen, (120, 200, 255), screen_start, screen_mouse, current_line_thickness_px)
+            pr = clamp_rect_to_image(current_rect, world_rect)
+            pr = pr.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
+            pygame.draw.rect(screen, (120, 200, 255), pr, 2)
+        elif dragging and current_shape == "circle" and mouse_world:
+            dx = mouse_world[0] - start_pos[0]
+            dy = mouse_world[1] - start_pos[1]
+            rr = math.hypot(dx, dy)
+            ss = world_to_screen(start_pos)
+            pygame.draw.circle(screen, (120, 200, 255), (int(ss[0]), int(ss[1])), int(rr), 2)
+        elif dragging and current_shape == "line" and mouse_world:
+            ss = world_to_screen(start_pos)
+            sm = world_to_screen(mouse_world)
+            pygame.draw.line(screen, (120, 200, 255), ss, sm, current_line_thickness_px)
 
+        # Test player
         if test_mode:
-            test_view = test_player.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
-            pygame.draw.rect(screen, (255, 190, 90), test_view, 2)
-        # Dibuja todos los spawns guardados para evitar confusion visual.
+            tv = test_player.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
+            pygame.draw.rect(screen, (255, 190, 90), tv, 2)
+
+        # Spawn markers
         if isinstance(spawn_rules.get("default"), dict):
             d = spawn_rules["default"]
-            d_rect = pygame.Rect(
-                int(d.get("rx", 0.5) * world_rect.width),
-                int(d.get("ry", 0.5) * world_rect.height),
-                spawn_rect.width,
-                spawn_rect.height,
-            )
-            d_rect = d_rect.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
-            pygame.draw.rect(screen, (255, 90, 90), d_rect, 2)
-            d_lbl = small.render("Spawn: default", True, (255, 120, 120))
-            screen.blit(d_lbl, (d_rect.x, d_rect.y - 16))
+            dr = pygame.Rect(int(d["rx"] * world_rect.width), int(d["ry"] * world_rect.height),
+                             spawn_rect.width, spawn_rect.height)
+            dr = dr.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
+            pygame.draw.rect(screen, (255, 90, 90), dr, 2)
+            if show_labels:
+                screen.blit(small.render("Spawn:default", True, (255, 120, 120)),
+                            (dr.x, dr.y - 16))
         for origin_name, sdata in spawn_rules.get("by_origin", {}).items():
             if not isinstance(sdata, dict):
                 continue
-            s_rect = pygame.Rect(
-                int(sdata.get("rx", 0.5) * world_rect.width),
-                int(sdata.get("ry", 0.5) * world_rect.height),
-                spawn_rect.width,
-                spawn_rect.height,
-            )
-            s_rect = s_rect.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
-            pygame.draw.rect(screen, (255, 180, 70), s_rect, 2)
-            s_lbl = small.render(f"Spawn: {origin_name}", True, (255, 210, 120))
-            screen.blit(s_lbl, (s_rect.x, s_rect.y - 16))
+            sr = pygame.Rect(int(sdata["rx"] * world_rect.width), int(sdata["ry"] * world_rect.height),
+                             spawn_rect.width, spawn_rect.height)
+            sr = sr.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
+            pygame.draw.rect(screen, (255, 180, 70), sr, 2)
+            if show_labels:
+                screen.blit(small.render(f"Spawn:{origin_name[:18]}", True, (255, 210, 120)),
+                            (sr.x, sr.y - 16))
 
+        # NPC legacy positions
         for npc_name, data in npc_positions.items():
             if not isinstance(data, dict):
                 continue
@@ -1372,22 +1832,132 @@ def main():
             site_w = max(24, int(float(data.get("rw", npc_default_site_w / world_rect.width)) * world_rect.width))
             site_h = max(24, int(float(data.get("rh", npc_default_site_h / world_rect.height)) * world_rect.height))
             sx, sy = world_to_screen((nx, ny))
-            site_rect = pygame.Rect(0, 0, site_w, site_h)
-            site_rect.center = (int(sx), int(sy))
-            pygame.draw.rect(screen, (255, 120, 200), site_rect, 1)
+            npc_sr = pygame.Rect(0, 0, site_w, site_h)
+            npc_sr.center = (int(sx), int(sy))
+            pygame.draw.rect(screen, (255, 120, 200), npc_sr, 1)
             pygame.draw.circle(screen, (255, 80, 170), (int(sx), int(sy)), 10, 2)
             pygame.draw.line(screen, (255, 80, 170), (int(sx) - 7, int(sy)), (int(sx) + 7, int(sy)), 2)
             pygame.draw.line(screen, (255, 80, 170), (int(sx), int(sy) - 7), (int(sx), int(sy) + 7), 2)
-            npc_lbl = small.render(f"NPC: {npc_name}", True, (255, 180, 220))
-            screen.blit(npc_lbl, (int(sx) + 12, int(sy) - 12))
+            if show_labels:
+                screen.blit(small.render(f"NPC:{npc_name}", True, (255, 180, 220)),
+                            (int(sx) + 12, int(sy) - 12))
 
-        # Preview del spawn que se esta ubicando antes de confirmar.
         if pending_spawn_rect is not None:
-            p_view = pending_spawn_rect.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
-            pygame.draw.rect(screen, (255, 255, 0), p_view, 2)
-            p_lbl = small.render("Nuevo spawn (pendiente)", True, (255, 255, 140))
-            screen.blit(p_lbl, (p_view.x, p_view.y - 16))
+            pv = pending_spawn_rect.move(-camera_x + viewport_rect.x, -camera_y + viewport_rect.y)
+            pygame.draw.rect(screen, (255, 255, 0), pv, 2)
+            screen.blit(small.render("Spawn pendiente", True, (255, 255, 140)), (pv.x, pv.y - 16))
 
+        pygame.draw.rect(screen, (235, 235, 235), viewport_rect, 2)
+
+        # ── Right panel ───────────────────────────────────────────────────────
+        pygame.draw.rect(screen, (35, 35, 48), panel_rect)
+        pygame.draw.line(screen, (80, 80, 100), (panel_rect.x, panel_rect.y),
+                         (panel_rect.x, panel_rect.bottom), 1)
+
+        px = panel_rect.x + 4
+        py = panel_rect.y + 6
+        panel_title = small.render("Elementos", True, (200, 200, 220))
+        screen.blit(panel_title, (px, py))
+        py += 22
+
+        # Toggle buttons
+        def draw_toggle(rect, label, active):
+            col = (60, 120, 60) if active else (80, 40, 40)
+            pygame.draw.rect(screen, col, rect, border_radius=4)
+            pygame.draw.rect(screen, (120, 120, 140), rect, 1, border_radius=4)
+            lbl = tiny.render(label, True, (230, 230, 230))
+            screen.blit(lbl, lbl.get_rect(center=rect.center))
+
+        draw_toggle(pygame.Rect(px, py, 58, 18), f"W({sum(1 for h in hitboxes if h.get('role')=='wall')})",
+                    show_walls)
+        draw_toggle(pygame.Rect(px + 62, py, 58, 18),
+                    f"I({sum(1 for h in hitboxes if h.get('role')=='interactable')})", show_interactables)
+        draw_toggle(pygame.Rect(px + 124, py, 58, 18), f"O({len(decoracion)})", show_objects)
+        py += 26
+
+        pygame.draw.line(screen, (60, 60, 80), (panel_rect.x, py), (panel_rect.right, py), 1)
+        py += 4
+
+        list_top = py
+        list_h = panel_rect.bottom - list_top
+        panel_clip = pygame.Rect(panel_rect.x, list_top, panel_rect.width, list_h)
+
+        items = _panel_items()
+        total_list_h = len(items) * PANEL_ROW_H
+        max_scroll = max(0, total_list_h - list_h + 8)
+        panel_scroll = min(panel_scroll, max_scroll)
+
+        screen.set_clip(panel_clip)
+        for row_i, (label, color, kind, real_idx) in enumerate(items):
+            ry = list_top + row_i * PANEL_ROW_H - panel_scroll
+            if ry + PANEL_ROW_H < list_top or ry > panel_rect.bottom:
+                continue
+            is_panel_sel = (kind == "hitbox" and real_idx == selected_hitbox_idx) or \
+                           (kind == "deco" and real_idx == selected_deco_idx)
+            if is_panel_sel:
+                pygame.draw.rect(screen, (55, 60, 80),
+                                 pygame.Rect(panel_rect.x, ry, panel_rect.width, PANEL_ROW_H))
+            pygame.draw.rect(screen, color, pygame.Rect(px, ry + 4, 8, 14), border_radius=2)
+            lbl = tiny.render(label, True, (220, 220, 230))
+            screen.blit(lbl, (px + 12, ry + 4))
+        screen.set_clip(None)
+
+        # Scrollbar
+        if total_list_h > list_h:
+            sb_h = max(20, int(list_h * list_h / total_list_h))
+            sb_y = list_top + int(panel_scroll / max_scroll * (list_h - sb_h)) if max_scroll else list_top
+            pygame.draw.rect(screen, (80, 80, 110),
+                             pygame.Rect(panel_rect.right - 6, sb_y, 4, sb_h), border_radius=2)
+
+        # ── Status bar ────────────────────────────────────────────────────────
+        pygame.draw.rect(screen, (22, 22, 32), status_rect_layout)
+        pygame.draw.line(screen, (60, 60, 80), status_rect_layout.topleft,
+                         (status_rect_layout.right, status_rect_layout.y), 1)
+        npc_char = npc_character_options[current_npc_character_idx] if npc_character_options else "?"
+        npc_anim = (current_npc_animation_options[current_npc_animation_idx]
+                    if current_npc_animation_options else "?")
+        mode_str = editor_mode.upper()
+        tool_str = (f"{current_shape}/{current_role}/{current_interactable_action}"
+                    if editor_mode == "hitbox" else
+                    (available_objects[current_object_idx] if available_objects else "sin objetos"))
+        status_parts = [
+            f"Fondo: {os.path.basename(image_path)}",
+            f"Modo: {mode_str}{'  MOVER' if move_mode else ''}{'  TEST' if test_mode else ''}",
+            f"Tool: {tool_str}",
+            f"NPC: {npc_char}/{npc_anim[:18]}",
+            f"Cursor: ({norm_cursor})",
+            f"FPS: {fps:.0f}",
+            f"HBs: {len(hitboxes)} + {len(decoracion)} obj",
+            f"Grid: {'ON' if grid_snap else 'off'}  Labels: {'ON' if show_labels else 'off'}",
+        ]
+        sx_pos = 8
+        sy_pos = status_rect_layout.y + (STATUS_H - small.get_height()) // 2
+        for part in status_parts:
+            s = tiny.render(part, True, (180, 190, 210))
+            screen.blit(s, (sx_pos, sy_pos))
+            sx_pos += s.get_width() + 18
+            if sx_pos > win_w - PANEL_W - 10:
+                break
+
+        # ── Bottom instruction area ───────────────────────────────────────────
+        if spawn_status_timer > 0 and spawn_status_message:
+            spawn_status_timer -= 1
+            msg_color = (255, 180, 120) if "Ya existe" in spawn_status_message else (180, 255, 180)
+            msg = small.render(spawn_status_message, True, msg_color)
+            screen.blit(msg, msg.get_rect(midtop=(viewport_rect.centerx, viewport_rect.bottom + 4)))
+
+        ui_y = viewport_rect.bottom + (26 if spawn_status_timer > 0 else 8)
+        max_txt_w = win_w - panel_rect.width - padding * 2 - 8
+
+        lines = [
+            ("HITBOX: arrastra=crear | WASD=camara | F=forma | I=wall/inter | K=accion | M=mover | T=test | P/Shift+P=spawn | click-der=borrar | C=limpiar | ENTER=guardar | Ctrl+L=cargar | ESC=salir", (235, 235, 235)),
+            ("O=modo objeto | J/H=obj/fondo | N=selector NPC | B=selector anim | G=grid | L=etiquetas | +/-=grosor/escala | Ctrl+D=dup | Ctrl+A=sel-todo | Ctrl+C/V=copiar/pegar | Ctrl+Shift+C/V=sel", (210, 210, 160)),
+        ]
+        for line_txt, line_col in lines:
+            ui_y = draw_wrapped_text(screen, line_txt, tiny, line_col,
+                                     padding, ui_y, max_txt_w)
+
+        # ── Spawn modal ───────────────────────────────────────────────────────
         if spawn_modal_active:
             modal_w = min(760, win_w - 120)
             modal_h = min(520, win_h - 120)
@@ -1397,59 +1967,99 @@ def main():
             screen.blit(dim, (0, 0))
             pygame.draw.rect(screen, (245, 245, 245), modal, border_radius=10)
             pygame.draw.rect(screen, (20, 20, 20), modal, 3, border_radius=10)
-            title_surf = font.render("Este es el spawn si el jugador proviene de:", True, (20, 20, 20))
-            help_surf = small.render(
-                "(UP/DOWN para elegir, ENTER para confirmar, ESC para cancelar)",
-                True,
-                (70, 70, 70),
-            )
-            screen.blit(title_surf, (modal.x + 20, modal.y + 20))
-            screen.blit(help_surf, (modal.x + 20, modal.y + 54))
+            screen.blit(font.render("Spawn si el jugador viene de:", True, (20, 20, 20)),
+                        (modal.x + 20, modal.y + 20))
+            screen.blit(small.render("UP/DOWN=elegir  ENTER=confirmar  ESC=cancelar",
+                                     True, (70, 70, 70)), (modal.x + 20, modal.y + 54))
             list_y = modal.y + 96
             max_rows = max(1, (modal.height - 130) // 26)
-            start = 0
-            if spawn_modal_selected >= max_rows:
-                start = spawn_modal_selected - max_rows + 1
+            start = max(0, spawn_modal_selected - max_rows + 1)
             end = min(len(spawn_modal_options), start + max_rows)
             for idx in range(start, end):
                 txt = spawn_modal_options[idx]
-                row_rect = pygame.Rect(modal.x + 20, list_y + (idx - start) * 26, modal.width - 40, 24)
+                row = pygame.Rect(modal.x + 20, list_y + (idx - start) * 26, modal.width - 40, 24)
                 if idx == spawn_modal_selected:
-                    pygame.draw.rect(screen, (210, 230, 255), row_rect, border_radius=4)
-                option_label = txt
+                    pygame.draw.rect(screen, (210, 230, 255), row, border_radius=4)
+                label_txt = txt
                 if txt != "Cualquier fondo" and txt in spawn_rules.get("by_origin", {}):
-                    option_label = f"{txt} [YA TIENE SPAWN]"
-                option_surf = small.render(option_label, True, (20, 20, 20))
-                screen.blit(option_surf, (row_rect.x + 8, row_rect.y + 2))
+                    label_txt = f"{txt} [YA TIENE SPAWN]"
+                screen.blit(small.render(label_txt, True, (20, 20, 20)), (row.x + 8, row.y + 2))
 
-        if spawn_status_timer > 0 and spawn_status_message:
-            spawn_status_timer -= 1
-            msg_color = (255, 180, 120) if "Ya existe" in spawn_status_message else (180, 255, 180)
-            status_surf = small.render(spawn_status_message, True, msg_color)
-            status_rect = status_surf.get_rect(midtop=(win_w // 2, viewport_rect.bottom - 26))
-            screen.blit(status_surf, status_rect)
+        # ── NPC character modal ───────────────────────────────────────────────
+        if npc_char_modal and npc_character_options:
+            cols = THUMB_COLS
+            cell = THUMB + THUMB_GAP
+            modal_w = cols * cell + THUMB_GAP * 2 + 20
+            rows_count = math.ceil(len(npc_character_options) / cols)
+            modal_h = min(win_h - 80, rows_count * cell + 80)
+            modal = pygame.Rect((win_w - modal_w) // 2, (win_h - modal_h) // 2, modal_w, modal_h)
+            dim = pygame.Surface((win_w, win_h), pygame.SRCALPHA)
+            dim.fill((0, 0, 0, 160))
+            screen.blit(dim, (0, 0))
+            pygame.draw.rect(screen, (40, 40, 55), modal, border_radius=10)
+            pygame.draw.rect(screen, (120, 120, 160), modal, 2, border_radius=10)
+            screen.blit(font.render("Elegir personaje NPC  (Flechas + Enter / ESC)",
+                                    True, (220, 220, 240)), (modal.x + 10, modal.y + 10))
+            mx0 = modal.x + THUMB_GAP
+            my0 = modal.y + 42
+            for ci, char_name in enumerate(npc_character_options):
+                col_i = ci % cols
+                row_i = ci // cols
+                cx = mx0 + col_i * cell
+                cy = my0 + row_i * cell
+                cell_rect = pygame.Rect(cx, cy, THUMB + 4, THUMB + 18)
+                if ci == npc_modal_selected:
+                    pygame.draw.rect(screen, (80, 140, 220), cell_rect, border_radius=6)
+                thumb = _load_thumbnail(char_name)
+                if thumb:
+                    tw, th = thumb.get_size()
+                    screen.blit(thumb, (cx + (THUMB - tw) // 2 + 2, cy + 2))
+                screen.blit(tiny.render(char_name[:12], True, (220, 220, 240)),
+                            (cx + 2, cy + THUMB + 4))
+                # Mouse click detection
+                if pygame.mouse.get_pressed()[0] and cell_rect.collidepoint(pygame.mouse.get_pos()):
+                    npc_modal_selected = ci
+                    current_npc_character_idx = ci
+                    current_npc_animation_options = _animations_for_character(npc_character_options[ci])
+                    current_npc_animation_idx = 0
+                    npc_char_modal = False
 
-        ui_y = viewport_rect.bottom + 8
-        line1 = "Rect/Circ: arrastra click izq. Linea: click inicio, suelta fin."
-        line2 = "WASD: mover camara | F: forma | I: wall/interactable | J/H: destino | K: accion | N/B: NPC | +/-: grosor linea | T: test | P: spawn | Shift+P: fijar spawn | click derecho: borrar | C: limpiar | ENTER: guardar | L: cargar | ESC: salir."
-        line_shortcuts = "Portapapeles: Ctrl+C copia paredes | Ctrl+V pega paredes | Ctrl+Shift+C copia seleccionada | Ctrl+Shift+V pega seleccionada | Ctrl+Z/Y deshacer/rehacer."
-        line3 = (
-            f"Archivo: {os.path.basename(image_path)} | Hitboxes: {len(hitboxes)} | "
-            f"Forma: {current_shape} | Tipo nuevo: {current_role} | "
-            f"Accion: {current_interactable_action} | Destino: {available_backgrounds[current_target_bg_idx]} | "
-            f"Grosor linea: {current_line_thickness_px}px | "
-            f"Test: {'ON' if test_mode else 'OFF'} | Dummy: {test_player.width}x{test_player.height} | "
-            f"Cam: ({camera_x}, {camera_y}) | Zoom: {zoom_factor:.2f}x | NPCs legacy: {len(npc_positions)} | NPC seleccionado legacy: {selected_npc_name} | "
-            f"NPC hitbox: {npc_character_options[current_npc_character_idx]} / {current_npc_animation_options[current_npc_animation_idx]} | Export: {os.path.basename(out_path)}."
-            f"MoveMode: {'ON' if move_mode else 'OFF'} | Seleccionada: {selected_hitbox_idx + 1 if selected_hitbox_idx is not None and selected_hitbox_idx < len(hitboxes) else 'ninguna'} | "
-        )
-
-        text_x = padding + 18
-        max_text_w = win_w - text_x - padding
-        y2 = draw_wrapped_text(screen, line1, font, (235, 235, 235), text_x, ui_y, max_text_w)
-        y3 = draw_wrapped_text(screen, line2, small, (210, 210, 220), text_x, y2, max_text_w)
-        y4 = draw_wrapped_text(screen, line_shortcuts, small, (255, 235, 150), text_x, y3, max_text_w)
-        draw_wrapped_text(screen, line3, small, (170, 220, 170), text_x, y4, max_text_w)
+        # ── NPC animation modal ───────────────────────────────────────────────
+        if npc_anim_modal and current_npc_animation_options:
+            char_name = npc_character_options[current_npc_character_idx]
+            cols = THUMB_COLS
+            cell = THUMB + THUMB_GAP
+            modal_w = cols * cell + THUMB_GAP * 2 + 20
+            rows_count = math.ceil(len(current_npc_animation_options) / cols)
+            modal_h = min(win_h - 80, rows_count * cell + 80)
+            modal = pygame.Rect((win_w - modal_w) // 2, (win_h - modal_h) // 2, modal_w, modal_h)
+            dim = pygame.Surface((win_w, win_h), pygame.SRCALPHA)
+            dim.fill((0, 0, 0, 160))
+            screen.blit(dim, (0, 0))
+            pygame.draw.rect(screen, (40, 40, 55), modal, border_radius=10)
+            pygame.draw.rect(screen, (120, 120, 160), modal, 2, border_radius=10)
+            screen.blit(font.render(f"Animacion de {char_name}  (Flechas + Enter / ESC)",
+                                    True, (220, 220, 240)), (modal.x + 10, modal.y + 10))
+            mx0 = modal.x + THUMB_GAP
+            my0 = modal.y + 42
+            for ai, anim_file in enumerate(current_npc_animation_options):
+                col_i = ai % cols
+                row_i = ai // cols
+                cx = mx0 + col_i * cell
+                cy = my0 + row_i * cell
+                cell_rect = pygame.Rect(cx, cy, THUMB + 4, THUMB + 18)
+                if ai == npc_anim_modal_selected:
+                    pygame.draw.rect(screen, (80, 140, 220), cell_rect, border_radius=6)
+                thumb = _load_thumbnail(char_name, anim_file)
+                if thumb:
+                    tw, th = thumb.get_size()
+                    screen.blit(thumb, (cx + (THUMB - tw) // 2 + 2, cy + 2))
+                screen.blit(tiny.render(anim_file[:12], True, (220, 220, 240)),
+                            (cx + 2, cy + THUMB + 4))
+                if pygame.mouse.get_pressed()[0] and cell_rect.collidepoint(pygame.mouse.get_pos()):
+                    npc_anim_modal_selected = ai
+                    current_npc_animation_idx = ai
+                    npc_anim_modal = False
 
         pygame.display.flip()
 

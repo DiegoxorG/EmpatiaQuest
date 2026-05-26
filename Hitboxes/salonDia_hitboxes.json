@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\salonDia.png",
+  "image": "Imagenes\\Fondos\\salonDia.png",
   "image_size": [
     1709,
     1282
@@ -81,30 +81,6 @@
       "ry": 0.31435257410296413,
       "rw": 0.15389116442363956,
       "rh": 0.093603744149766
-    },
-    {
-      "role": "wall",
-      "type": "rect",
-      "rx": 0.21533060269163254,
-      "ry": 0.8003120124804992,
-      "rw": 0.12287887653598596,
-      "rh": 0.14118564742589704
-    },
-    {
-      "role": "wall",
-      "type": "rect",
-      "rx": 0.42598010532475133,
-      "ry": 0.8018720748829953,
-      "rw": 0.11761263897015799,
-      "rh": 0.1372854914196568
-    },
-    {
-      "role": "wall",
-      "type": "rect",
-      "rx": 0.6307782328847279,
-      "ry": 0.8003120124804992,
-      "rw": 0.11702750146284377,
-      "rh": 0.13962558502340094
     },
     {
       "role": "wall",
@@ -195,54 +171,6 @@
     {
       "role": "wall",
       "type": "rect",
-      "rx": 0.6319485078993563,
-      "ry": 0.6357254290171607,
-      "rw": 0.11234640140433001,
-      "rh": 0.12246489859594384
-    },
-    {
-      "role": "wall",
-      "type": "rect",
-      "rx": 0.6307782328847279,
-      "ry": 0.4734789391575663,
-      "rw": 0.10825043885313049,
-      "rh": 0.12246489859594384
-    },
-    {
-      "role": "wall",
-      "type": "rect",
-      "rx": 0.435927442949093,
-      "ry": 0.47581903276131043,
-      "rw": 0.11644236395552955,
-      "rh": 0.12090483619344773
-    },
-    {
-      "role": "wall",
-      "type": "rect",
-      "rx": 0.2445874780573435,
-      "ry": 0.4765990639625585,
-      "rw": 0.11644236395552955,
-      "rh": 0.11856474258970359
-    },
-    {
-      "role": "wall",
-      "type": "rect",
-      "rx": 0.23229959040374487,
-      "ry": 0.6333853354134166,
-      "rw": 0.11644236395552955,
-      "rh": 0.1294851794071763
-    },
-    {
-      "role": "wall",
-      "type": "rect",
-      "rx": 0.4300760678759509,
-      "ry": 0.6333853354134166,
-      "rw": 0.1181977764774722,
-      "rh": 0.1294851794071763
-    },
-    {
-      "role": "wall",
-      "type": "rect",
       "rx": 0.18431831480397892,
       "ry": 0.3408736349453978,
       "rw": 0.1614979520187244,
@@ -271,110 +199,6 @@
       "ry": 0.6123244929797191,
       "rw": 0.07548273844353423,
       "rh": 0.18174726989079562
-    },
-    {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.2106495026331188,
-      "ry": 0.3954758190327613,
-      "rw": 0.1860737273259216,
-      "rh": 0.2823712948517941,
-      "action": "npc",
-      "npc_character": "Andres",
-      "npc_animation": "Andres_hablando.png",
-      "target_image": ""
-    },
-    {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.19075482738443533,
-      "ry": 0.531201248049922,
-      "rw": 0.20011702750146285,
-      "rh": 0.3073322932917317,
-      "action": "npc",
-      "npc_character": "Samuel",
-      "npc_animation": "Samuel_Sentado.png",
-      "target_image": ""
-    },
-    {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.18197776477472205,
-      "ry": 0.7386895475819033,
-      "rw": 0.19836161497952018,
-      "rh": 0.2542901716068643,
-      "action": "npc",
-      "npc_character": "Sara",
-      "npc_animation": "Sara_dibujando.png",
-      "target_image": ""
-    },
-    {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.3914569923932124,
-      "ry": 0.4017160686427457,
-      "rw": 0.19953188999414861,
-      "rh": 0.24960998439937598,
-      "action": "npc",
-      "npc_character": "Lucas",
-      "npc_animation": "Lucas_mirando.png",
-      "target_image": ""
-    },
-    {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.3844353423054418,
-      "ry": 0.5600624024960998,
-      "rw": 0.211234640140433,
-      "rh": 0.265990639625585,
-      "action": "npc",
-      "npc_character": "Diego",
-      "npc_animation": "Diego_hablando.png",
-      "target_image": ""
-    },
-    {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.5746050321825629,
-      "ry": 0.3790951638065523,
-      "rw": 0.23112931538911644,
-      "rh": 0.28549141965678626,
-      "action": "npc",
-      "npc_character": "Carlos",
-      "npc_animation": "Carlos_hablando.png",
-      "target_image": ""
-    },
-    {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.5781158572264482,
-      "ry": 0.7262090483619345,
-      "rw": 0.229959040374488,
-      "rh": 0.25663026521060844,
-      "action": "npc",
-      "npc_character": "Mateo",
-      "npc_animation": "Mateo_hablando.png",
-      "target_image": ""
-    },
-    {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.41193680514921005,
-      "ry": 0.8003120124804992,
-      "rw": 0.1492100643651258,
-      "rh": 0.16536661466458658,
-      "action": "silla",
-      "target_image": ""
-    },
-    {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.6114686951433587,
-      "ry": 0.6302652106084243,
-      "rw": 0.15798712697483908,
-      "rh": 0.16380655226209048,
-      "action": "silla",
-      "target_image": ""
     },
     {
       "role": "wall",
@@ -414,5 +238,6 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": []
 }

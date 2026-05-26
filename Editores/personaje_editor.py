@@ -90,8 +90,25 @@ def main():
     image = pygame.image.load(sprite_path).convert_alpha()
     iw, ih = image.get_size()
 
+    # Load walk_down frames for animated preview
+    walk_frames = []
+    walk_dir = os.path.dirname(sprite_path)
+    walk_path = os.path.join(walk_dir, "walk_down.png")
+    if not os.path.exists(walk_path):
+        walk_path = os.path.join(walk_dir, "walk_down_0.png")
+    try:
+        walk_sheet = pygame.image.load(walk_path).convert_alpha()
+        wsw, wsh = walk_sheet.get_size()
+        wfc = max(1, round(wsw / max(1, wsh)))
+        wfw = wsw // wfc
+        for wi in range(wfc):
+            walk_frames.append(walk_sheet.subsurface(pygame.Rect(wi * wfw, 0, wfw, wsh)).copy())
+    except Exception:
+        walk_frames = []
+
     font = pygame.font.SysFont("consolas", 18)
     title_font = pygame.font.SysFont("consolas", 24, bold=True)
+    small_font = pygame.font.SysFont("consolas", 15)
 
     config = load_config(config_path)
     scale = float(config.get("scale", DEFAULT_SCALE))
@@ -267,18 +284,55 @@ def main():
         active_label = "ROJA (colision)" if active_hitbox == "collision" else "AMARILLA (interactuable)"
         active = hitboxes[active_hitbox]
 
+        # Compute exact normalized values (as stored in config JSON)
+        rx_val = active["offset_x_ratio"]
+        ry_val = active["offset_y_ratio"]
+        rw_val = active["w_ratio"]
+        rh_val = active["h_ratio"]
+        # Pixel dimensions at current scale
+        px_w = max(4, int(scaled_w * rw_val))
+        px_h = max(4, int(scaled_h * rh_val))
+
         info = [
             f"Scale: {scale:.2f}  (Q/E, max {MAX_SCALE:.1f})",
-            f"Editando: {active_label}  (I para alternar)",
-            f"Anchura hitbox activa: {active['w_ratio']:.2f}  (A/D)",
-            f"Altura hitbox activa: {active['h_ratio']:.2f}  (W/S)",
-            f"Offset X activa: {active['offset_x_ratio']:.2f}  (LEFT/RIGHT)",
-            f"Offset Y activa: {active['offset_y_ratio']:.2f}  (UP/DOWN)",
-            "ENTER: guardar, L: cargar,",
-            "R: reset, Ctrl+Z: deshacer, Ctrl+Y: rehacer",
-            "ESC: salir",
+            f"Editando: {active_label}  (I)",
+            f"",
+            f"  rx (offset_x): {rx_val:.4f}   (LEFT/RIGHT)",
+            f"  ry (offset_y): {ry_val:.4f}   (UP/DOWN)",
+            f"  rw (anchura):  {rw_val:.4f}   (A/D)",
+            f"  rh (altura):   {rh_val:.4f}   (W/S)",
+            f"  Pixeles aprox: {px_w} x {px_h} @ escala {scale:.2f}",
+            f"",
+            f"ENTER: guardar  L: cargar",
+            f"R: reset  Ctrl+Z/Y: deshacer/rehacer",
+            f"ESC: salir",
         ]
         draw_text(screen, "\n".join(info), info_x, preview_y, font)
+
+        # Walk animation preview
+        if walk_frames:
+            anim_idx = (pygame.time.get_ticks() // 140) % len(walk_frames)
+            walk_frame = walk_frames[anim_idx]
+            wf_w, wf_h = walk_frame.get_size()
+            walk_scale = scale
+            walk_scaled_w = max(1, int(wf_w * walk_scale))
+            walk_scaled_h = max(1, int(wf_h * walk_scale))
+            walk_sprite = pygame.transform.smoothscale(walk_frame, (walk_scaled_w, walk_scaled_h))
+            walk_x = info_x
+            walk_y = preview_y + 260
+            walk_rect = walk_sprite.get_rect(centerx=walk_x + 80, y=walk_y)
+            screen.blit(walk_sprite, walk_rect.topleft)
+            # Draw collision hitbox over walk preview
+            chb = hitboxes["collision"]
+            chb_rect = pygame.Rect(
+                walk_rect.left + int(walk_scaled_w * chb["offset_x_ratio"]),
+                walk_rect.top + int(walk_scaled_h * chb["offset_y_ratio"]),
+                max(4, int(walk_scaled_w * chb["w_ratio"])),
+                max(4, int(walk_scaled_h * chb["h_ratio"])),
+            )
+            pygame.draw.rect(screen, (255, 0, 0), chb_rect, 2)
+            lbl = small_font.render("Preview walk_down", True, (180, 180, 200))
+            screen.blit(lbl, (walk_x, walk_y - 18))
 
         note = (
             "Guarda para que el juego cargue el valor desde Hitboxes/personaje_config.json.\n"
@@ -290,6 +344,7 @@ def main():
         clock.tick(60)
 
     pygame.quit()
+
 
 
 if __name__ == "__main__":

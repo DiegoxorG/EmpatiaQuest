@@ -1,143 +1,30 @@
 {
-  "save_version": 2,
-  "story_felicidad": 50,
-  "story_reputacion": 50,
-  "story_completed": 0,
+  "save_version": 3,
+  "story_felicidad": 79,
+  "story_reputacion": 58,
+  "story_completed": 5,
   "story_event_pool": [
     {
-      "id": "voces_pasillo",
-      "title": "Voces en el pasillo",
-      "sensitive": false,
-      "condition": null,
-      "options": [
-        {
-          "label": "1) Defender calmadamente",
-          "dF": 10,
-          "dR": 5,
-          "thought": "Hablar con calma tambien puede detener dano."
-        },
-        {
-          "label": "2) Defender agresivamente",
-          "dF": 5,
-          "dR": -5,
-          "thought": "Quise ayudar, pero subi la violencia."
-        },
-        {
-          "label": "3) Buscar docente",
-          "dF": 8,
-          "dR": 3,
-          "thought": "No tenia que resolverlo solo."
-        },
-        {
-          "label": "4) Ignorar",
-          "dF": -10,
-          "dR": 0,
-          "thought": "Escuche todo y segui caminando."
-        },
-        {
-          "label": "5) Reirte",
-          "dF": -15,
-          "dR": 5,
-          "thought": "Me rei para encajar y lo empeore."
-        }
-      ]
-    },
-    {
-      "id": "broma",
-      "title": "La broma",
-      "sensitive": false,
-      "condition": null,
-      "options": [
-        {
-          "label": "1) Defender calmadamente",
-          "dF": 12,
-          "dR": 5,
-          "thought": "Humillar nunca es broma."
-        },
-        {
-          "label": "2) Defender agresivamente",
-          "dF": 5,
-          "dR": -5,
-          "thought": "Frene una cosa, empeore otra."
-        },
-        {
-          "label": "3) Pedirle a Diego que actue",
-          "dF": 10,
-          "dR": 3,
-          "thought": "Una voz puede activar otras."
-        },
-        {
-          "label": "4) Ignorar",
-          "dF": -12,
-          "dR": 0,
-          "thought": "Escuche risas y segui de largo."
-        },
-        {
-          "label": "5) Reirte para encajar",
-          "dF": -18,
-          "dR": 8,
-          "thought": "Encaje y alguien salio herida."
-        }
-      ]
-    },
-    {
-      "id": "reenviado",
-      "title": "Reenviado",
-      "sensitive": true,
-      "condition": null,
-      "options": [
-        {
-          "label": "1) Defender correctamente",
-          "dF": 10,
-          "dR": 5,
-          "thought": "Defender empieza por no participar del dano."
-        },
-        {
-          "label": "2) Defender agresivamente",
-          "dF": 5,
-          "dR": -5,
-          "thought": "Termine sumando caos."
-        },
-        {
-          "label": "3) Reportar grupo",
-          "dF": 8,
-          "dR": 3,
-          "thought": "Alguien tenia que intervenir."
-        },
-        {
-          "label": "4) Ignorar",
-          "dF": -8,
-          "dR": 0,
-          "thought": "Cerrar el chat no borra el dolor."
-        },
-        {
-          "label": "5) Reenviar contenido",
-          "dF": -15,
-          "dR": 5,
-          "thought": "Solo un reenvio tambien hace dano."
-        }
-      ]
-    },
-    {
       "id": "rumores",
-      "title": "Rumores",
+      "title": "Los rumores",
       "sensitive": true,
-      "condition": null,
+      "condition": "prev_ignored",
+      "uses_razon": false,
       "options": [
         {
-          "label": "1) Escuchar y acompanar",
+          "label": "1) Escucharla y acompanarla",
           "dF": 12,
           "dR": 4,
           "thought": "No necesitaba detalles para respetarla."
         },
         {
-          "label": "2) Defender respetuosamente",
+          "label": "2) Defender su privacidad",
           "dF": 10,
           "dR": 5,
           "thought": "La vida de alguien no es espectaculo."
         },
         {
-          "label": "3) Difundir rumores",
+          "label": "3) Difundir el rumor",
           "dF": -18,
           "dR": 6,
           "thought": "Comentar tambien destruye."
@@ -151,63 +38,32 @@
       ]
     },
     {
-      "id": "xenofobia",
-      "title": "No eres de aqui",
-      "sensitive": true,
-      "condition": null,
-      "options": [
-        {
-          "label": "1) Integrarlo al grupo",
-          "dF": 15,
-          "dR": 4,
-          "thought": "Nadie deberia sentirse menos por venir de otro lugar."
-        },
-        {
-          "label": "2) Defenderlo publicamente",
-          "dF": 12,
-          "dR": 5,
-          "thought": "El respeto no tiene fronteras."
-        },
-        {
-          "label": "3) Ignorar",
-          "dF": -12,
-          "dR": 0,
-          "thought": "Lo escuche y mire a otro lado."
-        },
-        {
-          "label": "4) Participar en comentarios",
-          "dF": -20,
-          "dR": 7,
-          "thought": "Encajar asi deshumaniza a otros."
-        }
-      ]
-    },
-    {
       "id": "no_era_flojera",
       "title": "No era flojera",
       "sensitive": true,
       "condition": null,
+      "uses_razon": false,
       "options": [
         {
-          "label": "1) Escuchar y acompanar",
+          "label": "1) Sentarte y escucharle",
           "dF": 15,
           "dR": 5,
           "thought": "Escuchar puede cambiarlo todo."
         },
         {
-          "label": "2) Buscar ayuda responsable",
+          "label": "2) Buscar ayuda de un adulto de confianza",
           "dF": 12,
           "dR": 5,
           "thought": "Habia senales muy fuertes."
         },
         {
-          "label": "3) Minimizar",
+          "label": "3) Decirle que se esfuerce mas",
           "dF": -20,
           "dR": -5,
           "thought": "Reduci su dolor a algo pasajero."
         },
         {
-          "label": "4) Ignorar",
+          "label": "4) Seguir tu camino",
           "dF": -18,
           "dR": 0,
           "thought": "Lo vi apagarse y no actue."
@@ -219,27 +75,28 @@
       "title": "No es un chiste",
       "sensitive": true,
       "condition": null,
+      "uses_razon": false,
       "options": [
         {
-          "label": "1) Defender",
+          "label": "1) Defender directamente",
           "dF": 12,
           "dR": 4,
           "thought": "No era humor: era dano repetido."
         },
         {
-          "label": "2) Educar calmadamente",
+          "label": "2) Educar calmadamente al grupo",
           "dF": 15,
           "dR": 5,
-          "thought": "Normalizar racismo lo expande."
+          "thought": "Normalizar el racismo lo expande."
         },
         {
-          "label": "3) Reirte",
+          "label": "3) Reirte con el grupo",
           "dF": -18,
           "dR": 6,
           "thought": "Me rei sabiendo que dolia."
         },
         {
-          "label": "4) Decir 'solo era humor'",
+          "label": "4) Decir que es solo humor",
           "dF": -15,
           "dR": -3,
           "thought": "Minimice algo grave."
@@ -247,13 +104,47 @@
       ]
     },
     {
-      "id": "persona_llorando",
-      "title": "Persona llorando",
-      "sensitive": false,
-      "condition": "f_40_49",
+      "id": "xenofobia",
+      "title": "No eres de aqui",
+      "sensitive": true,
+      "condition": null,
+      "uses_razon": false,
       "options": [
         {
-          "label": "1) Consolar",
+          "label": "1) Integrarlo al equipo activamente",
+          "dF": 15,
+          "dR": 4,
+          "thought": "Nadie deberia sentirse menos por venir de otro lugar."
+        },
+        {
+          "label": "2) Defenderlo publicamente",
+          "dF": 12,
+          "dR": 5,
+          "thought": "El respeto no tiene fronteras."
+        },
+        {
+          "label": "3) Ignorar la situacion",
+          "dF": -12,
+          "dR": 0,
+          "thought": "Lo escuche y mire a otro lado."
+        },
+        {
+          "label": "4) Participar en los comentarios",
+          "dF": -20,
+          "dR": 7,
+          "thought": "Encajar asi deshumaniza a otros."
+        }
+      ]
+    },
+    {
+      "id": "persona_llorando",
+      "title": "Alguien llorando",
+      "sensitive": false,
+      "condition": "f_40_49",
+      "uses_razon": false,
+      "options": [
+        {
+          "label": "1) Sentarte a su lado sin preguntar",
           "dF": 10,
           "dR": 3,
           "thought": "Acompanamiento antes que respuestas."
@@ -265,13 +156,13 @@
           "thought": "Preguntar tambien sostiene."
         },
         {
-          "label": "3) Ignorar",
+          "label": "3) Respetar su espacio e irte",
           "dF": -10,
           "dR": 0,
           "thought": "Escuche llorar y segui."
         },
         {
-          "label": "4) Decir 'no es para tanto'",
+          "label": "4) Decirle que no es para tanto",
           "dF": -15,
           "dR": -2,
           "thought": "Minimizar tambien hiere."
@@ -280,30 +171,31 @@
     },
     {
       "id": "pelea_pasillos",
-      "title": "Pelea en pasillos",
+      "title": "Pelea en los pasillos",
       "sensitive": false,
       "condition": "f_25_39",
+      "uses_razon": false,
       "options": [
         {
-          "label": "1) Separar pelea",
+          "label": "1) Interponerte fisicamente para separar",
           "dF": 10,
           "dR": 5,
           "thought": "Si nadie intervenia, empeoraba."
         },
         {
-          "label": "2) Buscar ayuda",
+          "label": "2) Buscar un docente rapidamente",
           "dF": 8,
           "dR": 3,
           "thought": "Pedi apoyo en lugar de grabar."
         },
         {
-          "label": "3) Grabar",
+          "label": "3) Grabar con el celular",
           "dF": -10,
           "dR": 5,
           "thought": "Lo volvi espectaculo."
         },
         {
-          "label": "4) Ignorar",
+          "label": "4) Esperar a que pase",
           "dF": -12,
           "dR": 0,
           "thought": "Espere que otro actuara."
@@ -311,106 +203,158 @@
       ]
     },
     {
-      "id": "detras_agresor",
-      "title": "Detras del agresor",
+      "id": "lider_empatia",
+      "title": "Te piden consejo",
       "sensitive": false,
-      "condition": null,
+      "condition": "r_60_plus",
+      "uses_razon": false,
       "options": [
         {
-          "label": "1) Hablar en privado",
+          "label": "1) Darle consejos concretos y practicos",
           "dF": 12,
-          "dR": 3,
-          "thought": "Entender no es justificar."
+          "dR": 6,
+          "thought": "Ensenar a otros a ayudar multiplica el impacto."
         },
         {
-          "label": "2) Confrontar publicamente",
-          "dF": 5,
-          "dR": -3,
-          "thought": "Humillar no corrige."
-        },
-        {
-          "label": "3) Ignorar",
-          "dF": -8,
-          "dR": 0,
-          "thought": "Decidi no mirar lo que habia detras."
-        },
-        {
-          "label": "4) Exponer su situacion",
-          "dF": -12,
+          "label": "2) Ofrecerte a ir con el juntos",
+          "dF": 15,
           "dR": 5,
-          "thought": "Converti su dolor en espectaculo."
+          "thought": "Dos personas siempre generan mas seguridad."
+        },
+        {
+          "label": "3) Decirle que es problema de otro",
+          "dF": -10,
+          "dR": -5,
+          "thought": "Podia haberlo guiado y no lo hice."
+        },
+        {
+          "label": "4) Decirle que avise a un adulto",
+          "dF": 8,
+          "dR": 3,
+          "thought": "Los adultos tienen recursos que nosotros no."
         }
       ]
     },
     {
-      "id": "encajar",
-      "title": "Encajar",
+      "id": "reputacion_baja",
+      "title": "Lo que dicen de ti",
       "sensitive": false,
-      "condition": null,
+      "condition": "r_below_30",
+      "uses_razon": true,
       "options": [
         {
-          "label": "1) Participar",
-          "dF": -12,
-          "dR": 10,
-          "thought": "Encajar no valia ese costo."
+          "label": "1) Hablar con los involucrados directamente",
+          "dF": 10,
+          "dR": 8,
+          "thought": "La unica salida es la conversacion honesta."
         },
         {
-          "label": "2) Negarte",
-          "dF": 5,
-          "dR": -5,
-          "thought": "Decir no tambien exige valentia."
-        },
-        {
-          "label": "3) Intentar detenerlos",
-          "dF": 12,
+          "label": "2) Ignorar los rumores y actuar bien",
+          "dF": 8,
           "dR": 5,
-          "thought": "No queria callar."
+          "thought": "Las acciones hablan mas que las palabras."
         },
         {
-          "label": "4) Irte",
-          "dF": 0,
-          "dR": -3,
-          "thought": "No participe, pero tampoco ayude."
+          "label": "3) Contraatacar con tus propios rumores",
+          "dF": -15,
+          "dR": -10,
+          "thought": "Ensuciar a otros no te limpia a ti."
+        },
+        {
+          "label": "4) Aislarte completamente",
+          "dF": -8,
+          "dR": -5,
+          "thought": "El aislamiento no resuelve nada."
         }
       ]
     }
   ],
   "story_current_event": {
-    "id": "primer_dia",
-    "title": "Primer dia: con quien te sientas",
+    "id": "broma",
+    "title": "La broma que duele",
     "sensitive": false,
     "condition": null,
+    "uses_razon": true,
     "options": [
       {
-        "label": "1) Sentarte con Sara",
-        "dF": 8,
-        "dR": -2,
-        "thought": "A veces alguien solo necesita compania."
-      },
-      {
-        "label": "2) Sentarte con Diego",
-        "dF": -5,
+        "label": "1) Defender con calma",
+        "dF": 12,
         "dR": 5,
-        "thought": "Encajar fue mas facil que mirar a quien quedo sola."
+        "thought": "Humillar nunca es broma."
       },
       {
-        "label": "3) Intentar unirlos",
+        "label": "2) Defender agresivamente",
+        "dF": 5,
+        "dR": -5,
+        "thought": "Frene una cosa, empeore otra."
+      },
+      {
+        "label": "3) Pedirle a Diego que actue",
         "dF": 10,
         "dR": 3,
-        "thought": "Nadie deberia quedarse aparte."
+        "thought": "Una voz puede activar otras."
       },
       {
-        "label": "4) Ignorar y sentarte aparte",
-        "dF": -5,
+        "label": "4) Ignorar",
+        "dF": -12,
         "dR": 0,
-        "thought": "Quedarme al margen tambien fue una eleccion."
+        "thought": "Escuche risas y segui de largo."
+      },
+      {
+        "label": "5) Reirte para encajar",
+        "dF": -18,
+        "dR": 8,
+        "thought": "Encaje y alguien salio herida."
       }
     ]
   },
-  "story_thought": "",
+  "story_thought": "No queria quedarme callado.",
   "story_pending_end": false,
   "story_final_key": "",
   "story_final_text": "",
+  "prologo_razon": "forma de hablar",
+  "decision_history": [
+    {
+      "event_id": "primer_dia",
+      "option_idx": 2,
+      "option_label": "3) Intentar unirlos",
+      "thought": "Nadie deberia quedarse aparte el primer dia.",
+      "dF": 10,
+      "dR": 3
+    },
+    {
+      "event_id": "voces_pasillo",
+      "option_idx": 0,
+      "option_label": "1) Defender calmadamente",
+      "thought": "Hablar con calma tambien puede detener el dano.",
+      "dF": 10,
+      "dR": 5
+    },
+    {
+      "event_id": "reenviado",
+      "option_idx": 1,
+      "option_label": "2) Defender con insultos",
+      "thought": "Termine sumando caos al caos.",
+      "dF": 5,
+      "dR": -5
+    },
+    {
+      "event_id": "detras_agresor",
+      "option_idx": 2,
+      "option_label": "3) Ignorarlo",
+      "thought": "Decidi no mirar lo que habia detras.",
+      "dF": -8,
+      "dR": 0
+    },
+    {
+      "event_id": "encajar",
+      "option_idx": 2,
+      "option_label": "3) Intentar detenerlos",
+      "thought": "No queria quedarme callado.",
+      "dF": 12,
+      "dR": 5
+    }
+  ],
   "character_colors": {
     "Cabello": [
       92,
@@ -465,5 +409,120 @@
     "Mostrar hitboxes": false,
     "Animaciones": true,
     "Ayuda en pantalla": true
-  }
+  },
+  "controls": {
+    "mover_arriba": "w",
+    "mover_abajo": "s",
+    "mover_izquierda": "a",
+    "mover_derecha": "d",
+    "interactuar": "e",
+    "guardar": "f5",
+    "continuar": "return",
+    "opcion_1": "1",
+    "opcion_2": "2",
+    "opcion_3": "3",
+    "opcion_4": "4",
+    "opcion_5": "5"
+  },
+  "skills_inventory": {
+    "Escucha Activa": {
+      "nivel": 0,
+      "max_nivel": 3,
+      "descripcion": "Prestar atencion sin interrumpir."
+    },
+    "Intervencion Pacifica": {
+      "nivel": 2,
+      "max_nivel": 3,
+      "descripcion": "Actuar para detener el dano sin escalar la violencia."
+    },
+    "Empatia Digital": {
+      "nivel": 0,
+      "max_nivel": 3,
+      "descripcion": "Manejar situaciones de ciberbullying de forma correcta."
+    },
+    "Valentia Social": {
+      "nivel": 2,
+      "max_nivel": 3,
+      "descripcion": "Decir no cuando es lo correcto, aunque cueste."
+    },
+    "Mediacion de Conflictos": {
+      "nivel": 1,
+      "max_nivel": 3,
+      "descripcion": "Ayudar a resolver conflictos de forma dialogada."
+    }
+  },
+  "logros": [
+    {
+      "id": "primera_empatia",
+      "nombre": "Primera Empatia",
+      "descripcion": "Tomaste tu primera decision empatica.",
+      "completo": true
+    },
+    {
+      "id": "defensor",
+      "nombre": "Defensor Silencioso",
+      "descripcion": "Defendiste a alguien que lo necesitaba.",
+      "completo": true
+    },
+    {
+      "id": "mediador",
+      "nombre": "Mediador",
+      "descripcion": "Resolviste un conflicto con calma y sin escalar.",
+      "completo": false
+    },
+    {
+      "id": "digital_empathy",
+      "nombre": "Empatia Digital",
+      "descripcion": "Manejaste correctamente un caso de ciberbullying.",
+      "completo": false
+    },
+    {
+      "id": "antirracista",
+      "nombre": "Antirracista",
+      "descripcion": "Confrontaste el racismo con educacion y respeto.",
+      "completo": false
+    },
+    {
+      "id": "inclusion",
+      "nombre": "Puente de Inclusion",
+      "descripcion": "Integraste a alguien que estaba siendo excluido.",
+      "completo": false
+    },
+    {
+      "id": "salud_mental",
+      "nombre": "Red de Apoyo",
+      "descripcion": "Apoyaste a alguien en una crisis de salud mental.",
+      "completo": false
+    },
+    {
+      "id": "nunca_ignores",
+      "nombre": "Nunca De Espaldas",
+      "descripcion": "Completaste el juego sin ignorar a nadie.",
+      "completo": false
+    },
+    {
+      "id": "final_positivo",
+      "nombre": "Heroe Silencioso",
+      "descripcion": "Terminaste la historia con el final positivo.",
+      "completo": false
+    },
+    {
+      "id": "empatia_pura",
+      "nombre": "Empatia Pura",
+      "descripcion": "Solo tomaste decisiones empaticas en toda la historia.",
+      "completo": false
+    },
+    {
+      "id": "comprensivo",
+      "nombre": "Comprensivo",
+      "descripcion": "Intentaste entender a quien hacia dano.",
+      "completo": false
+    },
+    {
+      "id": "valiente",
+      "nombre": "Valiente",
+      "descripcion": "Dijiste no cuando era lo correcto, aunque costara.",
+      "completo": true
+    }
+  ]
 }
