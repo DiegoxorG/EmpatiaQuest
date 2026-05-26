@@ -239,6 +239,80 @@
     }
   },
   "npc_positions": {},
+  "npc_waypoints": [
+    {"rx": 0.85, "ry": 0.42},
+    {"rx": 0.70, "ry": 0.50}
+  ],
+  "silla_hitboxes": [
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.1766, "ry": 0.5717, "rw": 0.05, "rh": 0.05,
+      "action": "silla",
+      "zone_tag": "sara_zone",
+      "npc_owner": "Sara"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.3223, "ry": 0.5717, "rw": 0.05, "rh": 0.05,
+      "action": "silla",
+      "npc_owner": "Carlos"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.4768, "ry": 0.5725, "rw": 0.05, "rh": 0.05,
+      "action": "silla"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.6418, "ry": 0.5717, "rw": 0.05, "rh": 0.05,
+      "action": "silla",
+      "npc_owner": "Lucas"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.7974, "ry": 0.5694, "rw": 0.05, "rh": 0.05,
+      "action": "silla",
+      "zone_tag": "diego_zone",
+      "npc_owner": "Diego"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.1766, "ry": 0.7746, "rw": 0.05, "rh": 0.05,
+      "action": "silla",
+      "npc_owner": "Mateo"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.3194, "ry": 0.7675, "rw": 0.05, "rh": 0.05,
+      "action": "silla",
+      "npc_owner": "Samuel"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.4779, "ry": 0.7644, "rw": 0.05, "rh": 0.05,
+      "action": "silla"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.6412, "ry": 0.7590, "rw": 0.05, "rh": 0.05,
+      "action": "silla"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.7974, "ry": 0.7558, "rw": 0.05, "rh": 0.05,
+      "action": "silla"
+    }
+  ],
   "decoracion": [
     {
       "name": "Pupitre-Sal\u00f3n1.png",

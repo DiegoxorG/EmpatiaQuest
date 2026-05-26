@@ -10,6 +10,7 @@ import random
 
 import pygame
 from Movimiento.Personaje import Personaje
+from npc_ai import NPCAIManager
 from Movimiento.Fondo import Fondo
 from Movimiento.Animacion import Animacion
 from config import (
@@ -406,7 +407,10 @@ class GameStateMixin:
         self.day1_sara_npc_warned = False
         self.day1_seq_dialog_done = False
         self.day1_intro_step = 0
+        self.day1_patio_entered = False
         self.current_mission = "Ir a la escuela"
+        # NPC AI Manager (Evento 1)
+        self.npc_ai_manager = NPCAIManager(os.path.dirname(__file__))
         self.popup_logro_timer = 0
         self.popup_logro_actual = None
         self.player_rect = pygame.Rect(0, 0, 28, 28)
@@ -501,7 +505,7 @@ class GameStateMixin:
         try:
             with open(export_path, "r", encoding="utf-8") as fh:
                 payload = json.load(fh)
-            boxes = payload.get("hitboxes", []) + payload.get("chair_zones", [])
+            boxes = payload.get("hitboxes", []) + payload.get("chair_zones", []) + payload.get("silla_hitboxes", [])
             spawn_data = payload.get("spawn", {})
             npc_positions = payload.get("npc_positions", {})
             self.story_spawn_world = None
@@ -764,8 +768,19 @@ class GameStateMixin:
         self._update_story_camera()
         self.story_interaction_text = f"Entraste a: {target_image_name}"
         self.audio.sfx_puerta()
+        # ── NPC AI: notificar cambio de mapa ─────────────────────────────────
+        npc_mgr = getattr(self, "npc_ai_manager", None)
+        if npc_mgr is not None:
+            npc_mgr.on_map_change(os.path.basename(target_image_name), self)
+
         # ── Detección de mapas especiales Día 1 ───────────────────────────────
         base = os.path.basename(target_image_name).lower()
+        # NPC AI: spawn en PatioDia la primera vez
+        if "patiod" in base and not getattr(self, "day1_patio_entered", False):
+            self.day1_patio_entered = True
+            npc_mgr = getattr(self, "npc_ai_manager", None)
+            if npc_mgr is not None:
+                npc_mgr.init_event1_routine(self.story_world_width, self.story_world_height)
         if base == "salondía.png" or base == "salondia.png":
             if not getattr(self, "day1_salon_entered", False):
                 self.day1_salon_entered = True
@@ -774,6 +789,10 @@ class GameStateMixin:
                 self.current_mission = "Elegir donde sentarse"
         elif base in ("salontarde.png",):
             self.day1_in_tarde = True
+            # NPC AI: fase saliendo cuando empieza SalonTarde
+            npc_mgr = getattr(self, "npc_ai_manager", None)
+            if npc_mgr is not None:
+                npc_mgr.notify_phase("saliendo")
         elif base == "habtarde.png":
             if not getattr(self, "day1_completed", False) and getattr(self, "day1_in_tarde", False):
                 self.day1_end_timer = 2500  # 2.5 segundos para "Fin del Día 1"
@@ -813,6 +832,9 @@ class GameStateMixin:
                 })
                 self.story_completed += 1
                 self.day1_seq_step = 4
+                npc_mgr = getattr(self, "npc_ai_manager", None)
+                if npc_mgr is not None:
+                    npc_mgr.notify_phase("en_clase")
                 if self.story_completed >= self.story_goal:
                     self._resolve_ending()
                 self.audio.sfx_sentarse()
@@ -933,6 +955,11 @@ class GameStateMixin:
         self.story_npc_anim_timer += dt_ms
         if self.story_npc_anim_timer >= 1000000:
             self.story_npc_anim_timer = 0
+
+        # NPC AI update
+        npc_mgr = getattr(self, "npc_ai_manager", None)
+        if npc_mgr is not None:
+            npc_mgr.update(dt_ms, self)
 
         if self._is_first_day_classroom_context():
             self.story_clock_accumulator_ms += dt_ms

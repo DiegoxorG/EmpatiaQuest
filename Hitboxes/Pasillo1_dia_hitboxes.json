@@ -389,5 +389,9 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "npc_waypoints": [
+    {"rx": 0.30, "ry": 0.345},
+    {"rx": 0.20, "ry": 0.345}
+  ]
 }

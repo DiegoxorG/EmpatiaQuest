@@ -101,11 +101,8 @@ def get_minijuego_key(sprite_path):
 
 
 def get_char_config_path(sprite_path, project_root):
-    """Devuelve la ruta del config JSON para este sprite."""
-    char_folder = os.path.basename(os.path.dirname(sprite_path))
-    if char_folder == MAIN_CHARACTER_FOLDER:
-        return os.path.join(project_root, PERSONAJE_CONFIG_NAME)
-    return os.path.join(project_root, "Hitboxes", f"{char_folder}_config.json")
+    """Todos los personajes comparten personaje_config.json (igual que en el juego)."""
+    return os.path.join(project_root, PERSONAJE_CONFIG_NAME)
 
 
 # ─── Colección de entradas para el selector ───────────────────────────────────
@@ -472,23 +469,23 @@ def run_editor(screen, clock, sprite_path, project_root):
                 elif k == pygame.K_e:
                     scale = min(MAX_SCALE, scale + 0.05); push()
 
-                # Hitbox roja (siempre activa)
+                # Hitbox activa (roja o amarilla según active_hb)
                 elif k == pygame.K_a:
-                    hitboxes["collision"]["w_ratio"] = clamp01(hitboxes["collision"]["w_ratio"] - 0.01); push()
+                    hitboxes[active_hb]["w_ratio"] = clamp01(hitboxes[active_hb]["w_ratio"] - 0.01); push()
                 elif k == pygame.K_d:
-                    hitboxes["collision"]["w_ratio"] = clamp01(hitboxes["collision"]["w_ratio"] + 0.01); push()
+                    hitboxes[active_hb]["w_ratio"] = clamp01(hitboxes[active_hb]["w_ratio"] + 0.01); push()
                 elif k == pygame.K_w:
-                    hitboxes["collision"]["h_ratio"] = clamp01(hitboxes["collision"]["h_ratio"] - 0.01); push()
+                    hitboxes[active_hb]["h_ratio"] = clamp01(hitboxes[active_hb]["h_ratio"] - 0.01); push()
                 elif k == pygame.K_s:
-                    hitboxes["collision"]["h_ratio"] = clamp01(hitboxes["collision"]["h_ratio"] + 0.01); push()
+                    hitboxes[active_hb]["h_ratio"] = clamp01(hitboxes[active_hb]["h_ratio"] + 0.01); push()
                 elif k == pygame.K_LEFT:
-                    hitboxes["collision"]["offset_x_ratio"] = clamp01(hitboxes["collision"]["offset_x_ratio"] - 0.01); push()
+                    hitboxes[active_hb]["offset_x_ratio"] = clamp01(hitboxes[active_hb]["offset_x_ratio"] - 0.01); push()
                 elif k == pygame.K_RIGHT:
-                    hitboxes["collision"]["offset_x_ratio"] = clamp01(hitboxes["collision"]["offset_x_ratio"] + 0.01); push()
+                    hitboxes[active_hb]["offset_x_ratio"] = clamp01(hitboxes[active_hb]["offset_x_ratio"] + 0.01); push()
                 elif k == pygame.K_UP:
-                    hitboxes["collision"]["offset_y_ratio"] = clamp01(hitboxes["collision"]["offset_y_ratio"] - 0.01); push()
+                    hitboxes[active_hb]["offset_y_ratio"] = clamp01(hitboxes[active_hb]["offset_y_ratio"] - 0.01); push()
                 elif k == pygame.K_DOWN:
-                    hitboxes["collision"]["offset_y_ratio"] = clamp01(hitboxes["collision"]["offset_y_ratio"] + 0.01); push()
+                    hitboxes[active_hb]["offset_y_ratio"] = clamp01(hitboxes[active_hb]["offset_y_ratio"] + 0.01); push()
 
                 # Toggle hitbox amarilla (solo personajes)
                 elif k == pygame.K_i and not mj_key:

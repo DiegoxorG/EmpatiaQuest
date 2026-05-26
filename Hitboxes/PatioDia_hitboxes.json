@@ -519,6 +519,11 @@
     }
   },
   "npc_positions": {},
+  "npc_waypoints": [
+    {"rx": 0.50, "ry": 0.62},
+    {"rx": 0.50, "ry": 0.40},
+    {"rx": 0.48, "ry": 0.22}
+  ],
   "decoracion": [
     {
       "name": "Bal\u00f3n-minigame.png",

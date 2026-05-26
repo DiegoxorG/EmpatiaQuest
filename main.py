@@ -209,6 +209,8 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         self.aventura_fondo = None
         self.aventura_personaje = None
         self.next_random_event_ms = 0
+        self.day1_patio_entered = False
+        self.npc_ai_manager = None   # inicializado en _start_adventure
 
         # ── Sistemas nuevos ───────────────────────────────────────────────────
         self.audio = AudioManager()

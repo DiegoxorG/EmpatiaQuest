@@ -972,7 +972,9 @@ class RendererMixin:
         else:
             pygame.draw.rect(self.screen, (255, 255, 255), (0, 0, self.width, self.height))
 
-        if self._is_first_day_classroom_context():
+        _npc_ai_mgr = getattr(self, "npc_ai_manager", None)
+        _npc_ai_on = _npc_ai_mgr is not None and _npc_ai_mgr.npc_ai_active
+        if self._is_first_day_classroom_context() and not _npc_ai_on:
             has_npc_hitboxes = any(
                 h.get("role") == "interactable" and h.get("action") == "npc"
                 for h in self.story_walls
@@ -1030,7 +1032,18 @@ class RendererMixin:
                     thickness_px = max(1, int(thickness_norm * self.story_world_width))
                     pygame.draw.line(self.screen, color, (x1, y1), (x2, y2), thickness_px)
 
-        self._draw_npc_interactables_from_hitboxes()
+        if not _npc_ai_on:
+            self._draw_npc_interactables_from_hitboxes()
+
+        # NPC AI draw — misma capa que los NPCs estáticos, debajo del jugador
+        if _npc_ai_mgr is not None and self.aventura_fondo is not None:
+            _cur_map = os.path.basename(str(getattr(self.aventura_fondo, "ruta_imagen", "")))
+            _npc_ai_mgr.draw(
+                self.screen,
+                self.story_camera_x, self.story_camera_y,
+                self.story_world_width, self.story_world_height,
+                _cur_map,
+            )
 
         if self.aventura_personaje is not None:
             if self.story_is_seated and self.story_seated_sprite is not None:
