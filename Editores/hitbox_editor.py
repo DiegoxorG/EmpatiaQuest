@@ -367,12 +367,63 @@ def choose_image_gui(scan_dir, title="Elegir imagen"):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+def migrate_all_objetos_to_hitboxes(project_root):
+    """Imports every Objetos/*_objetos.json into its Hitboxes/*_hitboxes.json.
+    Runs once at startup; skips files that already have decoracion data."""
+    objetos_dir = os.path.join(project_root, "Objetos")
+    hitboxes_dir = os.path.join(project_root, "Hitboxes")
+    if not os.path.isdir(objetos_dir):
+        return
+    migrated = 0
+    for fname in sorted(os.listdir(objetos_dir)):
+        if not fname.endswith("_objetos.json") or fname.startswith("_"):
+            continue
+        image_base = fname[:-len("_objetos.json")]
+        hb_path = os.path.join(hitboxes_dir, f"{image_base}_hitboxes.json")
+        obj_path = os.path.join(objetos_dir, fname)
+        try:
+            with open(obj_path, "r", encoding="utf-8") as fh:
+                obj_payload = json.load(fh)
+            objects = [o for o in obj_payload.get("objects", [])
+                       if isinstance(o, dict) and "name" in o]
+            if not objects:
+                continue
+            if os.path.exists(hb_path):
+                with open(hb_path, "r", encoding="utf-8") as fh:
+                    hb_payload = json.load(fh)
+                if hb_payload.get("decoracion"):
+                    continue  # Already has decoracion, skip
+                hb_payload["decoracion"] = objects
+                with open(hb_path, "w", encoding="utf-8") as fh:
+                    json.dump(hb_payload, fh, indent=2)
+            else:
+                os.makedirs(hitboxes_dir, exist_ok=True)
+                hb_payload = {
+                    "image": obj_payload.get("image", f"Imagenes/Fondos/{image_base}.jpg"),
+                    "image_size": obj_payload.get("image_size", [1920, 1200]),
+                    "hitboxes": [],
+                    "spawn": {},
+                    "npc_positions": {},
+                    "decoracion": objects,
+                }
+                with open(hb_path, "w", encoding="utf-8") as fh:
+                    json.dump(hb_payload, fh, indent=2)
+            migrated += 1
+            print(f"[migration] {fname} → {os.path.basename(hb_path)}")
+        except Exception as e:
+            print(f"[migration] Error en {fname}: {e}")
+    if migrated > 0:
+        print(f"[migration] {migrated} archivos migrados de Objetos/ a Hitboxes/.")
+
+
 def main():
     pygame.init()
     clock = pygame.time.Clock()
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(base_dir)
+
+    migrate_all_objetos_to_hitboxes(project_root)
 
     if len(sys.argv) > 1:
         image_path = sys.argv[1]
@@ -785,6 +836,10 @@ def main():
     deco_move_offset = (0, 0)
     DECO_SCALE_STEP = 1.18
     MIN_DECO = 4
+    deco_crop_mode = False
+    deco_crop_dragging = False
+    deco_crop_start = None
+    deco_crop_current = None
 
     def load_object_image(obj_name):
         if obj_name in object_cache:
@@ -822,6 +877,124 @@ def main():
         if obj_name not in placement_sizes:
             placement_sizes[obj_name] = get_initial_deco_size(obj_img)
         return placement_sizes[obj_name]
+
+    def get_deco_crop_rect(obj, obj_img):
+        crop = obj.get("crop")
+        iw, ih = obj_img.get_size()
+        if not isinstance(crop, dict):
+            return pygame.Rect(0, 0, iw, ih)
+        try:
+            cx = float(crop.get("x", 0.0))
+            cy = float(crop.get("y", 0.0))
+            cw = float(crop.get("w", 1.0))
+            ch = float(crop.get("h", 1.0))
+        except (TypeError, ValueError):
+            return pygame.Rect(0, 0, iw, ih)
+        x = max(0, min(iw - 1, int(cx * iw)))
+        y = max(0, min(ih - 1, int(cy * ih)))
+        w = max(1, min(iw - x, int(cw * iw)))
+        h = max(1, min(ih - y, int(ch * ih)))
+        return pygame.Rect(x, y, w, h)
+
+    def get_cropped_deco_image(obj, obj_img):
+        crop_rect = get_deco_crop_rect(obj, obj_img)
+        if crop_rect.size == obj_img.get_size() and crop_rect.topleft == (0, 0):
+            return obj_img
+        return obj_img.subsurface(crop_rect)
+
+    def make_deco_crop_rect_from_points(start, end):
+        return pygame.Rect(min(start[0], end[0]), min(start[1], end[1]),
+                           abs(end[0] - start[0]), abs(end[1] - start[1]))
+
+    def apply_crop_to_selected_deco(crop_world_rect):
+        if selected_deco_idx is None or not (0 <= selected_deco_idx < len(decoracion)):
+            return
+        obj = decoracion[selected_deco_idx]
+        obj_img = load_object_image(obj["name"])
+        if obj_img is None:
+            return
+        obj_rect = get_deco_world_rect(obj)
+        crop_rect = crop_world_rect.clip(obj_rect)
+        if crop_rect.width < 2 or crop_rect.height < 2:
+            return
+        old_crop = get_deco_crop_rect(obj, obj_img)
+        rel_x = (crop_rect.x - obj_rect.x) / max(1, obj_rect.width)
+        rel_y = (crop_rect.y - obj_rect.y) / max(1, obj_rect.height)
+        rel_w = crop_rect.width / max(1, obj_rect.width)
+        rel_h = crop_rect.height / max(1, obj_rect.height)
+        iw, ih = obj_img.get_size()
+        new_x = max(0, min(old_crop.x + int(old_crop.width * rel_x), iw - 1))
+        new_y = max(0, min(old_crop.y + int(old_crop.height * rel_y), ih - 1))
+        new_w = max(1, min(int(old_crop.width * rel_w), iw - new_x))
+        new_h = max(1, min(int(old_crop.height * rel_h), ih - new_y))
+        obj["crop"] = {"x": new_x / iw, "y": new_y / ih, "w": new_w / iw, "h": new_h / ih}
+        obj.update(normalize_deco(crop_rect.x, crop_rect.y, crop_rect.width, crop_rect.height))
+        push_deco_history()
+
+    def reset_selected_deco_crop():
+        if selected_deco_idx is None or not (0 <= selected_deco_idx < len(decoracion)):
+            return
+        decoracion[selected_deco_idx].pop("crop", None)
+        push_deco_history()
+
+    def copy_all_deco():
+        try:
+            with open(deco_clipboard_path, "w", encoding="utf-8") as fh:
+                json.dump(copy.deepcopy(decoracion), fh, indent=2)
+            print(f"{len(decoracion)} objetos copiados.")
+        except Exception as e:
+            print(f"Error copiando objetos: {e}")
+
+    def paste_all_deco():
+        nonlocal selected_deco_idx
+        if not os.path.exists(deco_clipboard_path):
+            return
+        try:
+            with open(deco_clipboard_path, "r", encoding="utf-8") as fh:
+                pasted = json.load(fh)
+            if not isinstance(pasted, list):
+                return
+            start_idx = len(decoracion)
+            for obj in pasted:
+                if isinstance(obj, dict) and "name" in obj:
+                    decoracion.append(copy.deepcopy(obj))
+            if len(decoracion) > start_idx:
+                selected_deco_idx = len(decoracion) - 1
+                push_deco_history()
+            print(f"{len(decoracion) - start_idx} objetos pegados.")
+        except Exception as e:
+            print(f"Error pegando objetos: {e}")
+
+    def copy_selected_deco():
+        if selected_deco_idx is None or not (0 <= selected_deco_idx < len(decoracion)):
+            return
+        try:
+            with open(deco_selected_clipboard_path, "w", encoding="utf-8") as fh:
+                json.dump(copy.deepcopy(decoracion[selected_deco_idx]), fh, indent=2)
+            print(f"Objeto seleccionado copiado: {decoracion[selected_deco_idx]['name']}")
+        except Exception as e:
+            print(f"Error copiando objeto seleccionado: {e}")
+
+    def paste_selected_deco():
+        nonlocal selected_deco_idx
+        if not os.path.exists(deco_selected_clipboard_path):
+            return
+        try:
+            with open(deco_selected_clipboard_path, "r", encoding="utf-8") as fh:
+                pasted = json.load(fh)
+            if not isinstance(pasted, dict) or "name" not in pasted:
+                return
+            copied = copy.deepcopy(pasted)
+            r = get_deco_world_rect(copied)
+            nx = min(world_rect.width - r.width, r.x + 18)
+            ny = min(world_rect.height - r.height, r.y + 18)
+            copied.update(normalize_deco(nx, ny, r.width, r.height))
+            decoracion.append(copied)
+            selected_deco_idx = len(decoracion) - 1
+            push_deco_history()
+            print(f"Objeto seleccionado pegado: {copied['name']}")
+        except Exception as e:
+            print(f"Error pegando objeto seleccionado: {e}")
 
     def find_deco_at(world_pos):
         for idx in range(len(decoracion) - 1, -1, -1):
@@ -864,6 +1037,8 @@ def main():
     out_path = os.path.join(project_root, "Hitboxes", f"{image_name}_hitboxes.json")
     clipboard_path = os.path.join(project_root, "Hitboxes", "_clipboard.json")
     selected_clipboard_path = os.path.join(project_root, "Hitboxes", "_clipboard_selected.json")
+    deco_clipboard_path = os.path.join(project_root, "Hitboxes", "_deco_clipboard.json")
+    deco_selected_clipboard_path = os.path.join(project_root, "Hitboxes", "_deco_selected_clipboard.json")
     legacy_objects_path = os.path.join(project_root, "Objetos", f"{image_name}_objetos.json")
 
     # ── Auto-load ─────────────────────────────────────────────────────────────
@@ -876,6 +1051,13 @@ def main():
             if loaded_deco is not None:
                 decoracion = [obj for obj in loaded_deco
                               if isinstance(obj, dict) and "name" in obj]
+                if not decoracion and os.path.exists(legacy_objects_path):
+                    with open(legacy_objects_path, "r", encoding="utf-8") as fh:
+                        legacy = json.load(fh)
+                    decoracion = [obj for obj in legacy.get("objects", [])
+                                  if isinstance(obj, dict) and "name" in obj]
+                    if decoracion:
+                        print(f"Migrados {len(decoracion)} objetos desde {legacy_objects_path}")
             elif os.path.exists(legacy_objects_path):
                 # Migrate from old Objetos/ JSON (one-time, saved on next Enter)
                 with open(legacy_objects_path, "r", encoding="utf-8") as fh:
@@ -1223,6 +1405,14 @@ def main():
 
                     # ── OBJECT MODE ──────────────────────────────────────────
                     if editor_mode == "object":
+                        # Crop mode: start drag on selected deco
+                        if deco_crop_mode and selected_deco_idx is not None and 0 <= selected_deco_idx < len(decoracion):
+                            sel_rect = get_deco_world_rect(decoracion[selected_deco_idx])
+                            if sel_rect.collidepoint(world_pos):
+                                deco_crop_dragging = True
+                                deco_crop_start = world_pos
+                                deco_crop_current = world_pos
+                                continue
                         clicked_idx = find_deco_at(world_pos)
                         if clicked_idx is not None:
                             selected_deco_idx = clicked_idx
@@ -1231,7 +1421,7 @@ def main():
                             deco_move_offset = (world_pos[0] - r.x, world_pos[1] - r.y)
                         else:
                             selected_deco_idx = None
-                            if available_objects:
+                            if available_objects and not deco_crop_mode:
                                 obj_name = available_objects[current_object_idx]
                                 obj_img = load_object_image(obj_name)
                                 if obj_img:
@@ -1375,6 +1565,11 @@ def main():
                             h["x2"] = (x2 - world_rect.x) / world_rect.width
                             h["y2"] = (y2 - world_rect.y) / world_rect.height
 
+                elif deco_crop_dragging:
+                    world_pos = screen_to_world(event.pos)
+                    if world_pos is not None:
+                        deco_crop_current = world_pos
+
                 elif dragging and editor_mode == "hitbox":
                     if current_shape == "rect":
                         world_pos = screen_to_world(event.pos)
@@ -1387,6 +1582,13 @@ def main():
 
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1:
+                    if deco_crop_dragging:
+                        if deco_crop_start is not None and deco_crop_current is not None:
+                            apply_crop_to_selected_deco(
+                                make_deco_crop_rect_from_points(deco_crop_start, deco_crop_current))
+                        deco_crop_dragging = False
+                        deco_crop_start = None
+                        deco_crop_current = None
                     if moving_deco_idx is not None:
                         moving_deco_idx = None
                         push_deco_history()
@@ -1485,14 +1687,37 @@ def main():
                 elif event.key == pygame.K_a and ctrl:
                     select_all_of_role()
 
+                elif event.key == pygame.K_r and editor_mode == "object":
+                    if shift:
+                        reset_selected_deco_crop()
+                        print("Recorte reiniciado")
+                    else:
+                        deco_crop_mode = not deco_crop_mode
+                        deco_crop_dragging = False
+                        deco_crop_start = None
+                        deco_crop_current = None
+                        print("MODO RECORTE OBJ ACTIVADO" if deco_crop_mode else "MODO RECORTE OBJ DESACTIVADO")
+
                 elif event.key == pygame.K_c and ctrl and shift:
-                    copy_selected_hitbox()
+                    if editor_mode == "object":
+                        copy_selected_deco()
+                    else:
+                        copy_selected_hitbox()
                 elif event.key == pygame.K_c and ctrl:
-                    copy_walls_to_clipboard()
+                    if editor_mode == "object":
+                        copy_all_deco()
+                    else:
+                        copy_walls_to_clipboard()
                 elif event.key == pygame.K_v and ctrl and shift:
-                    paste_selected_hitbox()
+                    if editor_mode == "object":
+                        paste_selected_deco()
+                    else:
+                        paste_selected_hitbox()
                 elif event.key == pygame.K_v and ctrl:
-                    paste_walls_from_clipboard()
+                    if editor_mode == "object":
+                        paste_all_deco()
+                    else:
+                        paste_walls_from_clipboard()
                 elif event.key == pygame.K_l and ctrl:
                     do_load()
 
@@ -1668,14 +1893,29 @@ def main():
                 if obj_img:
                     r = get_deco_world_rect(obj)
                     sx, sy = world_to_screen((r.x, r.y))
-                    scaled = pygame.transform.smoothscale(obj_img, (r.width, r.height))
+                    source_img = get_cropped_deco_image(obj, obj_img)
+                    scaled = pygame.transform.smoothscale(source_img, (r.width, r.height))
                     screen.blit(scaled, (sx, sy))
                     sr = pygame.Rect(sx, sy, r.width, r.height)
                     border_col = (255, 235, 80) if selected_deco_idx == j else (80, 220, 100)
                     pygame.draw.rect(screen, border_col, sr, 2 if selected_deco_idx != j else 3)
                     if show_labels:
-                        lbl = tiny.render(f"D{j+1} {obj['name'][:12]}", True, (130, 240, 130))
+                        crop_tag = " [C]" if "crop" in obj else ""
+                        lbl = tiny.render(f"D{j+1} {obj['name'][:12]}{crop_tag}", True, (130, 240, 130))
                         screen.blit(lbl, (sr.x + 2, sr.y + 2))
+
+        # Crop drag preview
+        if deco_crop_dragging and deco_crop_start and deco_crop_current:
+            preview = make_deco_crop_rect_from_points(deco_crop_start, deco_crop_current)
+            if selected_deco_idx is not None and 0 <= selected_deco_idx < len(decoracion):
+                preview = preview.clip(get_deco_world_rect(decoracion[selected_deco_idx]))
+            psx, psy = world_to_screen((preview.x, preview.y))
+            screen_preview = pygame.Rect(psx, psy, preview.width, preview.height)
+            if screen_preview.width > 0 and screen_preview.height > 0:
+                dim = pygame.Surface((screen_preview.width, screen_preview.height), pygame.SRCALPHA)
+                dim.fill((255, 235, 120, 50))
+                screen.blit(dim, screen_preview.topleft)
+                pygame.draw.rect(screen, (255, 235, 120), screen_preview, 2)
 
         # Object mode placement preview
         if editor_mode == "object" and not moving_deco_idx and available_objects:
@@ -1951,7 +2191,7 @@ def main():
 
         lines = [
             ("HITBOX: arrastra=crear | WASD=camara | F=forma | I=wall/inter | K=accion | M=mover | T=test | P/Shift+P=spawn | click-der=borrar | C=limpiar | ENTER=guardar | Ctrl+L=cargar | ESC=salir", (235, 235, 235)),
-            ("O=modo objeto | J/H=obj/fondo | N=selector NPC | B=selector anim | G=grid | L=etiquetas | +/-=grosor/escala | Ctrl+D=dup | Ctrl+A=sel-todo | Ctrl+C/V=copiar/pegar | Ctrl+Shift+C/V=sel", (210, 210, 160)),
+            ("O=modo objeto | J/H=obj/fondo | N=selector NPC | B=selector anim | G=grid | L=etiquetas | +/-=grosor/escala | Ctrl+D=dup | Ctrl+A=sel-todo | Ctrl+C/V=copiar/pegar todos | Ctrl+Shift+C/V=sel individual | R=recortar obj | Shift+R=quitar recorte", (210, 210, 160)),
         ]
         for line_txt, line_col in lines:
             ui_y = draw_wrapped_text(screen, line_txt, tiny, line_col,

@@ -87,10 +87,24 @@ DEFAULT_CONTROLS = {
 SPAWN_OFFSET_X = -180
 SPAWN_OFFSET_Y = -120
 
-# Número de eventos de historia que el jugador debe completar para terminar el juego.
-# 14 eventos en total (7 sin condición + 7 condicionales mutuamente excluyentes).
-# Con goal=10, siempre hay eventos de sobra y el pool jamás se agota antes del final.
+# Número de acciones que el jugador debe completar para terminar el juego.
 STORY_GOAL = 10
+
+# Razones de bullying usadas en el prólogo.
+PROLOGO_RAZON_CHOICES = [
+    "apariencia fisica",
+    "forma de hablar",
+    "timidez",
+    "gusto personal",
+    "dificultad para socializar",
+]
+
+# ── Calibración del sprite sentado ───────────────────────────────────────────
+# Ajusta estos tres valores para alinear visualmente el sprite al pupitre.
+SEATED_OFFSET_X     =   4    # px: mueve el sprite horizontalmente (+ derecha, - izquierda)
+SEATED_OFFSET_Y     =   29    # px: mueve el sprite verticalmente   (+ abajo,   - arriba)
+SEATED_DESK_TOP_FRAC = 0.3500  # fracción del sprite donde empieza la mesa (0.0–1.0)
+                             # sube este valor para que el personaje aparezca más abajo
 
 # Versión del schema de guardado; incrementar si cambia la estructura del JSON.
 SAVE_VERSION = 3

@@ -15,10 +15,7 @@ from Movimiento.Animacion import Animacion
 from config import (
     DEFAULT_CONTROLS, SAVE_VERSION, SPAWN_OFFSET_X, SPAWN_OFFSET_Y,
     STORY_GOAL, DEFAULT_CHARACTER_COLORS, DEFAULT_SETTINGS,
-    CUSTOM_PARTS, PART_STYLES,
-)
-from story import (
-    build_story_events, pick_next_event, format_event_text, PROLOGO_RAZON_CHOICES,
+    CUSTOM_PARTS, PART_STYLES, PROLOGO_RAZON_CHOICES,
 )
 from achievements import Lista_Logros, LOGRO_TRIGGERS
 
@@ -47,31 +44,6 @@ DEFAULT_SKILLS = {
     },
 }
 
-# (event_id, option_idx) → dict de habilidades que suben 1 nivel
-SKILL_TRIGGERS = {
-    ("voces_pasillo", 0):    {"Intervencion Pacifica": 1, "Valentia Social": 1},
-    ("voces_pasillo", 2):    {"Mediacion de Conflictos": 1},
-    ("reenviado", 0):        {"Empatia Digital": 1},
-    ("reenviado", 2):        {"Empatia Digital": 1},
-    ("detras_agresor", 0):   {"Mediacion de Conflictos": 1, "Escucha Activa": 1},
-    ("encajar", 1):          {"Valentia Social": 1},
-    ("encajar", 2):          {"Intervencion Pacifica": 1, "Valentia Social": 1},
-    ("broma", 0):            {"Intervencion Pacifica": 1},
-    ("broma", 2):            {"Mediacion de Conflictos": 1},
-    ("racismo", 1):          {"Intervencion Pacifica": 1, "Mediacion de Conflictos": 1},
-    ("xenofobia", 0):        {"Mediacion de Conflictos": 1},
-    ("xenofobia", 1):        {"Intervencion Pacifica": 1},
-    ("no_era_flojera", 0):   {"Escucha Activa": 1},
-    ("no_era_flojera", 1):   {"Mediacion de Conflictos": 1},
-    ("persona_llorando", 0): {"Escucha Activa": 1},
-    ("persona_llorando", 1): {"Escucha Activa": 1},
-    ("rumores", 0):          {"Escucha Activa": 1},
-    ("rumores", 1):          {"Intervencion Pacifica": 1, "Valentia Social": 1},
-    ("lider_empatia", 0):    {"Mediacion de Conflictos": 1},
-    ("lider_empatia", 1):    {"Intervencion Pacifica": 1},
-    ("primer_dia", 0):       {"Empatia Digital": 1},
-    ("primer_dia", 2):       {"Mediacion de Conflictos": 1},
-}
 
 
 class GameStateMixin:
@@ -139,13 +111,6 @@ class GameStateMixin:
             "story_felicidad": self.story_felicidad,
             "story_reputacion": self.story_reputacion,
             "story_completed": self.story_completed,
-            "story_event_pool": [
-                {k: v for k, v in e.items() if k != "scene"} for e in self.story_event_pool
-            ],
-            "story_current_event": (
-                {k: v for k, v in self.story_current_event.items() if k != "scene"}
-                if self.story_current_event else None
-            ),
             "story_thought": self.story_thought,
             "story_pending_end": self.story_pending_end,
             "story_final_key": self.story_final_key,
@@ -184,13 +149,12 @@ class GameStateMixin:
     def _apply_loaded_save_data(self, data):
         data = self._migrate_save_data(data)
         self._start_adventure()
+        self.day1_intro_step = 2  # No mostrar intro al cargar partida
         self.player_name = str(data.get("player_name", ""))
         self.current_day = int(data.get("current_day", 1))
         self.story_felicidad = int(data.get("story_felicidad", 50))
         self.story_reputacion = int(data.get("story_reputacion", 50))
         self.story_completed = int(data.get("story_completed", 0))
-        self.story_event_pool = data.get("story_event_pool", self.story_event_pool)
-        self.story_current_event = data.get("story_current_event", self.story_current_event)
         self.story_thought = data.get("story_thought", "")
         self.story_pending_end = bool(data.get("story_pending_end", False))
         self.story_final_key = data.get("story_final_key", "")
@@ -402,22 +366,17 @@ class GameStateMixin:
     def _start_adventure(self):
         self.story_felicidad = 50
         self.story_reputacion = 50
-        all_events = build_story_events()
-        first = next(e for e in all_events if e["id"] == "primer_dia")
-        rest = [e for e in all_events if e["id"] != "primer_dia"]
-        self.story_event_pool = rest
-        self.story_current_event = first
         self.story_completed = 0
         self.story_goal = STORY_GOAL
         self.story_thought = ""
         self.story_interaction_text = ""
         self.story_previous_map_name = None
-        self.story_show_support = False
         self.story_pending_end = False
         self.story_final_key = ""
         self.story_final_text = ""
         self.story_is_seated = False
         self.story_seated_hitbox = None
+        self.story_seated_pupitre = None
         self.story_clock_day = 1
         self.story_clock_hour = 7
         self.story_clock_minute = 30
@@ -446,6 +405,8 @@ class GameStateMixin:
         self.day1_end_timer = 0
         self.day1_sara_npc_warned = False
         self.day1_seq_dialog_done = False
+        self.day1_intro_step = 0
+        self.current_mission = "Ir a la escuela"
         self.popup_logro_timer = 0
         self.popup_logro_actual = None
         self.player_rect = pygame.Rect(0, 0, 28, 28)
@@ -495,76 +456,13 @@ class GameStateMixin:
             {"speaker": "NPC 1", "text": "Por que eres tan raro?"},
             {"speaker": "NPC 2", "text": "Ni siquiera sabe responder."},
             {"speaker": "NPC 3", "text": "Dejalo, siempre es asi."},
-            {"speaker": "Protagonista", "text": "Recuerdo pensar que alguien debia hacer algo... aunque fuera una sola persona."},
+            {"speaker": self.player_name or "Protagonista", "text": "Recuerdo pensar que alguien debia hacer algo... aunque fuera una sola persona."},
             {"speaker": "Narrador", "text": "Pantalla negra. Transicion al presente."},
         ]
         self.prologo_paso = 0
         self.prologo_activo = True
 
     # ── Historia y decisiones ─────────────────────────────────────────────────
-
-    def _build_story_events(self):
-        return build_story_events()
-
-    def _condition_ok(self, condition):
-        from story import condition_ok
-        return condition_ok(condition, self.story_felicidad, self.story_reputacion, self.decision_history)
-
-    def _pick_next_event(self):
-        return pick_next_event(
-            self.story_event_pool,
-            self.story_felicidad,
-            self.story_reputacion,
-            self.decision_history,
-        )
-
-    def _apply_story_choice(self, option, option_idx=None):
-        """Aplica una opción de evento: stats, historial, skills, logros."""
-        event_id = self.story_current_event.get("id") if self.story_current_event else ""
-        df = option.get("dF", 0)
-        dr = option.get("dR", 0)
-
-        self.story_felicidad = max(0, min(100, self.story_felicidad + df))
-        self.story_reputacion = max(0, min(100, self.story_reputacion + dr))
-        self.story_thought = option.get("thought", "")
-        self.story_completed += 1
-        self.story_show_support = bool(
-            self.story_current_event.get("sensitive") if self.story_current_event else False
-        )
-
-        # Registrar en historial
-        self.decision_history.append({
-            "event_id": event_id,
-            "option_idx": option_idx,
-            "option_label": option.get("label", ""),
-            "thought": option.get("thought", ""),
-            "dF": df,
-            "dR": dr,
-        })
-
-        # Subir habilidades
-        if option_idx is not None:
-            skill_ups = SKILL_TRIGGERS.get((event_id, option_idx), {})
-            for skill_name, delta in skill_ups.items():
-                if skill_name in self.skills_inventory:
-                    skill = self.skills_inventory[skill_name]
-                    new_level = min(skill["max_nivel"], skill["nivel"] + delta)
-                    skill["nivel"] = new_level
-
-        # Desbloquear logros
-        if option_idx is not None:
-            self.lista_logros.desbloquear_por_evento(event_id, option_idx)
-            logro = self.lista_logros.consumir_popup()
-            if logro:
-                self.popup_logro_actual = logro
-                self.popup_logro_timer = 3000  # 3 segundos
-                self.audio.sfx_logro()
-
-        self.audio.sfx_decision()
-
-        self.story_current_event = self._pick_next_event()
-        if self.story_completed >= self.story_goal or self.story_current_event is None:
-            self._resolve_ending()
 
     def _resolve_ending(self):
         f = self.story_felicidad
@@ -595,16 +493,10 @@ class GameStateMixin:
         if image_path:
             image_name = os.path.splitext(os.path.basename(image_path))[0]
             export_path = os.path.join(os.path.dirname(__file__), "Hitboxes", f"{image_name}_hitboxes.json")
-            objects_path = os.path.join(os.path.dirname(__file__), "Objetos", f"{image_name}_objetos.json")
-            # Buscar también en Hitboxes/ para los _objetos.json
-            hitbox_objects_path = os.path.join(os.path.dirname(__file__), "Hitboxes", f"{image_name}_objetos.json")
-            if not os.path.exists(objects_path) and os.path.exists(hitbox_objects_path):
-                objects_path = hitbox_objects_path
+            legacy_objects_path = os.path.join(os.path.dirname(__file__), "Objetos", f"{image_name}_objetos.json")
         else:
             export_path = os.path.join(os.path.dirname(__file__), "Hitboxes", "hitboxes_export.json")
-            objects_path = None
-
-        object_hitboxes = self._load_story_object_hitboxes(objects_path)
+            legacy_objects_path = None
 
         try:
             with open(export_path, "r", encoding="utf-8") as fh:
@@ -654,6 +546,13 @@ class GameStateMixin:
                     h.setdefault("action", "puerta")
                     h.setdefault("target_image", "")
 
+            # Prefer decoracion embedded in hitboxes JSON; fall back to legacy Objetos/*.json
+            deco_list = payload.get("decoracion") or []
+            if deco_list:
+                object_hitboxes = self._load_story_object_hitboxes_from_list(deco_list)
+            else:
+                object_hitboxes = self._load_story_object_hitboxes(legacy_objects_path)
+
             return boxes + object_hitboxes
         except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
             pass
@@ -661,19 +560,23 @@ class GameStateMixin:
         self.story_spawn_world = None
         self.story_spawn_by_origin = {}
         self.story_npc_positions = {}
-        return object_hitboxes
+        return self._load_story_object_hitboxes(legacy_objects_path)
 
     def _load_story_object_hitboxes(self, objects_path):
+        """Loads objects from a legacy Objetos/*_objetos.json file."""
         if not objects_path:
             return []
         try:
             with open(objects_path, "r", encoding="utf-8") as fh:
                 payload = json.load(fh)
-            objects = payload.get("objects", [])
+            return self._load_story_object_hitboxes_from_list(payload.get("objects", []))
         except (OSError, json.JSONDecodeError, TypeError):
             return []
+
+    def _load_story_object_hitboxes_from_list(self, deco_list):
+        """Converts a decoracion list (from hitboxes JSON or objetos JSON) to object hitboxes."""
         hitboxes = []
-        for obj in objects:
+        for obj in deco_list:
             if not isinstance(obj, dict):
                 continue
             try:
@@ -812,6 +715,7 @@ class GameStateMixin:
         if self.story_is_seated:
             self.story_is_seated = False
             self.story_seated_hitbox = None
+            self.story_seated_pupitre = None
             self.story_thought = "Te levantaste de la silla."
             self.story_interaction_text = "Ya no estas sentado."
             self.audio.sfx_sentarse()
@@ -867,6 +771,7 @@ class GameStateMixin:
                 self.day1_salon_entered = True
                 self.day1_seq_step = 1  # Mostrar pensamiento del protagonista
                 self.day1_guide_active = False
+                self.current_mission = "Elegir donde sentarse"
         elif base in ("salontarde.png",):
             self.day1_in_tarde = True
         elif base == "habtarde.png":
@@ -880,6 +785,7 @@ class GameStateMixin:
             if self.story_is_seated:
                 self.story_is_seated = False
                 self.story_seated_hitbox = None
+                self.story_seated_pupitre = None
             self.story_thought = "Cruzaste una puerta."
             self._change_adventure_background(interactable.get("target_image", ""))
             return
@@ -907,11 +813,8 @@ class GameStateMixin:
                 })
                 self.story_completed += 1
                 self.day1_seq_step = 4
-                # Avanzar el evento narrativo (primer_dia) al siguiente
-                if self.story_current_event and self.story_current_event.get("id") == "primer_dia":
-                    self.story_current_event = self._pick_next_event()
-                    if self.story_completed >= self.story_goal or self.story_current_event is None:
-                        self._resolve_ending()
+                if self.story_completed >= self.story_goal:
+                    self._resolve_ending()
                 self.audio.sfx_sentarse()
                 # Fade y transición a SalonTarde
                 transitions = getattr(self, "transitions", None)
@@ -928,7 +831,25 @@ class GameStateMixin:
             self.audio.sfx_interactuar()
             return
         if action == "objeto":
-            object_name = os.path.splitext(interactable.get("object_name", "objeto"))[0]
+            raw_name = interactable.get("object_name", "objeto")
+            if raw_name == "Pupitre-Salón1.png":
+                if self.story_is_seated and self.story_seated_pupitre is interactable:
+                    # Stand up — restore normal movement
+                    self.story_is_seated = False
+                    self.story_seated_hitbox = None
+                    self.story_seated_pupitre = None
+                    self.story_interaction_text = "Te levantaste del pupitre."
+                    self.story_thought = ""
+                else:
+                    # Sit down at pupitre
+                    self.story_is_seated = True
+                    self.story_seated_hitbox = interactable
+                    self.story_seated_pupitre = interactable
+                    self.story_interaction_text = "Te sentaste en tu pupitre."
+                    self.story_thought = "Este es mi lugar."
+                    self.audio.sfx_sentarse()
+                return
+            object_name = os.path.splitext(raw_name)[0]
             self.story_interaction_text = f"Interactuaste con {object_name}."
             self.story_thought = "Hay algo interesante aqui."
             self.audio.sfx_interactuar()
@@ -1001,6 +922,11 @@ class GameStateMixin:
 
     def _update_adventure(self):
         if self.current_screen != "aventura" or self.story_pending_end:
+            return
+        if getattr(self, "day1_intro_step", 2) < 2:
+            if self.aventura_personaje is not None:
+                self.aventura_personaje.moviendose = False
+                self.aventura_personaje.frame_actual = 0
             return
         dt_ms = self.clock.get_time()
 
@@ -1203,11 +1129,9 @@ class GameStateMixin:
         return by_name
 
     def _is_first_day_classroom_context(self):
-        event_id = self.story_current_event.get("id") if isinstance(self.story_current_event, dict) else None
-        if event_id != "primer_dia":
+        if not getattr(self, "day1_salon_entered", False):
             return False
-        # Solo activa cuando el fondo activo tiene NPCs en su JSON (estamos en el salón,
-        # no en la casa o el pasillo). Esto evita que Sara/Diego aparezcan en fondos incorrectos.
+        # Solo activa cuando el fondo tiene NPCs definidos (estamos en el salón).
         return any(
             h.get("role") == "interactable" and h.get("action") == "npc"
             for h in self.story_walls

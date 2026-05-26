@@ -13,9 +13,9 @@ from config import (
     BG_DARK, BG_MID, GRID, CARD, CARD_HOVER, CARD_BORDER,
     TEXT_MAIN, TEXT_SOFT, PIXEL_CYAN, PIXEL_PINK,
     CUSTOM_PARTS, PART_STYLES,
+    SEATED_OFFSET_X, SEATED_OFFSET_Y, SEATED_DESK_TOP_FRAC,
 )
 from ui_components import Button
-from story import format_event_text
 import screens.historia as historia_screen
 import screens.progreso as progreso_screen
 import screens.tutorial as tutorial_screen
@@ -440,7 +440,9 @@ class RendererMixin:
         text = getattr(self, "nombre_input_text", "")
         cursor_vis = getattr(self, "nombre_input_cursor_visible", True)
         display_text = text + ("|" if cursor_vis else " ")
-        self.draw_pixel_text(display_text, field_rect.x + 14, field_rect.centery, "button", TEXT_MAIN, False)
+        font_h = self.base_fonts["button"].get_height()
+        text_y = field_rect.y + (field_rect.height - font_h) // 2
+        self.draw_pixel_text(display_text, field_rect.x + 14, text_y, "button", TEXT_MAIN, False)
 
         self.draw_pixel_text(
             "Solo letras, espacios y números. Máximo 20 caracteres.",
@@ -636,16 +638,25 @@ class RendererMixin:
         self.screen.blit(overlay, (0, 0))
 
     def _draw_story_clock_hud(self):
-        # CAMBIO 6: Solo muestra el día, sin hora. Aparece en TODOS los fondos.
+        if getattr(self, "day1_intro_step", 0) < 2:
+            return
         day = getattr(self, "current_day", getattr(self, "story_clock_day", 1))
-        hud_text = f"Dia {day}"
-        box_w = 100
-        box = pygame.Rect(self.width - box_w - 12, 12, box_w, 34)
-        overlay = pygame.Surface((box.width, box.height), pygame.SRCALPHA)
-        overlay.fill((255, 255, 255, 210))
-        self.screen.blit(overlay, box.topleft)
-        pygame.draw.rect(self.screen, (18, 18, 18), box, 2)
-        self.draw_pixel_text(hud_text, box.centerx, box.centery, "small", TEXT_MAIN, True)
+        mission = getattr(self, "current_mission", "")
+
+        def _badge(text, x, y, min_w=90):
+            text_surf = self.base_fonts["small"].render(text, True, TEXT_MAIN)
+            w = max(min_w, text_surf.get_width() + 24)
+            box = pygame.Rect(x, y, w, 34)
+            overlay = pygame.Surface((box.width, box.height), pygame.SRCALPHA)
+            overlay.fill((255, 255, 255, 220))
+            self.screen.blit(overlay, box.topleft)
+            pygame.draw.rect(self.screen, (18, 18, 18), box, 2)
+            self.draw_pixel_text(text, box.centerx, box.centery, "small", TEXT_MAIN, True)
+            return box.right
+
+        next_x = _badge(f"Dia {day}", 12, 12)
+        if mission:
+            _badge(f"Mision: {mission}", next_x + 8, 12, min_w=200)
 
     def _draw_first_day_classroom_npcs(self):
         def _slot_for(npc_name, fallback_rx, fallback_ry):
@@ -722,9 +733,12 @@ class RendererMixin:
     # _load_object_interactable_image and _get_cropped_object_image defined in GameStateMixin
 
     def _draw_object_interactables_from_hitboxes(self):
+        seated_pupitre = getattr(self, "story_seated_pupitre", None)
         for h in self.story_walls:
             if h.get("role") != "interactable" or h.get("action") != "objeto":
                 continue
+            if seated_pupitre is not None and h is seated_pupitre:
+                continue  # pupitre hidden while player is seated there
             if h.get("type") != "rect":
                 continue
             object_name = h.get("object_name", "")
@@ -822,6 +836,30 @@ class RendererMixin:
         pygame.draw.polygon(self.screen, (180, 140, 0), [p1, p2, p3], 2)
 
     # ──────────────────────────────────────────────────────────────────────────
+    # Intro cinematográfica — mensajes al inicio de la aventura
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _draw_day1_intro_dialog(self):
+        step = getattr(self, "day1_intro_step", 2)
+        pname = getattr(self, "player_name", "") or "Protagonista"
+        if step == 0:
+            text = "Que lindo dia, ya no puedo esperar por comenzar mi primer dia de clases!"
+        else:
+            text = "Tengo que ir a la escuela"
+        box_h = 130
+        box = pygame.Rect(26, self.height - box_h - 22, self.width - 52, box_h)
+        overlay = pygame.Surface((box.width, box.height), pygame.SRCALPHA)
+        overlay.fill((242, 242, 242, 220))
+        self.screen.blit(overlay, box.topleft)
+        pygame.draw.rect(self.screen, (18, 18, 18), box, 4)
+        name_box = pygame.Rect(box.x + 16, box.y - 32, max(120, len(pname) * 14 + 24), 32)
+        pygame.draw.rect(self.screen, (255, 255, 255), name_box)
+        pygame.draw.rect(self.screen, (18, 18, 18), name_box, 3)
+        self.draw_pixel_text(pname, name_box.centerx, name_box.centery, "small", TEXT_MAIN, True)
+        self.draw_pixel_text(text, box.x + 24, box.y + 52, "body", TEXT_MAIN, False)
+        self.draw_pixel_text("ENTER para continuar", box.right - 16, box.bottom - 18, "small", TEXT_SOFT, False)
+
+    # ──────────────────────────────────────────────────────────────────────────
     # CAMBIO 3 — Caja de diálogo Día 1
     # ──────────────────────────────────────────────────────────────────────────
 
@@ -909,7 +947,6 @@ class RendererMixin:
 
     def _draw_adventure_screen(self):
         self.screen.fill((255, 255, 255))
-        footer_h = 220
         self.story_map_rect = pygame.Rect(0, 0, self.story_world_width, self.story_world_height)
         self.player_rect.clamp_ip(self.story_map_rect)
         self._update_story_camera()
@@ -930,9 +967,6 @@ class RendererMixin:
             self.screen.blit(self.cached_background_scaled, (0, 0), area=camera_view)
         else:
             pygame.draw.rect(self.screen, (255, 255, 255), (0, 0, self.width, self.height))
-
-        # CAMBIO 6: HUD de día siempre visible en todos los fondos
-        self._draw_story_clock_hud()
 
         if self._is_first_day_classroom_context():
             has_npc_hitboxes = any(
@@ -996,13 +1030,28 @@ class RendererMixin:
 
         if self.aventura_personaje is not None:
             if self.story_is_seated and self.story_seated_sprite is not None:
-                seat_center = (
-                    self._interactable_center(self.story_seated_hitbox)
-                    if self.story_seated_hitbox else self.player_rect.center
-                )
-                sprite_x = seat_center[0] - (self.story_seated_sprite.get_width() // 2) - self.story_camera_x
-                sprite_y = seat_center[1] - (self.story_seated_sprite.get_height() // 2) - self.story_camera_y
-                self.screen.blit(self.story_seated_sprite, (sprite_x, sprite_y))
+                p = getattr(self, "story_seated_pupitre", None)
+                if p is not None:
+                    pw_base = max(8, int(self.story_world_width * p["rw"]))
+                    ph_base = max(8, int(self.story_world_height * p["rh"]))
+                    # Scale sprite so its chair bottom = pupitre bottom, desk top = pupitre top
+                    frac = max(0.05, min(0.95, SEATED_DESK_TOP_FRAC))
+                    sw = sh = int(ph_base / (1.0 - frac))
+                    # Centered on pupitre X; desk-top aligned with pupitre top Y
+                    spx = int(self.story_world_width * p["rx"]) - self.story_camera_x
+                    spy = int(self.story_world_height * p["ry"]) - self.story_camera_y
+                    draw_x = spx + pw_base // 2 - sw // 2 + SEATED_OFFSET_X
+                    draw_y = spy - int(frac * sh)          + SEATED_OFFSET_Y
+                    seated_scaled = pygame.transform.smoothscale(self.story_seated_sprite, (sw, sh))
+                    self.screen.blit(seated_scaled, (draw_x, draw_y))
+                else:
+                    seat_center = (
+                        self._interactable_center(self.story_seated_hitbox)
+                        if self.story_seated_hitbox else self.player_rect.center
+                    )
+                    sprite_x = seat_center[0] - (self.story_seated_sprite.get_width() // 2) - self.story_camera_x
+                    sprite_y = seat_center[1] - (self.story_seated_sprite.get_height() // 2) - self.story_camera_y
+                    self.screen.blit(self.story_seated_sprite, (sprite_x, sprite_y))
             else:
                 self.aventura_personaje.dibujar(self.screen, offset=(self.story_camera_x, self.story_camera_y))
             if (
@@ -1030,6 +1079,9 @@ class RendererMixin:
         # CAMBIO 2: flecha guía
         self._draw_guide_arrow()
 
+        # HUD de día — dibuja al frente, encima de objetos y NPCs
+        self._draw_story_clock_hud()
+
         # CAMBIO 4: zoom pupitre (dibuja encima de todo si está activo)
         if getattr(self, "day1_pupitre_zoom_active", False):
             self._draw_pupitre_zoom()
@@ -1043,57 +1095,45 @@ class RendererMixin:
             self.draw_pixel_text("Fin del Día 1", self.width // 2, self.height // 2, "title", (245, 247, 255), True)
             return
 
+        # Intro: bloquea el event box hasta que el jugador avance los dos mensajes
+        if getattr(self, "day1_intro_step", 2) < 2:
+            self._draw_day1_intro_dialog()
+            return
+
+        # Ocultar barra entera mientras el jugador camina a la escuela (después del intro)
+        if not getattr(self, "day1_salon_entered", True):
+            return
+
         # CAMBIO 3: caja de diálogo Día 1 (reemplaza event box mientras está en secuencia)
         seq_step = getattr(self, "day1_seq_step", 0)
         if seq_step in (1, 2, 3):
             self._draw_day1_dialog()
             return
 
-        event_box = pygame.Rect(26, self.height - footer_h + 20, self.width - 52, footer_h - 28)
-        overlay = pygame.Surface((event_box.width, event_box.height), pygame.SRCALPHA)
-        overlay.fill((242, 242, 242, 180))
-        self.screen.blit(overlay, event_box.topleft)
-        pygame.draw.rect(self.screen, (18, 18, 18), event_box, 4)
-        tag_box = pygame.Rect(event_box.x + 16, event_box.y - 34, 300, 34)
-        tag_overlay = pygame.Surface((tag_box.width, tag_box.height), pygame.SRCALPHA)
-        tag_overlay.fill((255, 255, 255, 220))
-        self.screen.blit(tag_overlay, tag_box.topleft)
-        pygame.draw.rect(self.screen, (18, 18, 18), tag_box, 3)
-        self.draw_pixel_text("Decisiones", tag_box.centerx, tag_box.centery, "small", TEXT_MAIN, True)
-
+        # ── Pantalla de final ────────────────────────────────────────────────────
         if self.story_pending_end:
-            self.draw_pixel_text(self.story_final_key, self.width // 2, event_box.y + 48, "subtitle", TEXT_MAIN, True)
-            self.draw_pixel_text(self.story_final_text, self.width // 2, event_box.y + 110, "body", TEXT_SOFT, True)
-            self.draw_pixel_text("ENTER para volver al menu", self.width // 2, event_box.y + 186, "small", TEXT_SOFT, True)
-        elif self.story_show_support:
-            self.draw_pixel_text(
-                "Si tu o alguien que conoces pasa por algo similar, busca ayuda profesional.",
-                self.width // 2, event_box.y + 86, "body", TEXT_MAIN, True,
-            )
-            self.draw_pixel_text("ENTER para continuar", self.width // 2, event_box.y + 164, "small", TEXT_SOFT, True)
-        elif self.story_current_event is not None:
-            ev = self.story_current_event
-            razon = getattr(self, "prologo_razon", "")
-            scene = ev.get("scene", {})
-            setup_text = format_event_text(scene.get("setup", ev["title"]), razon)
-            self.draw_pixel_text(
-                f"Evento {self.story_completed + 1}/{self.story_goal}: {ev['title']}",
-                self.width // 2, event_box.y + 24, "small", TEXT_MAIN, True,
-            )
-            if setup_text and setup_text != ev["title"]:
-                short_setup = setup_text[:70] + ".." if len(setup_text) > 72 else setup_text
-                self.draw_pixel_text(short_setup, event_box.x + 18, event_box.y + 50, "small", TEXT_SOFT, False)
-            y = event_box.y + 76
-            for opt in ev["options"]:
-                self.draw_pixel_text(opt["label"], event_box.x + 18, y, "small", TEXT_SOFT, False)
-                y += 28
-            self.draw_pixel_text(
-                f"Pensamiento: {self.story_thought}", event_box.x + 18, event_box.bottom - 26, "small", TEXT_MAIN, False,
-            )
-            if self.story_interaction_text:
-                self.draw_pixel_text(
-                    self.story_interaction_text, event_box.right - 18, event_box.y + 24, "small", TEXT_MAIN, False,
-                )
+            end_overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            end_overlay.fill((0, 0, 0, 210))
+            self.screen.blit(end_overlay, (0, 0))
+            self.draw_pixel_text(self.story_final_key, self.width // 2, self.height // 2 - 60, "subtitle", (245, 247, 255), True)
+            self.draw_pixel_text(self.story_final_text, self.width // 2, self.height // 2, "body", TEXT_SOFT, True)
+            self.draw_pixel_text("ENTER para volver al menu", self.width // 2, self.height // 2 + 80, "small", TEXT_SOFT, True)
+            return
+
+        # ── Barra de estado inferior ─────────────────────────────────────────────
+        status_h = 72
+        status_box = pygame.Rect(26, self.height - status_h - 10, self.width - 52, status_h)
+        status_surf = pygame.Surface((status_box.width, status_box.height), pygame.SRCALPHA)
+        status_surf.fill((242, 242, 242, 180))
+        self.screen.blit(status_surf, status_box.topleft)
+        pygame.draw.rect(self.screen, (18, 18, 18), status_box, 3)
+
+        thought = getattr(self, "story_thought", "")
+        interaction = getattr(self, "story_interaction_text", "")
+        if thought:
+            self.draw_pixel_text(f"Pensamiento: {thought}", status_box.x + 14, status_box.y + 8, "small", TEXT_MAIN, False)
+        if interaction:
+            self.draw_pixel_text(interaction, status_box.x + 14, status_box.y + 34, "small", TEXT_SOFT, False)
 
         interactable_hint = (
             f" | {self._control_name('interactuar')} interactuar"
@@ -1105,7 +1145,7 @@ class RendererMixin:
         )
         self.draw_pixel_text(
             f"{move_keys} mover{interactable_hint} | {self._control_name('guardar')} guardar | ESC pausa | TAB habilidades",
-            event_box.right - 14, event_box.bottom - 16, "small", TEXT_SOFT, False,
+            status_box.right - 14, status_box.bottom - 10, "small", TEXT_SOFT, False,
         )
 
     # ──────────────────────────────────────────────────────────────────────────

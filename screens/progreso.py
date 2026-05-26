@@ -18,7 +18,7 @@ _SCROLL = 0   # Scroll del panel de logros (módulo-level para persistencia en s
 
 def _draw_stat_bar(game, label, value, max_val, x, y, bar_w, bar_h, fill_color):
     """Dibuja una barra de estadística con etiqueta y valor numérico."""
-    game.draw_pixel_text(label, x, y - 14, "small", TEXT_SOFT, False)
+    game.draw_pixel_text(label, x, y - 26, "small", TEXT_SOFT, False)
     bg = pygame.Rect(x, y, bar_w, bar_h)
     pygame.draw.rect(game.screen, (200, 208, 192), bg)
     pygame.draw.rect(game.screen, CARD_BORDER, bg, 2)
@@ -26,7 +26,7 @@ def _draw_stat_bar(game, label, value, max_val, x, y, bar_w, bar_h, fill_color):
     if fill_w > 0:
         pygame.draw.rect(game.screen, fill_color, (x, y, fill_w, bar_h))
     game.draw_pixel_text(
-        f"{value}/{max_val}", x + bar_w + 10, y + bar_h // 2, "small", TEXT_MAIN, False
+        f"{value}/{max_val}", x + bar_w + 10, y, "small", TEXT_MAIN, False
     )
 
 
@@ -50,7 +50,7 @@ def draw(game):
     )
 
     # ── Estadísticas ─────────────────────────────────────────────────────────
-    stats_y = panel.y + 110
+    stats_y = panel.y + 124
     bar_w = 320
     bar_h = 22
     left_col = panel.x + 60
@@ -135,13 +135,15 @@ def draw(game):
 
     logros_panel_y = logros_y + 52
     logros_panel_h = panel.bottom - logros_panel_y - 50
-    visible_rows = max(1, logros_panel_h // 42)
+    ROW_H = 48
+    ROW_STEP = 54
+    visible_rows = max(1, logros_panel_h // ROW_STEP)
     _SCROLL = max(0, min(_SCROLL, max(0, len(logros_list) - visible_rows)))
 
     for i in range(_SCROLL, min(len(logros_list), _SCROLL + visible_rows)):
         logro = logros_list[i]
-        row_y = logros_panel_y + (i - _SCROLL) * 42
-        row_rect = pygame.Rect(panel.x + 40, row_y, panel.width - 80, 36)
+        row_y = logros_panel_y + (i - _SCROLL) * ROW_STEP
+        row_rect = pygame.Rect(panel.x + 40, row_y, panel.width - 80, ROW_H)
 
         if logro.completo:
             # 🎨 ASSET_UI: Imagenes/UI/icono_logro_desbloqueado.png | 36x36 | Estrella dorada
@@ -180,7 +182,7 @@ def draw(game):
         )
         desc_short = logro.descripcion[:50] + ".." if len(logro.descripcion) > 52 else logro.descripcion
         game.draw_pixel_text(
-            desc_short, row_rect.x + 32, row_rect.y + 22, "small", desc_color, False
+            desc_short, row_rect.x + 32, row_rect.y + 26, "small", desc_color, False
         )
 
     # Scrollbar

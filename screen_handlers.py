@@ -424,6 +424,15 @@ class ScreenHandlersMixin:
     # ──────────────────────────────────────────────────────────────────────────
 
     def _handle_adventure_events(self, event):
+        # ── Intro cinematográfica: bloquea todo input hasta que el jugador avance ──
+        intro_step = getattr(self, "day1_intro_step", 2)
+        if intro_step < 2:
+            if event.type == pygame.KEYDOWN and event.key in (
+                pygame.K_RETURN, pygame.K_SPACE, pygame.K_KP_ENTER
+            ):
+                self.day1_intro_step = intro_step + 1
+            return
+
         # ── CAMBIO 4: Minijuego borrador (mouse sobre erase_surface) ─────────
         if getattr(self, "day1_pupitre_zoom_active", False) and getattr(self, "day1_pupitre_step", 0) == 2:
             erase_surf = getattr(self, "day1_pupitre_erase_surface", None)
@@ -456,22 +465,6 @@ class ScreenHandlersMixin:
                     self.day1_pupitre_step = 3
                     self.day1_pupitre_result = "borrar"
 
-        # Click de ratón sobre las opciones del evento narrativo
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if (
-                self.story_current_event is not None
-                and not self.story_pending_end
-                and not self.story_show_support
-            ):
-                footer_h = 220
-                event_box = pygame.Rect(26, self.height - footer_h + 20, self.width - 52, footer_h - 28)
-                opts = self.story_current_event.get("options", [])
-                y = event_box.y + 76
-                for i, opt in enumerate(opts):
-                    opt_rect = pygame.Rect(event_box.x, y - 14, event_box.width // 2, 28)
-                    if opt_rect.collidepoint(event.pos):
-                        self._apply_story_choice(opt, option_idx=i)
-                        return
                     y += 28
 
         if event.type == pygame.KEYDOWN:
@@ -551,7 +544,7 @@ class ScreenHandlersMixin:
                 self.show_skills_inventory = not getattr(self, "show_skills_inventory", False)
                 return
 
-            if event.key == self.controls["interactuar"] and not self.story_pending_end and not self.story_show_support:
+            if event.key == self.controls["interactuar"] and not self.story_pending_end:
                 if self.story_is_seated:
                     self._toggle_seat_state(None)
                     return
@@ -576,28 +569,6 @@ class ScreenHandlersMixin:
                     self._transition_to("menu", transitions)
                 return
 
-            if self.story_show_support:
-                if event.key in (self.controls["continuar"], pygame.K_SPACE, pygame.K_KP_ENTER):
-                    self.story_show_support = False
-                return
-
-            if self.story_current_event is None:
-                return
-
-            key_to_idx = {
-                self.controls["opcion_1"]: 0,
-                self.controls["opcion_2"]: 1,
-                self.controls["opcion_3"]: 2,
-                self.controls["opcion_4"]: 3,
-                self.controls["opcion_5"]: 4,
-                pygame.K_KP1: 0, pygame.K_KP2: 1, pygame.K_KP3: 2,
-                pygame.K_KP4: 3, pygame.K_KP5: 4,
-            }
-            if event.key in key_to_idx:
-                idx = key_to_idx[event.key]
-                options = self.story_current_event["options"]
-                if 0 <= idx < len(options):
-                    self._apply_story_choice(options[idx], option_idx=idx)
 
     # ──────────────────────────────────────────────────────────────────────────
     # Configuración

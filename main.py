@@ -1,3 +1,4 @@
+
 import sys
 import os
 import pygame
@@ -115,9 +116,6 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         self.story_pending_end = False
         self.story_final_key = ""
         self.story_final_text = ""
-        self.story_show_support = False
-        self.story_event_pool = []
-        self.story_current_event = None
         self.story_walls = []
         self.story_object_image_cache = {}
         self.story_spawn_world = None
@@ -181,6 +179,8 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         self.day1_end_timer = 0         # ms countdown para "Fin del Día 1"
         self.day1_sara_npc_warned = False
         self.day1_seq_dialog_done = False
+        self.day1_intro_step = 0        # 0=primer mensaje 1=segundo mensaje 2=listo
+        self.current_mission = ""
 
         # ── Simulación ────────────────────────────────────────────────────────
         self.simulacion_activa = False
