@@ -426,6 +426,9 @@ class GameStateMixin:
         except (OSError, pygame.error):
             placeholder = self._make_placeholder_surface(1280, 720, "HabDía.png")
             self.aventura_fondo = self._make_fondo_placeholder(hab_path, placeholder)
+        audio = getattr(self, "audio", None)
+        if audio is not None and self.aventura_fondo is not None:
+            audio.play_ambience_for_map(self.aventura_fondo.ruta_imagen)
         self.story_walls = self._build_story_wall_hitboxes(
             self.aventura_fondo.ruta_imagen if self.aventura_fondo else None
         )
@@ -490,6 +493,7 @@ class GameStateMixin:
         self.lista_logros.verificar_nunca_ignoraste(self.decision_history)
         self.lista_logros.verificar_empatia_pura(self.decision_history)
         self.audio.play_ending_bgm(self.story_final_key)
+        self.audio.stop_ambience()
 
     # ── Hitboxes de mundo ────────────────────────────────────────────────────
 
@@ -768,6 +772,7 @@ class GameStateMixin:
         self._update_story_camera()
         self.story_interaction_text = f"Entraste a: {target_image_name}"
         self.audio.sfx_puerta()
+        self.audio.play_ambience_for_map(self.aventura_fondo.ruta_imagen)
         # ── NPC AI: notificar cambio de mapa ─────────────────────────────────
         npc_mgr = getattr(self, "npc_ai_manager", None)
         if npc_mgr is not None:
@@ -832,6 +837,7 @@ class GameStateMixin:
                 })
                 self.story_completed += 1
                 self.day1_seq_step = 4
+                self.audio.sfx_decision()
                 npc_mgr = getattr(self, "npc_ai_manager", None)
                 if npc_mgr is not None:
                     npc_mgr.notify_phase("en_clase")
@@ -850,7 +856,7 @@ class GameStateMixin:
         if action == "npc":
             npc_name = interactable.get("npc_character", "NPC")
             self.story_interaction_text = f"{npc_name} esta ocupado/a."
-            self.audio.sfx_interactuar()
+            self.audio.sfx_npc()
             return
         if action == "objeto":
             raw_name = interactable.get("object_name", "objeto")
@@ -862,6 +868,7 @@ class GameStateMixin:
                     self.story_seated_pupitre = None
                     self.story_interaction_text = "Te levantaste del pupitre."
                     self.story_thought = ""
+                    self.audio.sfx_sentarse()
                 else:
                     # Sit down at pupitre
                     self.story_is_seated = True
@@ -874,7 +881,7 @@ class GameStateMixin:
             object_name = os.path.splitext(raw_name)[0]
             self.story_interaction_text = f"Interactuaste con {object_name}."
             self.story_thought = "Hay algo interesante aqui."
-            self.audio.sfx_interactuar()
+            self.audio.sfx_object(raw_name)
             return
         self.story_interaction_text = f"Accion no soportada: {action}"
 
@@ -1007,6 +1014,13 @@ class GameStateMixin:
         actual_dx = self.player_rect.x - prev_x
         actual_dy = self.player_rect.y - prev_y
         self._update_story_camera()
+        audio = getattr(self, "audio", None)
+        if audio is not None and getattr(self, "aventura_fondo", None) is not None:
+            audio.update_player_motion(
+                actual_dx != 0 or actual_dy != 0,
+                sprint=sprint,
+                map_name=self.aventura_fondo.ruta_imagen,
+            )
         # ── CAMBIO 4: Detección de proximidad al pupitre rayado ──────────────
         if getattr(self, "day1_in_tarde", False) and getattr(self, "day1_pupitre_step", 0) == 0:
             for h in self.story_walls:
@@ -1016,6 +1030,8 @@ class GameStateMixin:
                         self.day1_pupitre_step = 1
                         pname = getattr(self, "player_name", "") or "Protagonista"
                         self.story_thought = f"{pname}: ¿Qué dice este pupitre todo rayado?"
+                        if audio is not None:
+                            audio.play_sfx("pupitre_alerta")
                         break
         # ── CAMBIO 3: Proximidad a zona Sara durante espera de silla ─────────
         if getattr(self, "day1_seq_step", 0) == 3 and not getattr(self, "day1_sara_npc_warned", False):
@@ -1025,6 +1041,8 @@ class GameStateMixin:
                     if dist < 150:
                         self.day1_sara_npc_warned = True
                         self.story_interaction_text = "NPC: Ella siempre anda sola."
+                        if audio is not None:
+                            audio.sfx_burla()
                         break
 
         if self.aventura_personaje is not None:

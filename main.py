@@ -215,6 +215,9 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         # ── Sistemas nuevos ───────────────────────────────────────────────────
         self.audio = AudioManager()
         self.transitions = TransitionManager()
+        self.audio.apply_volume(self.settings["Volumen"])
+        self.audio.play_bgm_for_screen(self.current_screen)
+        self._last_hover_target = None
 
         # Minijuego Undertale
         self.minijuego_manager = None   # MinigameManager activo, o None
@@ -290,6 +293,9 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
                     if siguiente is not None:
                         self.popup_logro_actual = siguiente
                         self.popup_logro_timer = 3500
+                        audio = getattr(self, "audio", None)
+                        if audio is not None:
+                            audio.sfx_logro()
 
 
 if __name__ == "__main__":
