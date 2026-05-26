@@ -159,6 +159,29 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         self.prologo_razon = ""
         self.prologo_textos = []
 
+        # ── Ingreso de nombre ─────────────────────────────────────────────────
+        self.player_name = ""
+        self.nombre_input_text = ""
+        self.nombre_input_cursor_visible = True
+        self.nombre_input_cursor_timer = 0
+
+        # ── Estado Día 1 ──────────────────────────────────────────────────────
+        self.current_day = 1
+        self.day1_guide_active = True
+        self.day1_salon_entered = False
+        self.day1_seq_step = 0          # 0=inactivo 1=pensamiento 2=diego 3=esperar_silla
+        self.day1_seating_result = ""   # sentó_con_sara / sentó_con_diego / sentó_solo
+        self.day1_in_tarde = False
+        self.day1_pupitre_step = 0      # 0=inactivo 1=pensamiento 2=zoom 3=done
+        self.day1_pupitre_zoom_active = False
+        self.day1_pupitre_erase_surface = None
+        self.day1_pupitre_erase_progress = 0.0
+        self.day1_pupitre_result = ""
+        self.day1_completed = False
+        self.day1_end_timer = 0         # ms countdown para "Fin del Día 1"
+        self.day1_sara_npc_warned = False
+        self.day1_seq_dialog_done = False
+
         # ── Simulación ────────────────────────────────────────────────────────
         self.simulacion_activa = False
         self.simulacion_personaje = None
@@ -232,6 +255,8 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
             # Actualizar lógica de juego
             self._update_adventure()
             self._update_simulacion()
+            if self.current_screen == "nombre_input":
+                self._update_nombre_cursor(dt_ms)
 
             # Actualizar transición y popup de logro
             self.transitions.update(self, dt_ms)

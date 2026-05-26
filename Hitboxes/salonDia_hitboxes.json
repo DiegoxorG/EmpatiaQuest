@@ -239,5 +239,40 @@
     }
   },
   "npc_positions": {},
-  "decoracion": []
+  "decoracion": [],
+  "chair_zones": [
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.22,
+      "ry": 0.60,
+      "rw": 0.10,
+      "rh": 0.08,
+      "action": "silla",
+      "zone_tag": "sara_zone",
+      "blocking": false
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.55,
+      "ry": 0.60,
+      "rw": 0.10,
+      "rh": 0.08,
+      "action": "silla",
+      "zone_tag": "diego_zone",
+      "blocking": false
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.40,
+      "ry": 0.65,
+      "rw": 0.10,
+      "rh": 0.08,
+      "action": "silla",
+      "zone_tag": "solo_zone",
+      "blocking": false
+    }
+  ]
 }

@@ -11,6 +11,19 @@ automáticamente en la próxima ejecución.
 
 ## 🖼️ Sprites e imágenes del mundo (`ASSET_IMG`)
 
+> **Día 1 — nuevos assets (CAMBIOS 3, 4)**
+
+| Archivo | Dimensiones | Descripción |
+|---|---|---|
+| `Imagenes/Interactuables/PupitreRayado_zoom.png` | 1280×720 | Pupitre con insultos escritos, vista de cerca |
+| `Imagenes/Interactuables/PupitreRayones.png` | 1280×720 | Capa transparente PNG con los insultos encima del pupitre (para borrar progresivamente) |
+| `Imagenes/UI/borrador_cursor.png` | 48×48 | Borrador de tablero pixel-art (cursor del minijuego de borrado) |
+| `Imagenes/Personajes/Profesor/parado.png` | mismas dims que otros NPCs | Profesor adulto pixel-art, sprite parado |
+
+> **Personajes existentes**
+
+| Archivo | Dimensiones | Descripción |
+
 | Archivo | Dimensiones | Descripción |
 |---|---|---|
 | `Imagenes/Personajes/NPC2/parado.png` | mismas que NPC1 | Sprite en reposo del NPC2 (fallback: usa NPC1) |
@@ -20,6 +33,15 @@ automáticamente en la próxima ejecución.
 ---
 
 ## 🎨 Assets de interfaz de usuario (`ASSET_UI`)
+
+> **Día 1 — nuevos assets de UI (CAMBIOS 1, 2)**
+
+| Archivo | Dimensiones | Descripción |
+|---|---|---|
+| `Imagenes/UI/fondo_nombre.png` | 1280×720 | Pantalla de ingreso de nombre, estilo pixel-art escolar |
+| `Imagenes/flecha_guia.png` | 64×64 | Flecha pixel-art amarilla apuntando hacia arriba, se rota por código según dirección |
+
+> **Assets de UI existentes**
 
 | Archivo | Dimensiones | Descripción |
 |---|---|---|
@@ -43,6 +65,14 @@ automáticamente en la próxima ejecución.
 ---
 
 ## 🎵 Efectos de sonido (`ASSET_SFX`)
+
+> **Día 1 — nuevos SFX (CAMBIO 4)**
+
+| Archivo | Descripción |
+|---|---|
+| `Audio/SFX/camara_foto.ogg` | Sonido de shutter de cámara (opción C del pupitre) |
+
+> **SFX existentes**
 
 Ruta base: `Audio/SFX/`
 

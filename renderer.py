@@ -419,6 +419,45 @@ class RendererMixin:
         )
 
     # ──────────────────────────────────────────────────────────────────────────
+    # CAMBIO 1 — Pantalla de ingreso de nombre
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _draw_name_input_screen(self):
+        # 🎨 ASSET_UI: Imagenes/UI/fondo_nombre.png | 1280x720 | Pantalla de ingreso de nombre, estilo pixel-art escolar
+        self._draw_pixel_background()
+        panel = pygame.Rect(self.width // 2 - 380, self.height // 2 - 200, 760, 400)
+        shadow = panel.move(6, 6)
+        pygame.draw.rect(self.screen, (13, 12, 24), shadow)
+        pygame.draw.rect(self.screen, CARD, panel)
+        pygame.draw.rect(self.screen, CARD_BORDER, panel, width=5)
+        self.draw_pixel_text("NUEVA PARTIDA", self.width // 2, panel.y + 55, "title", TEXT_MAIN, True)
+        self.draw_pixel_text("¿Cuál es tu nombre?", self.width // 2, panel.y + 110, "subtitle", TEXT_SOFT, True)
+
+        field_rect = pygame.Rect(panel.x + 80, panel.y + 155, panel.width - 160, 56)
+        pygame.draw.rect(self.screen, (255, 255, 255), field_rect)
+        pygame.draw.rect(self.screen, CARD_BORDER, field_rect, 3)
+
+        text = getattr(self, "nombre_input_text", "")
+        cursor_vis = getattr(self, "nombre_input_cursor_visible", True)
+        display_text = text + ("|" if cursor_vis else " ")
+        self.draw_pixel_text(display_text, field_rect.x + 14, field_rect.centery, "button", TEXT_MAIN, False)
+
+        self.draw_pixel_text(
+            "Solo letras, espacios y números. Máximo 20 caracteres.",
+            self.width // 2, panel.y + 240, "small", TEXT_SOFT, True,
+        )
+        can_confirm = len(text.strip()) > 0
+        btn_color = CARD_HOVER if can_confirm else (180, 180, 180)
+        btn_rect = pygame.Rect(self.width // 2 - 130, panel.y + 280, 260, 52)
+        pygame.draw.rect(self.screen, btn_color, btn_rect)
+        pygame.draw.rect(self.screen, CARD_BORDER, btn_rect, 3)
+        self.draw_pixel_text(
+            "ENTER para continuar" if can_confirm else "Escribe tu nombre",
+            btn_rect.centerx, btn_rect.centery, "small", TEXT_MAIN, True,
+        )
+        self.draw_pixel_text("ESC para volver", self.width // 2, panel.bottom - 22, "small", TEXT_SOFT, True)
+
+    # ──────────────────────────────────────────────────────────────────────────
     # Creador de personaje
     # ──────────────────────────────────────────────────────────────────────────
 
@@ -597,13 +636,16 @@ class RendererMixin:
         self.screen.blit(overlay, (0, 0))
 
     def _draw_story_clock_hud(self):
-        hud_text = f"Dia {self.story_clock_day}  {self.story_clock_hour:02d}:{self.story_clock_minute:02d}"
-        box = pygame.Rect(20, 18, 230, 38)
+        # CAMBIO 6: Solo muestra el día, sin hora. Aparece en TODOS los fondos.
+        day = getattr(self, "current_day", getattr(self, "story_clock_day", 1))
+        hud_text = f"Dia {day}"
+        box_w = 100
+        box = pygame.Rect(self.width - box_w - 12, 12, box_w, 34)
         overlay = pygame.Surface((box.width, box.height), pygame.SRCALPHA)
         overlay.fill((255, 255, 255, 210))
         self.screen.blit(overlay, box.topleft)
         pygame.draw.rect(self.screen, (18, 18, 18), box, 2)
-        self.draw_pixel_text(hud_text, box.x + 12, box.centery, "small", TEXT_MAIN, False)
+        self.draw_pixel_text(hud_text, box.centerx, box.centery, "small", TEXT_MAIN, True)
 
     def _draw_first_day_classroom_npcs(self):
         def _slot_for(npc_name, fallback_rx, fallback_ry):
@@ -677,41 +719,7 @@ class RendererMixin:
                  cy - (scaled.get_height() // 2) - self.story_camera_y),
             )
 
-    def _load_object_interactable_image(self, object_name):
-        if not object_name:
-            return None
-        cached = self.story_object_image_cache.get(object_name)
-        if cached is not None:
-            return cached
-        object_path = os.path.join(os.path.dirname(__file__), "Imagenes", "Interactuables", object_name)
-        try:
-            image = pygame.image.load(object_path).convert_alpha()
-        except (OSError, pygame.error):
-            image = None
-        self.story_object_image_cache[object_name] = image
-        return image
-
-    def _get_cropped_object_image(self, image, crop):
-        if not isinstance(crop, dict):
-            return image
-        iw, ih = image.get_size()
-        try:
-            cx = max(0.0, min(1.0, float(crop.get("x", 0.0))))
-            cy = max(0.0, min(1.0, float(crop.get("y", 0.0))))
-            cw = max(0.001, min(1.0 - cx, float(crop.get("w", 1.0))))
-            ch = max(0.001, min(1.0 - cy, float(crop.get("h", 1.0))))
-        except (TypeError, ValueError):
-            return image
-        rect = pygame.Rect(
-            max(0, min(iw - 1, int(cx * iw))),
-            max(0, min(ih - 1, int(cy * ih))),
-            1, 1,
-        )
-        rect.width = max(1, min(iw - rect.x, int(cw * iw)))
-        rect.height = max(1, min(ih - rect.y, int(ch * ih)))
-        if rect.topleft == (0, 0) and rect.size == image.get_size():
-            return image
-        return image.subsurface(rect)
+    # _load_object_interactable_image and _get_cropped_object_image defined in GameStateMixin
 
     def _draw_object_interactables_from_hitboxes(self):
         for h in self.story_walls:
@@ -722,7 +730,7 @@ class RendererMixin:
             object_name = h.get("object_name", "")
             image = self._load_object_interactable_image(object_name)
             if image is None:
-                continue
+                continue  # No debería ocurrir con el fallback, pero por seguridad
             x = int(self.story_world_width * h["rx"]) - self.story_camera_x
             y = int(self.story_world_height * h["ry"]) - self.story_camera_y
             w = max(8, int(self.story_world_width * h["rw"]))
@@ -730,6 +738,174 @@ class RendererMixin:
             image = self._get_cropped_object_image(image, h.get("crop"))
             scaled = pygame.transform.smoothscale(image, (w, h_px))
             self.screen.blit(scaled, (x, y))
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # CAMBIO 2 — Flecha guía
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _draw_guide_arrow(self):
+        # 🎨 ASSET_UI: Imagenes/flecha_guia.png | 64x64 | Flecha pixel-art amarilla, se rota por código
+        if not getattr(self, "day1_guide_active", False):
+            return
+
+        # Determinar el mapa siguiente en la secuencia del Día 1
+        # Clave: fragmento del nombre del mapa actual → fragmento esperado en target_image del destino
+        DAY1_NEXT = {
+            "habdia":       "calle",
+            "calledia":     "patio",
+            "patiod":       "pasillo1",  # cubre patiodía y patiodia
+            "pasillo1_dia": "salon",
+        }
+        fondo = getattr(self, "aventura_fondo", None)
+        ruta = str(getattr(fondo, "ruta_imagen", "")).lower().replace("\\", "/")
+        current_map = ruta.split("/")[-1]  # basename en minúsculas
+        next_keyword = ""
+        for key, val in DAY1_NEXT.items():
+            if key in current_map:
+                next_keyword = val
+                break
+
+        # Buscar la puerta cuyo target_image coincide con el siguiente mapa
+        target_world = None
+        for h in self.story_walls:
+            if h.get("role") != "interactable" or h.get("action") != "puerta":
+                continue
+            if next_keyword:
+                tgt = h.get("target_image", "").lower().replace("\\", "/")
+                if next_keyword not in tgt:
+                    continue
+            mw, mh = self.story_world_width, self.story_world_height
+            cx = int(mw * h["rx"]) + int(mw * h["rw"]) // 2
+            cy = int(mh * h["ry"]) + int(mh * h["rh"]) // 2
+            target_world = (cx, cy)
+            break
+
+        # Fallback: cualquier puerta si no encontramos la específica
+        if target_world is None:
+            for h in self.story_walls:
+                if h.get("role") == "interactable" and h.get("action") == "puerta":
+                    mw, mh = self.story_world_width, self.story_world_height
+                    cx = int(mw * h["rx"]) + int(mw * h["rw"]) // 2
+                    cy = int(mh * h["ry"]) + int(mh * h["rh"]) // 2
+                    target_world = (cx, cy)
+                    break
+        if target_world is None:
+            return
+        # Posición de la flecha en pantalla: sobre el jugador
+        player_screen_x = self.player_rect.centerx - self.story_camera_x
+        player_screen_y = self.player_rect.centery - self.story_camera_y
+        arrow_cx = player_screen_x
+        arrow_cy = player_screen_y - 48
+        # Calcular ángulo hacia el destino
+        import math
+        tx = target_world[0] - self.story_camera_x
+        ty = target_world[1] - self.story_camera_y
+        dx = tx - player_screen_x
+        dy = ty - player_screen_y
+        angle_rad = math.atan2(-dy, dx)  # positivo Y en pantalla va hacia abajo
+        angle_deg = math.degrees(angle_rad)
+        # Animación de rebote
+        t = pygame.time.get_ticks() / 1000.0
+        bounce = int(4 * abs(math.sin(t * 4)))
+        arrow_cy -= bounce
+        # Dibujar flecha procedural (triángulo amarillo)
+        size = 22
+        tip_x = arrow_cx + int(size * math.cos(math.radians(angle_deg)))
+        tip_y = arrow_cy - int(size * math.sin(math.radians(angle_deg)))
+        perp = math.radians(angle_deg + 90)
+        base_x = arrow_cx - int((size * 0.5) * math.cos(math.radians(angle_deg)))
+        base_y = arrow_cy + int((size * 0.5) * math.sin(math.radians(angle_deg)))
+        p1 = (tip_x, tip_y)
+        p2 = (int(base_x + 10 * math.cos(perp)), int(base_y - 10 * math.sin(perp)))
+        p3 = (int(base_x - 10 * math.cos(perp)), int(base_y + 10 * math.sin(perp)))
+        pygame.draw.polygon(self.screen, (255, 220, 30), [p1, p2, p3])
+        pygame.draw.polygon(self.screen, (180, 140, 0), [p1, p2, p3], 2)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # CAMBIO 3 — Caja de diálogo Día 1
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _draw_day1_dialog(self):
+        seq = getattr(self, "day1_seq_step", 0)
+        if seq not in (1, 2, 3):
+            return
+        pname = getattr(self, "player_name", "") or "Protagonista"
+        if seq == 1:
+            speaker = pname
+            text = "¿Dónde debería sentarme?"
+            hint = "ENTER para continuar"
+        elif seq == 2:
+            speaker = "Diego"
+            text = "Ey, acá hay puesto."
+            hint = "ENTER para continuar"
+        else:  # 3
+            speaker = pname
+            text = "Voy a elegir dónde sentarme."
+            hint = "Acércate a una silla y presiona E"
+
+        box_h = 130
+        box = pygame.Rect(26, self.height - box_h - 22, self.width - 52, box_h)
+        overlay = pygame.Surface((box.width, box.height), pygame.SRCALPHA)
+        overlay.fill((242, 242, 242, 220))
+        self.screen.blit(overlay, box.topleft)
+        pygame.draw.rect(self.screen, (18, 18, 18), box, 4)
+        name_box = pygame.Rect(box.x + 16, box.y - 32, max(120, len(speaker) * 14 + 24), 32)
+        pygame.draw.rect(self.screen, (255, 255, 255), name_box)
+        pygame.draw.rect(self.screen, (18, 18, 18), name_box, 3)
+        self.draw_pixel_text(speaker, name_box.centerx, name_box.centery, "small", TEXT_MAIN, True)
+        self.draw_pixel_text(text, box.x + 24, box.y + 52, "body", TEXT_MAIN, False)
+        self.draw_pixel_text(hint, box.right - 16, box.bottom - 18, "small", TEXT_SOFT, False)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # CAMBIO 4 — Zoom pupitre rayado
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _draw_pupitre_zoom(self):
+        if not getattr(self, "day1_pupitre_zoom_active", False):
+            return
+        # Fondo zoom
+        # 🖼️ ASSET_IMG: Imagenes/Interactuables/PupitreRayado_zoom.png | 1280x720 | Pupitre con insultos escritos, vista de cerca
+        zoom_img = self._load_object_interactable_image("PupitreRayado_zoom.png")
+        if zoom_img is not None:
+            scaled = pygame.transform.scale(zoom_img, (self.width, self.height))
+            self.screen.blit(scaled, (0, 0))
+        else:
+            placeholder = pygame.Surface((self.width, self.height))
+            placeholder.fill((80, 60, 40))
+            self.screen.blit(placeholder, (0, 0))
+            self.draw_pixel_text("Pupitre Rayado", self.width // 2, self.height // 2 - 60, "subtitle", (255, 255, 255), True)
+
+        # Capa de rayones borrables (si no se está borrando, mostrar overlay)
+        # 🖼️ ASSET_IMG: Imagenes/Interactuables/PupitreRayones.png | 1280x720 | Capa PNG con insultos encima del pupitre
+        erase_surf = getattr(self, "day1_pupitre_erase_surface", None)
+        if erase_surf is not None:
+            self.screen.blit(erase_surf, (0, 0))
+
+        pname = getattr(self, "player_name", "") or "Protagonista"
+        step = getattr(self, "day1_pupitre_step", 2)
+        if step == 2:
+            # Panel de opciones
+            panel_h = 220
+            panel = pygame.Rect(26, self.height - panel_h - 10, self.width - 52, panel_h)
+            overlay = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
+            overlay.fill((242, 242, 242, 220))
+            self.screen.blit(overlay, panel.topleft)
+            pygame.draw.rect(self.screen, (18, 18, 18), panel, 4)
+            self.draw_pixel_text(f"{pname}: Vaya, cuántos comentarios groseros.", panel.x + 16, panel.y + 24, "body", TEXT_MAIN, False)
+            opts = [
+                ("A", "Borrar mensajes"),
+                ("B", "Ignorar"),
+                ("C", "Tomar foto"),
+                ("D", "Mostrar al profesor"),
+            ]
+            col_w = (panel.width - 32) // 2
+            for i, (key, label) in enumerate(opts):
+                col = i % 2
+                row = i // 2
+                x = panel.x + 16 + col * col_w
+                y = panel.y + 70 + row * 52
+                self.draw_pixel_text(f"[{key}] {label}", x, y, "small", TEXT_MAIN, False)
+            self.draw_pixel_text("ESC para volver", panel.right - 16, panel.bottom - 18, "small", TEXT_SOFT, False)
 
     def _draw_adventure_screen(self):
         self.screen.fill((255, 255, 255))
@@ -755,6 +931,9 @@ class RendererMixin:
         else:
             pygame.draw.rect(self.screen, (255, 255, 255), (0, 0, self.width, self.height))
 
+        # CAMBIO 6: HUD de día siempre visible en todos los fondos
+        self._draw_story_clock_hud()
+
         if self._is_first_day_classroom_context():
             has_npc_hitboxes = any(
                 h.get("role") == "interactable" and h.get("action") == "npc"
@@ -762,7 +941,6 @@ class RendererMixin:
             )
             if not has_npc_hitboxes:
                 self._draw_first_day_classroom_npcs()
-            self._draw_story_clock_hud()
 
         self._draw_object_interactables_from_hitboxes()
 
@@ -848,6 +1026,28 @@ class RendererMixin:
             pygame.draw.rect(self.screen, PIXEL_CYAN, player_view)
             if self.settings.get("Mostrar hitboxes", False):
                 pygame.draw.rect(self.screen, (255, 0, 0), player_view, 2)
+
+        # CAMBIO 2: flecha guía
+        self._draw_guide_arrow()
+
+        # CAMBIO 4: zoom pupitre (dibuja encima de todo si está activo)
+        if getattr(self, "day1_pupitre_zoom_active", False):
+            self._draw_pupitre_zoom()
+            return  # No dibujar el event box mientras está el zoom
+
+        # CAMBIO 5: pantalla de fin del Día 1
+        if getattr(self, "day1_end_timer", 0) > 0:
+            overlay_end = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            overlay_end.fill((0, 0, 0, 200))
+            self.screen.blit(overlay_end, (0, 0))
+            self.draw_pixel_text("Fin del Día 1", self.width // 2, self.height // 2, "title", (245, 247, 255), True)
+            return
+
+        # CAMBIO 3: caja de diálogo Día 1 (reemplaza event box mientras está en secuencia)
+        seq_step = getattr(self, "day1_seq_step", 0)
+        if seq_step in (1, 2, 3):
+            self._draw_day1_dialog()
+            return
 
         event_box = pygame.Rect(26, self.height - footer_h + 20, self.width - 52, footer_h - 28)
         overlay = pygame.Surface((event_box.width, event_box.height), pygame.SRCALPHA)
@@ -1049,6 +1249,8 @@ class RendererMixin:
             self._draw_settings_screen()
         elif self.current_screen == "controles":
             self._draw_controls_screen()
+        elif self.current_screen == "nombre_input":
+            self._draw_name_input_screen()
         elif self.current_screen == "creador":
             self._draw_character_creator()
         elif self.current_screen == "prologo":

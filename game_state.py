@@ -134,6 +134,8 @@ class GameStateMixin:
     def _build_save_data(self):
         return {
             "save_version": SAVE_VERSION,
+            "player_name": getattr(self, "player_name", ""),
+            "current_day": getattr(self, "current_day", 1),
             "story_felicidad": self.story_felicidad,
             "story_reputacion": self.story_reputacion,
             "story_completed": self.story_completed,
@@ -182,6 +184,8 @@ class GameStateMixin:
     def _apply_loaded_save_data(self, data):
         data = self._migrate_save_data(data)
         self._start_adventure()
+        self.player_name = str(data.get("player_name", ""))
+        self.current_day = int(data.get("current_day", 1))
         self.story_felicidad = int(data.get("story_felicidad", 50))
         self.story_reputacion = int(data.get("story_reputacion", 50))
         self.story_completed = int(data.get("story_completed", 0))
@@ -426,6 +430,22 @@ class GameStateMixin:
         self.decision_history = []
         self.skills_inventory = {k: dict(v) for k, v in DEFAULT_SKILLS.items()}
         self.lista_logros = Lista_Logros()
+        # Reset Day 1 state
+        self.current_day = 1
+        self.day1_guide_active = True
+        self.day1_salon_entered = False
+        self.day1_seq_step = 0
+        self.day1_seating_result = ""
+        self.day1_in_tarde = False
+        self.day1_pupitre_step = 0
+        self.day1_pupitre_zoom_active = False
+        self.day1_pupitre_erase_surface = None
+        self.day1_pupitre_erase_progress = 0.0
+        self.day1_pupitre_result = ""
+        self.day1_completed = False
+        self.day1_end_timer = 0
+        self.day1_sara_npc_warned = False
+        self.day1_seq_dialog_done = False
         self.popup_logro_timer = 0
         self.popup_logro_actual = None
         self.player_rect = pygame.Rect(0, 0, 28, 28)
@@ -435,10 +455,12 @@ class GameStateMixin:
         self.aventura_fondo = None
         self.aventura_personaje = None
         ruta_imagenes = os.path.join(os.path.dirname(__file__), "Imagenes", "Personajes", "personaje_main")
+        hab_path = self._resolve_image_path("HabDía.png")
         try:
-            self.aventura_fondo = Fondo(self._resolve_image_path("HabDía.png"), 0, 0)
+            self.aventura_fondo = Fondo(hab_path, 0, 0)
         except (OSError, pygame.error):
-            self.aventura_fondo = None
+            placeholder = self._make_placeholder_surface(1280, 720, "HabDía.png")
+            self.aventura_fondo = self._make_fondo_placeholder(hab_path, placeholder)
         self.story_walls = self._build_story_wall_hitboxes(
             self.aventura_fondo.ruta_imagen if self.aventura_fondo else None
         )
@@ -587,7 +609,7 @@ class GameStateMixin:
         try:
             with open(export_path, "r", encoding="utf-8") as fh:
                 payload = json.load(fh)
-            boxes = payload.get("hitboxes", [])
+            boxes = payload.get("hitboxes", []) + payload.get("chair_zones", [])
             spawn_data = payload.get("spawn", {})
             npc_positions = payload.get("npc_positions", {})
             self.story_spawn_world = None
@@ -811,14 +833,16 @@ class GameStateMixin:
             if self.aventura_fondo is not None else None
         )
         target_path = self._resolve_image_path(target_image_name)
+        # CAMBIO 7: si no existe, usar placeholder en lugar de abortar
         if not os.path.exists(target_path):
-            self.story_interaction_text = f"Destino no encontrado: {target_image_name}"
-            return
-        try:
-            self.aventura_fondo = Fondo(target_path, 0, 0)
-        except (OSError, pygame.error):
-            self.story_interaction_text = f"No se pudo cargar: {target_image_name}"
-            return
+            placeholder = self._make_placeholder_surface(1280, 720, target_image_name)
+            self.aventura_fondo = self._make_fondo_placeholder(target_path, placeholder)
+        else:
+            try:
+                self.aventura_fondo = Fondo(target_path, 0, 0)
+            except (OSError, pygame.error):
+                placeholder = self._make_placeholder_surface(1280, 720, target_image_name)
+                self.aventura_fondo = self._make_fondo_placeholder(target_path, placeholder)
         self.cached_background_scaled = None
         self.cached_background_size = None
         self.cached_background_source = None
@@ -836,6 +860,19 @@ class GameStateMixin:
         self._update_story_camera()
         self.story_interaction_text = f"Entraste a: {target_image_name}"
         self.audio.sfx_puerta()
+        # ── Detección de mapas especiales Día 1 ───────────────────────────────
+        base = os.path.basename(target_image_name).lower()
+        if base == "salondía.png" or base == "salondia.png":
+            if not getattr(self, "day1_salon_entered", False):
+                self.day1_salon_entered = True
+                self.day1_seq_step = 1  # Mostrar pensamiento del protagonista
+                self.day1_guide_active = False
+        elif base in ("salontarde.png",):
+            self.day1_in_tarde = True
+        elif base == "habtarde.png":
+            if not getattr(self, "day1_completed", False) and getattr(self, "day1_in_tarde", False):
+                self.day1_end_timer = 2500  # 2.5 segundos para "Fin del Día 1"
+                self.day1_completed = True
 
     def _execute_interactable_action(self, interactable):
         action = interactable.get("action", "puerta")
@@ -847,6 +884,42 @@ class GameStateMixin:
             self._change_adventure_background(interactable.get("target_image", ""))
             return
         if action == "silla":
+            # CAMBIO 3: si estamos en la secuencia Día 1 esperando silla
+            if getattr(self, "day1_seq_step", 0) == 3:
+                zone_tag = interactable.get("zone_tag", "")
+                if zone_tag == "sara_zone":
+                    result = "sentó_con_sara"
+                    df, dr = 2, -1
+                elif zone_tag == "diego_zone":
+                    result = "sentó_con_diego"
+                    df, dr = -3, 2
+                else:
+                    result = "sentó_solo"
+                    df, dr = -2, 0
+                self.day1_seating_result = result
+                self.story_felicidad = max(0, min(100, self.story_felicidad + df))
+                self.story_reputacion = max(0, min(100, self.story_reputacion + dr))
+                self.decision_history.append({
+                    "event_id": "primer_dia_espacial",
+                    "option_label": result,
+                    "dF": df, "dR": dr,
+                    "thought": f"Me senté: {result}",
+                })
+                self.story_completed += 1
+                self.day1_seq_step = 4
+                # Avanzar el evento narrativo (primer_dia) al siguiente
+                if self.story_current_event and self.story_current_event.get("id") == "primer_dia":
+                    self.story_current_event = self._pick_next_event()
+                    if self.story_completed >= self.story_goal or self.story_current_event is None:
+                        self._resolve_ending()
+                self.audio.sfx_sentarse()
+                # Fade y transición a SalonTarde
+                transitions = getattr(self, "transitions", None)
+                if transitions is not None and transitions.is_idle():
+                    transitions.request(self, "aventura", callback=lambda: self._change_adventure_background("SalonTarde.png"))
+                else:
+                    self._change_adventure_background("SalonTarde.png")
+                return
             self._toggle_seat_state(interactable)
             return
         if action == "npc":
@@ -908,6 +981,22 @@ class GameStateMixin:
                 visible.append(h)
         return visible
 
+    def _dist_to_hitbox(self, h):
+        """Distancia normalizada del jugador al centro de un hitbox (en px mundo)."""
+        mw, mh = self.story_world_width, self.story_world_height
+        if h.get("type") == "rect":
+            cx = int(mw * h["rx"]) + int(mw * h["rw"]) // 2
+            cy = int(mh * h["ry"]) + int(mh * h["rh"]) // 2
+        elif h.get("type") == "circle":
+            cx = int(mw * h["cx"])
+            cy = int(mh * h["cy"])
+        else:
+            cx = int(mw * h.get("x1", 0.5))
+            cy = int(mh * h.get("y1", 0.5))
+        dx = self.player_rect.centerx - cx
+        dy = self.player_rect.centery - cy
+        return (dx * dx + dy * dy) ** 0.5
+
     # ── Actualización de aventura ─────────────────────────────────────────────
 
     def _update_adventure(self):
@@ -935,6 +1024,11 @@ class GameStateMixin:
             if self.story_npc_diego_frames:
                 self.story_npc_diego_index = (self.story_npc_anim_timer // 220) % len(self.story_npc_diego_frames)
 
+        # ── Fin del Día 1 countdown ───────────────────────────────────────────
+        if getattr(self, "day1_end_timer", 0) > 0:
+            self.day1_end_timer -= dt_ms
+            return
+
         if self.story_is_seated:
             if self.aventura_personaje is not None:
                 self.aventura_personaje.moviendose = False
@@ -960,6 +1054,26 @@ class GameStateMixin:
         actual_dx = self.player_rect.x - prev_x
         actual_dy = self.player_rect.y - prev_y
         self._update_story_camera()
+        # ── CAMBIO 4: Detección de proximidad al pupitre rayado ──────────────
+        if getattr(self, "day1_in_tarde", False) and getattr(self, "day1_pupitre_step", 0) == 0:
+            for h in self.story_walls:
+                if h.get("zone_tag") == "pupitre_rayado":
+                    dist = self._dist_to_hitbox(h)
+                    if dist < 150:
+                        self.day1_pupitre_step = 1
+                        pname = getattr(self, "player_name", "") or "Protagonista"
+                        self.story_thought = f"{pname}: ¿Qué dice este pupitre todo rayado?"
+                        break
+        # ── CAMBIO 3: Proximidad a zona Sara durante espera de silla ─────────
+        if getattr(self, "day1_seq_step", 0) == 3 and not getattr(self, "day1_sara_npc_warned", False):
+            for h in self.story_walls:
+                if h.get("zone_tag") == "sara_zone":
+                    dist = self._dist_to_hitbox(h)
+                    if dist < 150:
+                        self.day1_sara_npc_warned = True
+                        self.story_interaction_text = "NPC: Ella siempre anda sola."
+                        break
+
         if self.aventura_personaje is not None:
             self.aventura_personaje.hitbox.x = self.player_rect.x
             self.aventura_personaje.hitbox.y = self.player_rect.y
@@ -1038,6 +1152,33 @@ class GameStateMixin:
         )
 
     # ── Utilidades de imagen ──────────────────────────────────────────────────
+
+    def _make_placeholder_surface(self, w, h, path_str=""):
+        """CAMBIO 7: Crea Surface de placeholder para imágenes faltantes."""
+        surf = pygame.Surface((w, h))
+        surf.fill((42, 42, 42))
+        pygame.draw.rect(surf, (255, 68, 68), (0, 0, w, h), 3)
+        try:
+            font = self.base_fonts.get("body") or self.base_fonts.get("small")
+            if font:
+                t1 = font.render("Imagen Faltante", True, (255, 255, 255))
+                surf.blit(t1, (w // 2 - t1.get_width() // 2, h // 2 - t1.get_height() - 4))
+                short = str(path_str)[-60:] if len(str(path_str)) > 60 else str(path_str)
+                t2 = font.render(short, True, (200, 200, 200))
+                surf.blit(t2, (w // 2 - t2.get_width() // 2, h // 2 + 8))
+        except Exception:
+            pass
+        return surf
+
+    def _make_fondo_placeholder(self, path_str, surface):
+        """Crea un objeto Fondo-compatible usando una Surface placeholder."""
+        class _FondoSustituto:
+            def __init__(self, ruta, img):
+                self.ruta_imagen = ruta
+                self.imagen = img
+            def dibujar(self, pantalla):
+                pantalla.blit(self.imagen, (0, 0))
+        return _FondoSustituto(str(path_str), surface)
 
     def _resolve_image_path(self, image_ref):
         images_dir = os.path.join(os.path.dirname(__file__), "Imagenes")
@@ -1153,7 +1294,8 @@ class GameStateMixin:
         try:
             image = pygame.image.load(object_path).convert_alpha()
         except (OSError, pygame.error):
-            image = None
+            # CAMBIO 7: placeholder en lugar de None
+            image = self._make_placeholder_surface(256, 256, object_path)
         self.story_object_image_cache[object_name] = image
         return image
 

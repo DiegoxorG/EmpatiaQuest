@@ -228,5 +228,19 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "chair_zones": [
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.35,
+      "ry": 0.58,
+      "rw": 0.12,
+      "rh": 0.09,
+      "action": "objeto",
+      "zone_tag": "pupitre_rayado",
+      "object_name": "PupitreRayado_zoom.png",
+      "blocking": false
+    }
+  ]
 }

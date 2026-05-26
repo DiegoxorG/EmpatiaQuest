@@ -33,7 +33,10 @@ class ScreenHandlersMixin:
             self._transition_to("jugar", transitions)
             return
         if action == "partida_nueva":
-            self._transition_to("creador", transitions)
+            self.nombre_input_text = ""
+            self.nombre_input_cursor_visible = True
+            self.nombre_input_cursor_timer = 0
+            self._transition_to("nombre_input", transitions)
             return
         if action == "cargar_partida":
             self.save_slot_selected = 0
@@ -304,6 +307,39 @@ class ScreenHandlersMixin:
                 self._open_action(self.play_buttons[self.selected_play_index].action)
 
     # ──────────────────────────────────────────────────────────────────────────
+    # CAMBIO 1 — Ingreso de nombre
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _update_nombre_cursor(self, dt_ms):
+        self.nombre_input_cursor_timer += dt_ms
+        if self.nombre_input_cursor_timer >= 530:
+            self.nombre_input_cursor_timer = 0
+            self.nombre_input_cursor_visible = not self.nombre_input_cursor_visible
+
+    def _handle_nombre_input_events(self, event):
+        if event.type == pygame.KEYDOWN:
+            text = getattr(self, "nombre_input_text", "")
+            if event.key == pygame.K_BACKSPACE:
+                self.nombre_input_text = text[:-1]
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                name = text.strip()
+                if name:
+                    self.player_name = name
+                    self._start_adventure()
+                    transitions = getattr(self, "transitions", None)
+                    self._transition_to("prologo", transitions)
+            elif event.key == pygame.K_ESCAPE:
+                transitions = getattr(self, "transitions", None)
+                self._transition_to("jugar", transitions)
+            # Caracteres: manejados SOLO por TEXTINPUT para evitar duplicados
+        if event.type == pygame.TEXTINPUT:
+            text = getattr(self, "nombre_input_text", "")
+            for char in event.text:
+                if (char.isalpha() or char.isspace() or char.isdigit()) and len(text) < 20:
+                    text += char
+            self.nombre_input_text = text
+
+    # ──────────────────────────────────────────────────────────────────────────
     # Creador de personaje
     # ──────────────────────────────────────────────────────────────────────────
 
@@ -388,6 +424,38 @@ class ScreenHandlersMixin:
     # ──────────────────────────────────────────────────────────────────────────
 
     def _handle_adventure_events(self, event):
+        # ── CAMBIO 4: Minijuego borrador (mouse sobre erase_surface) ─────────
+        if getattr(self, "day1_pupitre_zoom_active", False) and getattr(self, "day1_pupitre_step", 0) == 2:
+            erase_surf = getattr(self, "day1_pupitre_erase_surface", None)
+            if erase_surf is not None and pygame.mouse.get_pressed()[0]:
+                mx, my = pygame.mouse.get_pos()
+                pygame.draw.circle(erase_surf, (0, 0, 0, 0), (mx, my), 28)
+                # Calcular progreso: muestrear puntos para estimar área borrada
+                sample_step = 40
+                total = 0
+                erased = 0
+                try:
+                    pix = pygame.PixelArray(erase_surf)
+                    for sx in range(0, erase_surf.get_width(), sample_step):
+                        for sy in range(0, erase_surf.get_height(), sample_step):
+                            total += 1
+                            alpha = erase_surf.get_at((sx, sy))[3]
+                            if alpha < 10:
+                                erased += 1
+                    del pix
+                except Exception:
+                    pass
+                if total > 0:
+                    self.day1_pupitre_erase_progress = erased / total
+                # Si 80% borrado → cerrar automáticamente
+                if self.day1_pupitre_erase_progress >= 0.8:
+                    pname = getattr(self, "player_name", "") or "Protagonista"
+                    self.story_thought = f"{pname}: Listo, ya no se ven esos mensajes."
+                    self.story_felicidad = max(0, min(100, self.story_felicidad + 1))
+                    self.day1_pupitre_zoom_active = False
+                    self.day1_pupitre_step = 3
+                    self.day1_pupitre_result = "borrar"
+
         # Click de ratón sobre las opciones del evento narrativo
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if (
@@ -407,6 +475,77 @@ class ScreenHandlersMixin:
                     y += 28
 
         if event.type == pygame.KEYDOWN:
+            # ── CAMBIO 3: Avance de diálogos Día 1 ───────────────────────────
+            seq = getattr(self, "day1_seq_step", 0)
+            if seq in (1, 2):
+                if event.key in (self.controls.get("continuar", pygame.K_RETURN),
+                                 pygame.K_RETURN, pygame.K_SPACE, pygame.K_KP_ENTER):
+                    self.day1_seq_step = seq + 1
+                    return
+
+            # ── CAMBIO 4: pupitre paso 1 → zoom con E ────────────────────────
+            pupitre_step = getattr(self, "day1_pupitre_step", 0)
+            if pupitre_step == 1:
+                if event.key == self.controls.get("interactuar", pygame.K_e):
+                    self.day1_pupitre_step = 2
+                    self.day1_pupitre_zoom_active = True
+                    # Crear superficie borradora con los rayones
+                    erase_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+                    scratch_img_path = os.path.join(os.path.dirname(__file__), "Imagenes", "Interactuables", "PupitreRayones.png")
+                    # 🖼️ ASSET_IMG: Imagenes/Interactuables/PupitreRayones.png | 1280x720 | Capa PNG con insultos encima del pupitre
+                    try:
+                        raw = pygame.image.load(scratch_img_path).convert_alpha()
+                        erase_surf.blit(pygame.transform.scale(raw, (self.width, self.height)), (0, 0))
+                    except (OSError, pygame.error):
+                        erase_surf.fill((80, 40, 40, 160))
+                    self.day1_pupitre_erase_surface = erase_surf
+                    self.day1_pupitre_erase_progress = 0.0
+                    return
+
+            # ── CAMBIO 4: teclas A/B/C/D en zoom pupitre ─────────────────────
+            if getattr(self, "day1_pupitre_zoom_active", False) and pupitre_step == 2:
+                pname = getattr(self, "player_name", "") or "Protagonista"
+                if event.key == pygame.K_a:
+                    # Borrar mensajes: iniciar minijuego borrador
+                    self.story_thought = f"{pname}: Tengo que borrar esto."
+                    # El minijuego se activa con el mouse; simplemente mostramos el mensaje
+                    return
+                elif event.key == pygame.K_b:
+                    self.story_thought = f"{pname}: Bah, no me importa."
+                    self.story_felicidad = max(0, min(100, self.story_felicidad - 3))
+                    self.day1_pupitre_zoom_active = False
+                    self.day1_pupitre_step = 3
+                    self.day1_pupitre_result = "ignorar"
+                    return
+                elif event.key == pygame.K_c:
+                    self.story_thought = f"{pname}: ¡Esto es genial!"
+                    self.story_felicidad = max(0, min(100, self.story_felicidad - 5))
+                    self.story_reputacion = max(0, min(100, self.story_reputacion + 1))
+                    self.day1_pupitre_zoom_active = False
+                    self.day1_pupitre_step = 3
+                    self.day1_pupitre_result = "foto"
+                    # 🎵 ASSET_SFX: Audio/SFX/camara_foto.ogg | Sonido de shutter de cámara
+                    audio = getattr(self, "audio", None)
+                    if audio:
+                        audio.sfx_interactuar()
+                    return
+                elif event.key == pygame.K_d:
+                    self.story_thought = f"{pname}: ¡Profe, venga a ver esto!"
+                    self.story_felicidad = max(0, min(100, self.story_felicidad + 2))
+                    self.story_reputacion = max(0, min(100, self.story_reputacion + 1))
+                    self.day1_pupitre_zoom_active = False
+                    self.day1_pupitre_step = 3
+                    self.day1_pupitre_result = "profesor"
+                    transitions = getattr(self, "transitions", None)
+                    if transitions and transitions.is_idle():
+                        transitions.request(self, "aventura")
+                    return
+                elif event.key == pygame.K_ESCAPE:
+                    self.day1_pupitre_zoom_active = False
+                    self.day1_pupitre_step = 3
+                    self.day1_pupitre_result = "ignorar"
+                    return
+
             # TAB — panel de habilidades
             if event.key == pygame.K_TAB:
                 self.show_skills_inventory = not getattr(self, "show_skills_inventory", False)
@@ -630,6 +769,8 @@ class ScreenHandlersMixin:
             self._handle_menu_events(event)
         elif screen == "jugar":
             self._handle_play_events(event)
+        elif screen == "nombre_input":
+            self._handle_nombre_input_events(event)
         elif screen == "creador":
             self._handle_creator_events(event)
         elif screen == "prologo":
@@ -676,6 +817,9 @@ class ScreenHandlersMixin:
                 self.pause_pending_slot = None
             else:
                 self.current_screen = "pause"
+        elif screen == "nombre_input":
+            transitions = getattr(self, "transitions", None)
+            self._transition_to("jugar", transitions)
         elif screen == "configuracion":
             self.current_screen = self.previous_screen or "menu"
             self.previous_screen = None
