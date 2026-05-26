@@ -1,6 +1,0 @@
-.venv/
-__pycache__/
-*.pyc
-Partidas_Guardadas/
-Hitboxes/_clipboard.json
-Hitboxes/_clipboard_selected.json
