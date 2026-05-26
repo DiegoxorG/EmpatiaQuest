@@ -69,10 +69,11 @@ def _load_minijuego_config():
 class MinigameManager:
     """Gestiona un minijuego completo (pre-diálogo → juego → resultado)."""
 
-    def __init__(self, tipo: str, screen_w: int, screen_h: int):
+    def __init__(self, tipo: str, screen_w: int, screen_h: int, audio=None):
         self.tipo = tipo
         self.screen_w = screen_w
         self.screen_h = screen_h
+        self.audio = audio
         self.result = None  # None mientras corre; dict al terminar
 
         # Área de batalla: ancho centrado, altura fijada con margen superior para HUD
@@ -183,13 +184,19 @@ class MinigameManager:
             return
 
         if self.phase == "pre_dialog":
+            if self.audio is not None:
+                self.audio.sfx_dialogo()
             self.dialog_step += 1
             if self.dialog_step >= len(PRE_DIALOGS[self.tipo]):
                 self.phase = "playing"
                 self.wave = -1
                 self.elapsed_ms = 0
+                if self.audio is not None:
+                    self.audio.play_sfx("oleada")
 
         elif self.phase == "post_dialog":
+            if self.audio is not None:
+                self.audio.sfx_dialogo()
             self.post_dialog_step += 1
             post = POST_DIALOGS_WIN[self.tipo] if self.ending_won else POST_DIALOGS_LOSE[self.tipo]
             if self.post_dialog_step >= len(post):
@@ -350,6 +357,8 @@ class MinigameManager:
     def _on_wave_start(self):
         self.spawn_timer_ms = 0
         self.wave_initialized = False
+        if self.audio is not None and self.wave >= 0:
+            self.audio.play_sfx("oleada", 0.8)
 
         if self.tipo == "pacifico":
             if self.wave == 1:
@@ -549,6 +558,8 @@ class MinigameManager:
     def _spawn_from_warning(self, w: dict):
         if "spawn" in w:
             self.projectiles.append(dict(w["spawn"]))
+            if self.audio is not None:
+                self.audio.play_sfx("aviso_ataque", 0.45)
 
     # ── Movimiento de proyectiles ─────────────────────────────────────────────
 
@@ -691,6 +702,8 @@ class MinigameManager:
         self.blink_visible = True
         self.flash_frames = FLASH_FRAMES
         self.shake_ms = SHAKE_MS
+        if self.audio is not None:
+            self.audio.play_sfx("hit_corazon")
         # 🎵 ASSET_SFX: Audio/SFX/hit_corazon.ogg | golpe recibido por el corazón
 
     def _start_ending(self, won: bool):
@@ -699,6 +712,8 @@ class MinigameManager:
         self.ending_flash_ms = 0
         self.projectiles.clear()
         self.warnings.clear()
+        if self.audio is not None:
+            self.audio.play_sfx("minijuego_ganar" if won else "minijuego_perder")
         # 🎵 ASSET_SFX: Audio/SFX/minijuego_ganar.ogg | fanfare de victoria (si won)
         # 🎵 ASSET_SFX: Audio/SFX/minijuego_perder.ogg | derrota (si not won)
 

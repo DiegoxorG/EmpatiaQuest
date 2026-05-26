@@ -16,6 +16,19 @@ from minigame_manager import MinigameManager
 class ScreenHandlersMixin:
     """Todos los manejadores de eventos de EmpatiaQuestUI."""
 
+    def _play_hover_once(self, target):
+        if getattr(self, "_last_hover_target", None) == target:
+            return
+        self._last_hover_target = target
+        audio = getattr(self, "audio", None)
+        if audio is not None:
+            audio.sfx_hover()
+
+    def _play_nav_sfx(self):
+        audio = getattr(self, "audio", None)
+        if audio is not None:
+            audio.sfx_hover()
+
     # ──────────────────────────────────────────────────────────────────────────
     # Acción central — abre pantallas
     # ──────────────────────────────────────────────────────────────────────────
@@ -100,6 +113,7 @@ class ScreenHandlersMixin:
         if event.type == pygame.MOUSEMOTION:
             for i, button in enumerate(self.buttons):
                 if button.contains(event.pos):
+                    self._play_hover_once(("menu", i))
                     self.selected_index = i
                     break
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -110,8 +124,10 @@ class ScreenHandlersMixin:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_DOWN:
                 self.selected_index = (self.selected_index + 1) % len(self.buttons)
+                self._play_nav_sfx()
             elif event.key == pygame.K_UP:
                 self.selected_index = (self.selected_index - 1) % len(self.buttons)
+                self._play_nav_sfx()
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 self._open_action(self.buttons[self.selected_index].action)
 
@@ -123,6 +139,7 @@ class ScreenHandlersMixin:
         if event.type == pygame.MOUSEMOTION:
             for i, button in enumerate(self.pause_buttons):
                 if button.contains(event.pos):
+                    self._play_hover_once(("pause", i))
                     self.pause_selected_index = i
                     break
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -133,8 +150,10 @@ class ScreenHandlersMixin:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_DOWN:
                 self.pause_selected_index = (self.pause_selected_index + 1) % len(self.pause_buttons)
+                self._play_nav_sfx()
             elif event.key == pygame.K_UP:
                 self.pause_selected_index = (self.pause_selected_index - 1) % len(self.pause_buttons)
+                self._play_nav_sfx()
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 self._open_action(self.pause_buttons[self.pause_selected_index].action)
 
@@ -158,9 +177,11 @@ class ScreenHandlersMixin:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_DOWN:
                 self.save_slot_selected = (self.save_slot_selected + 1) % 5
+                self._play_nav_sfx()
                 return
             elif event.key == pygame.K_UP:
                 self.save_slot_selected = (self.save_slot_selected - 1) % 5
+                self._play_nav_sfx()
                 return
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 if self.save_slot_selected < 4:
@@ -170,6 +191,10 @@ class ScreenHandlersMixin:
                         self.message = f"Slot {self.save_slot_selected + 1} ya existe. ENTER para sobrescribir."
                     else:
                         saved = self._save_to_slot(self.save_slot_selected)
+                        if saved:
+                            audio = getattr(self, "audio", None)
+                            if audio is not None:
+                                audio.sfx_guardar()
                         self.message = (
                             f"Guardado en Slot {self.save_slot_selected + 1}."
                             if saved else "No se pudo guardar la partida."
@@ -193,6 +218,10 @@ class ScreenHandlersMixin:
                         self.message = f"Slot {i + 1} ya existe. ENTER para sobrescribir."
                     else:
                         saved = self._save_to_slot(i)
+                        if saved:
+                            audio = getattr(self, "audio", None)
+                            if audio is not None:
+                                audio.sfx_guardar()
                         self.message = (
                             f"Guardado en Slot {i + 1}."
                             if saved else "No se pudo guardar la partida."
@@ -233,9 +262,11 @@ class ScreenHandlersMixin:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_DOWN:
                 self.save_slot_selected = (self.save_slot_selected + 1) % 5
+                self._play_nav_sfx()
                 return
             elif event.key == pygame.K_UP:
                 self.save_slot_selected = (self.save_slot_selected - 1) % 5
+                self._play_nav_sfx()
                 return
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 if self.save_slot_selected < 4:
@@ -243,6 +274,11 @@ class ScreenHandlersMixin:
                         if self._load_slot(self.save_slot_selected):
                             self.current_screen = "aventura"
                             self.message = f"Slot {self.save_slot_selected + 1} cargado."
+                            audio = getattr(self, "audio", None)
+                            if audio is not None:
+                                audio.sfx_decision()
+                                if getattr(self, "aventura_fondo", None) is not None:
+                                    audio.play_ambience_for_map(self.aventura_fondo.ruta_imagen)
                         else:
                             self.message = "No se pudo cargar la partida."
                     else:
@@ -253,6 +289,9 @@ class ScreenHandlersMixin:
             elif event.key == pygame.K_BACKSPACE:
                 if self.save_slot_selected < 4 and self._save_slot_exists(self.save_slot_selected):
                     deleted = self._delete_slot(self.save_slot_selected)
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_error() if not deleted else audio.sfx_decision()
                     self.message = (
                         f"Slot {self.save_slot_selected + 1} borrado."
                         if deleted else "No se pudo borrar el slot."
@@ -274,6 +313,11 @@ class ScreenHandlersMixin:
                         if self._load_slot(i):
                             self.current_screen = "aventura"
                             self.message = f"Slot {i + 1} cargado."
+                            audio = getattr(self, "audio", None)
+                            if audio is not None:
+                                audio.sfx_decision()
+                                if getattr(self, "aventura_fondo", None) is not None:
+                                    audio.play_ambience_for_map(self.aventura_fondo.ruta_imagen)
                         else:
                             self.message = "No se pudo cargar la partida."
                     else:
@@ -292,6 +336,7 @@ class ScreenHandlersMixin:
         if event.type == pygame.MOUSEMOTION:
             for i, button in enumerate(self.play_buttons):
                 if button.contains(event.pos):
+                    self._play_hover_once(("jugar", i))
                     self.selected_play_index = i
                     break
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -302,8 +347,10 @@ class ScreenHandlersMixin:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_DOWN:
                 self.selected_play_index = (self.selected_play_index + 1) % len(self.play_buttons)
+                self._play_nav_sfx()
             elif event.key == pygame.K_UP:
                 self.selected_play_index = (self.selected_play_index - 1) % len(self.play_buttons)
+                self._play_nav_sfx()
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 self._open_action(self.play_buttons[self.selected_play_index].action)
 
@@ -322,9 +369,15 @@ class ScreenHandlersMixin:
             text = getattr(self, "nombre_input_text", "")
             if event.key == pygame.K_BACKSPACE:
                 self.nombre_input_text = text[:-1]
+                audio = getattr(self, "audio", None)
+                if audio is not None:
+                    audio.sfx_error()
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 name = text.strip()
                 if name:
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_decision()
                     self.player_name = name
                     self._start_adventure()
                     transitions = getattr(self, "transitions", None)
@@ -338,6 +391,9 @@ class ScreenHandlersMixin:
             for char in event.text:
                 if (char.isalpha() or char.isspace() or char.isdigit()) and len(text) < 20:
                     text += char
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_dialogo()
             self.nombre_input_text = text
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -362,6 +418,7 @@ class ScreenHandlersMixin:
                 row = pygame.Rect(left_x, list_top + i * list_row_h, 280, list_row_h - 4)
                 if row.collidepoint(event.pos):
                     self.selected_custom_index = i
+                    self._play_nav_sfx()
                     return
             for idx, color in enumerate(self.palette_colors):
                 r = idx // palette_cols
@@ -371,6 +428,9 @@ class ScreenHandlersMixin:
                 rect = pygame.Rect(x, y, sw, sw)
                 if rect.collidepoint(event.pos):
                     self.character_colors[self._selected_part()] = color
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_decision()
                     return
             for s in range(3):
                 bar_rect = pygame.Rect(sliders_x, sliders_top + s * 82, slider_w, 16)
@@ -382,25 +442,36 @@ class ScreenHandlersMixin:
                     col[s] = value
                     self.character_colors[part] = tuple(col)
                     self.selected_slider = s
+                    self._play_nav_sfx()
                     return
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_DOWN:
                 self.selected_custom_index = (self.selected_custom_index + 1) % len(self.custom_parts)
+                self._play_nav_sfx()
             elif event.key == pygame.K_UP:
                 self.selected_custom_index = (self.selected_custom_index - 1) % len(self.custom_parts)
+                self._play_nav_sfx()
             elif event.key == pygame.K_a:
                 self._change_part_style(-1)
+                self._play_nav_sfx()
             elif event.key == pygame.K_d:
                 self._change_part_style(1)
+                self._play_nav_sfx()
             elif event.key == pygame.K_TAB:
                 self.selected_slider = (self.selected_slider + 1) % 3
+                self._play_nav_sfx()
             elif event.key == pygame.K_LEFT:
                 self._change_selected_color_channel(self.selected_slider, -5)
+                self._play_nav_sfx()
             elif event.key == pygame.K_RIGHT:
                 self._change_selected_color_channel(self.selected_slider, 5)
+                self._play_nav_sfx()
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 self.message = "Personaje guardado. Listo para comenzar."
+                audio = getattr(self, "audio", None)
+                if audio is not None:
+                    audio.sfx_decision()
                 self._start_adventure()
                 self.current_screen = "prologo"
 
@@ -412,12 +483,16 @@ class ScreenHandlersMixin:
         if event.type != pygame.KEYDOWN:
             return
         if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_KP_ENTER):
+            audio = getattr(self, "audio", None)
+            if audio is not None:
+                audio.sfx_dialogo()
             self.prologo_paso += 1
             if self.prologo_paso >= len(self.prologo_textos):
                 self.prologo_activo = False
-                audio = getattr(self, "audio", None)
                 if audio is not None:
                     audio.play_bgm_for_screen("aventura")
+                    if getattr(self, "aventura_fondo", None) is not None:
+                        audio.play_ambience_for_map(self.aventura_fondo.ruta_imagen)
                 self.current_screen = "aventura"
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -432,6 +507,9 @@ class ScreenHandlersMixin:
                 pygame.K_RETURN, pygame.K_SPACE, pygame.K_KP_ENTER
             ):
                 self.day1_intro_step = intro_step + 1
+                audio = getattr(self, "audio", None)
+                if audio is not None:
+                    audio.sfx_dialogo()
             return
 
         # ── CAMBIO 4: Minijuego borrador (mouse sobre erase_surface) ─────────
@@ -440,6 +518,9 @@ class ScreenHandlersMixin:
             if erase_surf is not None and pygame.mouse.get_pressed()[0]:
                 mx, my = pygame.mouse.get_pos()
                 pygame.draw.circle(erase_surf, (0, 0, 0, 0), (mx, my), 28)
+                audio = getattr(self, "audio", None)
+                if audio is not None:
+                    audio.sfx_borrar()
                 # Calcular progreso: muestrear puntos para estimar área borrada
                 sample_step = 40
                 total = 0
@@ -465,8 +546,9 @@ class ScreenHandlersMixin:
                     self.day1_pupitre_zoom_active = False
                     self.day1_pupitre_step = 3
                     self.day1_pupitre_result = "borrar"
-
-                    y += 28
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_decision()
 
         if event.type == pygame.KEYDOWN:
             # ── CAMBIO 3: Avance de diálogos Día 1 ───────────────────────────
@@ -475,6 +557,9 @@ class ScreenHandlersMixin:
                 if event.key in (self.controls.get("continuar", pygame.K_RETURN),
                                  pygame.K_RETURN, pygame.K_SPACE, pygame.K_KP_ENTER):
                     self.day1_seq_step = seq + 1
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_dialogo()
                     return
 
             # ── CAMBIO 4: pupitre paso 1 → zoom con E ────────────────────────
@@ -494,6 +579,10 @@ class ScreenHandlersMixin:
                         erase_surf.fill((80, 40, 40, 160))
                     self.day1_pupitre_erase_surface = erase_surf
                     self.day1_pupitre_erase_progress = 0.0
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.play_decision_bgm()
+                        audio.play_sfx("pupitre_alerta")
                     return
 
             # ── CAMBIO 4: teclas A/B/C/D en zoom pupitre ─────────────────────
@@ -502,6 +591,9 @@ class ScreenHandlersMixin:
                 if event.key == pygame.K_a:
                     # Borrar mensajes: iniciar minijuego borrador
                     self.story_thought = f"{pname}: Tengo que borrar esto."
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_borrar()
                     # El minijuego se activa con el mouse; simplemente mostramos el mensaje
                     return
                 elif event.key == pygame.K_b:
@@ -510,6 +602,9 @@ class ScreenHandlersMixin:
                     self.day1_pupitre_zoom_active = False
                     self.day1_pupitre_step = 3
                     self.day1_pupitre_result = "ignorar"
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_error()
                     return
                 elif event.key == pygame.K_c:
                     self.story_thought = f"{pname}: ¡Esto es genial!"
@@ -521,7 +616,7 @@ class ScreenHandlersMixin:
                     # 🎵 ASSET_SFX: Audio/SFX/camara_foto.ogg | Sonido de shutter de cámara
                     audio = getattr(self, "audio", None)
                     if audio:
-                        audio.sfx_interactuar()
+                        audio.sfx_camara()
                     return
                 elif event.key == pygame.K_d:
                     self.story_thought = f"{pname}: ¡Profe, venga a ver esto!"
@@ -533,16 +628,23 @@ class ScreenHandlersMixin:
                     transitions = getattr(self, "transitions", None)
                     if transitions and transitions.is_idle():
                         transitions.request(self, "aventura")
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_decision()
                     return
                 elif event.key == pygame.K_ESCAPE:
                     self.day1_pupitre_zoom_active = False
                     self.day1_pupitre_step = 3
                     self.day1_pupitre_result = "ignorar"
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_error()
                     return
 
             # TAB — panel de habilidades
             if event.key == pygame.K_TAB:
                 self.show_skills_inventory = not getattr(self, "show_skills_inventory", False)
+                self._play_nav_sfx()
                 return
 
             if event.key == self.controls["interactuar"] and not self.story_pending_end:
@@ -554,6 +656,9 @@ class ScreenHandlersMixin:
                     self._execute_interactable_action(interactable)
                 else:
                     self.story_interaction_text = "No hay nada interactuable aqui."
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_error()
                 return
 
             if event.key == self.controls["guardar"]:
@@ -591,11 +696,15 @@ class ScreenHandlersMixin:
             bar = volume_bar_rect()
             rel_x = max(0, min(bar.width, mouse_x - bar.x))
             self.settings["Volumen"] = int((rel_x / bar.width) * 100)
+            audio = getattr(self, "audio", None)
+            if audio is not None:
+                audio.apply_volume(self.settings["Volumen"])
 
         if event.type == pygame.MOUSEMOTION:
             for i in range(len(self.setting_keys)):
                 row = pygame.Rect(row_x, start_y + i * row_h, row_w, 50)
                 if row.collidepoint(event.pos):
+                    self._play_hover_once(("settings", i))
                     self.selected_setting_index = i
                     break
             if self.dragging_volume:
@@ -612,6 +721,9 @@ class ScreenHandlersMixin:
                 self.current_screen = "controles"
                 self.selected_control_index = 0
                 self.waiting_control_action = None
+                audio = getattr(self, "audio", None)
+                if audio is not None:
+                    audio.sfx_click()
                 return
             for i in range(len(self.setting_keys)):
                 row = pygame.Rect(row_x, start_y + i * row_h, row_w, 50)
@@ -626,8 +738,10 @@ class ScreenHandlersMixin:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_DOWN:
                 self.selected_setting_index = (self.selected_setting_index + 1) % len(self.setting_keys)
+                self._play_nav_sfx()
             elif event.key == pygame.K_UP:
                 self.selected_setting_index = (self.selected_setting_index - 1) % len(self.setting_keys)
+                self._play_nav_sfx()
             elif event.key == pygame.K_LEFT:
                 self._change_setting(-1)
             elif event.key == pygame.K_RIGHT:
@@ -645,6 +759,9 @@ class ScreenHandlersMixin:
 
         if self.waiting_control_action is not None and event.type == pygame.KEYDOWN:
             self._rebind_control(self.waiting_control_action, event.key)
+            audio = getattr(self, "audio", None)
+            if audio is not None:
+                audio.sfx_decision()
             return
 
         if event.type == pygame.MOUSEWHEEL:
@@ -660,6 +777,7 @@ class ScreenHandlersMixin:
                 visual_i = i - start_idx
                 row = pygame.Rect(row_x, start_y + visual_i * row_h, row_w, row_h - 8)
                 if row.collidepoint(event.pos):
+                    self._play_hover_once(("controls", i))
                     self.selected_control_index = i
                     break
 
@@ -667,6 +785,9 @@ class ScreenHandlersMixin:
             if self._controls_reset_button_rect().collidepoint(event.pos):
                 self.controls = self._build_default_controls()
                 self.waiting_control_action = None
+                audio = getattr(self, "audio", None)
+                if audio is not None:
+                    audio.sfx_decision()
                 return
             visible_rows = max(1, (list_bottom - start_y) // row_h)
             start_idx = self.controls_scroll
@@ -678,18 +799,26 @@ class ScreenHandlersMixin:
                 if row.collidepoint(event.pos):
                     self.selected_control_index = i
                     self.waiting_control_action = action
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_click()
                     return
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_DOWN:
                 self.selected_control_index = (self.selected_control_index + 1) % len(self.control_labels)
                 self._ensure_selected_control_visible()
+                self._play_nav_sfx()
             elif event.key == pygame.K_UP:
                 self.selected_control_index = (self.selected_control_index - 1) % len(self.control_labels)
                 self._ensure_selected_control_visible()
+                self._play_nav_sfx()
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 _, action = self.control_labels[self.selected_control_index]
                 self.waiting_control_action = action
+                audio = getattr(self, "audio", None)
+                if audio is not None:
+                    audio.sfx_click()
 
     # ──────────────────────────────────────────────────────────────────────────
     # Simulación
@@ -798,7 +927,7 @@ class ScreenHandlersMixin:
         Inicia el minijuego del tipo dado ("agresivo" o "pacifico").
         Guarda los deltas de stats para aplicarlos al terminar.
         """
-        self.minijuego_manager = MinigameManager(tipo, self.width, self.height)
+        self.minijuego_manager = MinigameManager(tipo, self.width, self.height, getattr(self, "audio", None))
         self.minijuego_pending_tipo = tipo
         self.minijuego_paused = False
         self.minijuego_pause_idx = 0
@@ -809,6 +938,8 @@ class ScreenHandlersMixin:
         if audio is not None and hasattr(audio, "play_bgm"):
             try:
                 audio.play_bgm("minijuego_batalla")
+                audio.stop_ambience()
+                audio.play_sfx("oleada")
             except Exception:
                 pass
 
@@ -837,9 +968,14 @@ class ScreenHandlersMixin:
 
                 if event.key in (pygame.K_UP, pygame.K_w):
                     self.minijuego_pause_idx = (idx - 1) % len(opts)
+                    self._play_nav_sfx()
                 elif event.key in (pygame.K_DOWN, pygame.K_s):
                     self.minijuego_pause_idx = (idx + 1) % len(opts)
+                    self._play_nav_sfx()
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_KP_ENTER):
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_click()
                     self._minijuego_pause_select(idx)
             else:
                 mgr.handle_event(event)
@@ -850,9 +986,15 @@ class ScreenHandlersMixin:
 
         if idx == 0:  # Continuar
             self.minijuego_paused = False
+            audio = getattr(self, "audio", None)
+            if audio is not None:
+                audio.sfx_pausa()
 
         elif idx == 1:  # Ver hitboxes toggle
             self.minijuego_show_hitboxes = not getattr(self, "minijuego_show_hitboxes", False)
+            audio = getattr(self, "audio", None)
+            if audio is not None:
+                audio.sfx_decision()
 
         elif idx == 2:  # Configuracion
             self.minijuego_paused = False
@@ -918,6 +1060,9 @@ class ScreenHandlersMixin:
                 if siguiente is not None:
                     self.popup_logro_actual = siguiente
                     self.popup_logro_timer  = 3500
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_logro()
 
         # Incrementar contador de decisiones completadas
         self.story_completed += 1
@@ -927,6 +1072,9 @@ class ScreenHandlersMixin:
         # Limpiar y volver a la aventura
         self.minijuego_manager = None
         transitions = getattr(self, "transitions", None)
+        audio = getattr(self, "audio", None)
+        if audio is not None and getattr(self, "aventura_fondo", None) is not None:
+            audio.play_ambience_for_map(self.aventura_fondo.ruta_imagen)
         self._transition_to("aventura", transitions)
 
 
@@ -967,6 +1115,9 @@ class ScreenHandlersMixin:
             else:
                 self.minijuego_paused = True
                 self.minijuego_pause_idx = 0
+            audio = getattr(self, "audio", None)
+            if audio is not None:
+                audio.sfx_pausa()
         else:
             # historia, progreso, tutorial, creditos → menu
             transitions = getattr(self, "transitions", None)
