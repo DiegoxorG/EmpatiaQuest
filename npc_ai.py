@@ -70,6 +70,7 @@ _WALK_FRAME_DUR = 150.0   # ms por frame de caminata
 _STUCK_THRESHOLD = 500.0  # ms bloqueado antes de rodeo
 _RODEO_TIMEOUT = 3000.0   # ms máximo en modo rodeo
 _WP_TIMEOUT = 8000.0      # ms máximo hacia un waypoint antes de teleport
+_CHAIR_IDLE_TIMEOUT = 10000.0  # ms: NPC deja de intentar llegar a su silla y espera en idle
 _FADE_DUR = 300.0          # ms del fade-in tras teleport
 
 
@@ -144,6 +145,9 @@ class NPCEntity:
         self.fade_alpha: int = 255
         self.fade_in_ms: float = 0.0
 
+        # Bug 4: flag que impide sentarse antes de pasar el primer waypoint interior
+        self.dentro_del_salon: bool = False
+
     def alive(self) -> bool:
         return self.estado != "despawned"
 
@@ -163,6 +167,7 @@ class NPCAIManager:
 
         self._phase = "llegando"
         self._event1_done = False
+        self._pending_salon_npcs: list[str] = []
 
         self._waypoints_cache: dict[str, list[tuple[float, float]]] = {}
         # clave: (nombre, anim_state, facing) → list[Surface]
@@ -172,40 +177,41 @@ class NPCAIManager:
 
     # ── API pública ───────────────────────────────────────────────────────────
 
-    def init_event1_routine(self, world_w: int, world_h: int):
+    def _read_salon_chair_owners(self) -> list[str]:
+        """Lee salonDia_hitboxes.json y devuelve los npc_owner únicos de los pupitres."""
+        path = os.path.join(self.base_dir, "Hitboxes", "salonDia_hitboxes.json")
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return []
+        owners = []
+        seen = set()
+        # Buscar en hitboxes[] (action:"pupitre" o action:"objeto" con npc_owner)
+        for entry in data.get("hitboxes", []):
+            owner = entry.get("npc_owner", "")
+            action = entry.get("action", "")
+            if owner and owner not in seen and action in ("pupitre", "objeto"):
+                seen.add(owner)
+                owners.append(owner)
+        # Buscar también en decoracion[] por si el usuario asignó via editor
+        for entry in data.get("decoracion", []):
+            owner = entry.get("npc_owner", "")
+            name = entry.get("name", "")
+            if owner and owner not in seen and "pupitre" in name.lower():
+                seen.add(owner)
+                owners.append(owner)
+        return owners
+
+    def init_event1_routine(self, world_w: int, world_h: int, walls=None):
         if self._event1_done:
             return
         self._event1_done = True
         self.npc_ai_active = True
         self._phase = "llegando"
 
-        npc_names_patio = ["Sara", "Diego", "Carlos", "Lucas"]
-        zones = list(_SPAWN_ZONES)
-        random.shuffle(zones)
-        for i, nombre in enumerate(npc_names_patio):
-            z = zones[i]
-            rx = random.uniform(z[0], z[1])
-            ry = random.uniform(z[2], z[3])
-            delay = random.uniform(0, 2000)
-            npc = NPCEntity(nombre, "PatioDia.png", rx, ry,
-                            _SPEEDS.get(nombre, 0.0022), delay)
-            self.npcs.append(npc)
-
-        for nombre in ("Mateo", "Samuel"):
-            rx = random.uniform(0.34, 0.42)
-            ry = random.uniform(0.340, 0.360)
-            delay = random.uniform(0, 2000)
-            npc = NPCEntity(nombre, "Pasillo1_dia.png", rx, ry,
-                            _SPEEDS.get(nombre, 0.0022), delay)
-            self.npcs.append(npc)
-
-        # Log de rutas para verificar asset loading
-        print("[NPC_AI] init_event1_routine() — verificando assets:")
-        for npc in self.npcs:
-            path = self._resolve_anim_file(npc.nombre, "idle", "down")
-            walk_path = self._resolve_anim_file(npc.nombre, "walk", "down")
-            print(f"  {npc.nombre}: idle={os.path.basename(path) if path else 'NO ENCONTRADO'}"
-                  f"  walk={os.path.basename(walk_path) if walk_path else 'NO ENCONTRADO'}")
+        names = self._read_salon_chair_owners()
+        self._pending_salon_npcs = names if names else ["Sara", "Diego", "Carlos", "Lucas"]
 
     def notify_phase(self, phase: str):
         if phase == self._phase:
@@ -240,7 +246,7 @@ class NPCAIManager:
             return
         key = _map_key(new_map_basename)
         if "salondia" in key or "salondía" in key:
-            self._fast_forward_to_chairs(game)
+            self._place_npcs_at_chairs(game)
 
     def update(self, dt_ms: float, game):
         if not self.npc_ai_active or not self.npcs:
@@ -297,6 +303,8 @@ class NPCAIManager:
                 continue
             if npc.current_map_key() != cur_key:
                 continue
+            if npc.estado == "sitting":
+                continue  # renderer dibuja el sprite grande desde _draw_seated_npc_at_pupitre
             self._draw_npc(screen, npc, cam_x, cam_y, world_w, world_h)
 
     # ── Update por fase ───────────────────────────────────────────────────────
@@ -340,20 +348,36 @@ class NPCAIManager:
 
         npc.anim_state = "walk"
 
-        # Timeout global → teleport con fade
+        # Timeout global
         npc.waypoint_timeout_ms += dt_ms
-        if npc.waypoint_timeout_ms > _WP_TIMEOUT:
-            print(f"[NPC_AI] {npc.nombre} llegando timeout → teleport a waypoint")
-            npc.rx = npc.destino_rx
-            npc.ry = npc.destino_ry
-            npc.waypoint_timeout_ms = 0.0
-            npc.steer_stuck_ms = 0.0
-            npc.steer_rodeo_target = None
-            npc.steer_rodeo_ms = 0.0
-            npc.fade_alpha = 0
-            npc.fade_in_ms = _FADE_DUR
-            npc.anim_state = "idle"
-            self._on_reached_destination(npc, game, walls)
+        mk_t = npc.current_map_key()
+        is_chair_dest = (
+            ("salondia" in mk_t or "salondía" in mk_t)
+            and npc.waypoint_idx >= len(npc.waypoints) - 1
+        )
+        timeout_limit = _CHAIR_IDLE_TIMEOUT if is_chair_dest else _WP_TIMEOUT
+        if npc.waypoint_timeout_ms > timeout_limit:
+            if is_chair_dest:
+                # Bug 5: no teleportar al asiento — dejar al NPC en idle donde está
+                print(f"[NPC_AI] {npc.nombre} salon timeout → idle (sin teleport)")
+                npc.waypoint_timeout_ms = 0.0
+                npc.steer_stuck_ms = 0.0
+                npc.steer_rodeo_target = None
+                npc.steer_rodeo_ms = 0.0
+                npc.velocidad = 0.0
+                npc.anim_state = "idle"
+            else:
+                print(f"[NPC_AI] {npc.nombre} llegando timeout → teleport a waypoint")
+                npc.rx = npc.destino_rx
+                npc.ry = npc.destino_ry
+                npc.waypoint_timeout_ms = 0.0
+                npc.steer_stuck_ms = 0.0
+                npc.steer_rodeo_target = None
+                npc.steer_rodeo_ms = 0.0
+                npc.fade_alpha = 0
+                npc.fade_in_ms = _FADE_DUR
+                npc.anim_state = "idle"
+                self._on_reached_destination(npc, game, walls)
             return
 
         step = npc.velocidad * world_w * (dt_ms / 16.667)
@@ -496,9 +520,14 @@ class NPCAIManager:
                 self._advance_waypoint(npc)
             elif "salondia" in mk or "salondía" in mk:
                 chair = self._get_npc_chair(npc.nombre, game)
+                npc.dentro_del_salon = False
                 if chair:
                     npc.chair_rx, npc.chair_ry = chair
-                    npc.destino_rx, npc.destino_ry = chair
+                    # Bug 4: navegar por waypoints interiores antes de sentarse
+                    wpts = self._load_waypoints("salonDia.png")
+                    npc.waypoints = wpts + [chair]
+                    npc.waypoint_idx = 0
+                    self._advance_waypoint(npc)
                 else:
                     npc.chair_rx, npc.chair_ry = npc.rx, npc.ry
                     npc.destino_rx, npc.destino_ry = npc.rx, npc.ry
@@ -533,6 +562,9 @@ class NPCAIManager:
 
         if npc.waypoint_idx < len(npc.waypoints) - 1:
             npc.waypoint_idx += 1
+            # Bug 4: primer waypoint interior del salón alcanzado → habilitar sentarse
+            if ("salondia" in mk or "salondía" in mk) and npc.waypoint_idx >= 1:
+                npc.dentro_del_salon = True
             self._advance_waypoint(npc)
             return
 
@@ -543,11 +575,19 @@ class NPCAIManager:
             self._teleport_npc(npc, "salonDia.png", *_ARRIVAL_SPAWN["salonDia.png"])
             self._assign_destination(npc, game, walls)
         elif "salondia" in mk or "salondía" in mk:
+            if not npc.dentro_del_salon:
+                # Bug 4: aún no pasó checkpoint interior — seguir esperando en idle
+                npc.anim_state = "idle"
+                return
             npc.estado = "sitting"
             npc.anim_state = "sitting"
             if npc.chair_rx is not None:
                 npc.rx = npc.chair_rx
                 npc.ry = npc.chair_ry
+            # Mejora 2: marcar pupitre como ocupado para ocultar la decoración
+            pup_set = getattr(game, "pupitres_ocupados", None)
+            if pup_set is not None and npc.chair_rx is not None:
+                pup_set.add((round(npc.chair_rx, 4), round(npc.chair_ry, 4)))
 
     def _on_reached_destination_saliendo(self, npc: NPCEntity, game, walls):
         mk = npc.current_map_key()
@@ -575,22 +615,44 @@ class NPCAIManager:
         npc.fade_alpha = 0
         npc.fade_in_ms = _FADE_DUR
 
-    def _fast_forward_to_chairs(self, game):
-        walls = getattr(game, "story_walls", [])
+    def _place_npcs_at_chairs(self, game):
+        """Spawna (o recoloca) todos los NPCs pendientes directamente en sus sillas."""
+        pup_set = getattr(game, "pupitres_ocupados", None)
+        # Reubicar NPCs ya existentes que aún no estén sentados
         for npc in self.npcs:
             if not npc.alive() or npc.estado == "sitting":
                 continue
-            if npc.fase_evento != "llegando":
-                continue
-            mk = npc.current_map_key()
-            if "patiod" in mk or "pasillo" in mk:
-                self._teleport_npc(npc, "salonDia.png", *_ARRIVAL_SPAWN["salonDia.png"])
             chair = self._get_npc_chair(npc.nombre, game)
             if chair:
+                npc.fondo_actual = "salonDia.png"
                 npc.chair_rx, npc.chair_ry = chair
                 npc.rx, npc.ry = chair
+                npc.estado = "sitting"
+                npc.anim_state = "sitting"
+                npc.dentro_del_salon = True
+                npc.fade_alpha = 255
+                npc.fade_in_ms = 0.0
+                if pup_set is not None:
+                    pup_set.add((round(chair[0], 4), round(chair[1], 4)))
+        # Crear NPCs pendientes por primera vez
+        for nombre in self._pending_salon_npcs:
+            chair = self._get_npc_chair(nombre, game)
+            if chair is None:
+                continue
+            rx, ry = chair
+            npc = NPCEntity(nombre, "salonDia.png", rx, ry,
+                            _SPEEDS.get(nombre, 0.0022), 0)
             npc.estado = "sitting"
             npc.anim_state = "sitting"
+            npc.fase_evento = "llegando"
+            npc.chair_rx, npc.chair_ry = rx, ry
+            npc.dentro_del_salon = True
+            npc.fade_alpha = 255
+            npc.fade_in_ms = 0.0
+            if pup_set is not None:
+                pup_set.add((round(rx, 4), round(ry, 4)))
+            self.npcs.append(npc)
+        self._pending_salon_npcs = []
 
     # ── Pathfinding — Bug 3 ───────────────────────────────────────────────────
 
@@ -760,7 +822,13 @@ class NPCAIManager:
         walls = getattr(game, "story_walls", [])
         nombre_lower = nombre.lower()
         for h in walls:
-            if h.get("role") != "interactable" or h.get("action") != "silla":
+            action = h.get("action", "")
+            if action == "objeto":
+                if "pupitre" not in h.get("object_name", "").lower():
+                    continue
+            elif action == "pupitre":
+                pass  # compatibilidad con hitboxes antiguos
+            else:
                 continue
             if h.get("npc_owner", "").lower() == nombre_lower and h.get("type") == "rect":
                 cx = h["rx"] + h["rw"] / 2
@@ -906,7 +974,20 @@ class NPCAIManager:
 
     def _draw_npc(self, screen: pygame.Surface, npc: NPCEntity,
                   cam_x: int, cam_y: int, world_w: int, world_h: int):
-        frames = self._load_frames(npc.nombre, npc.anim_state, npc.facing)
+        # idle y sitting-prematuro: frame 0 de la hoja de caminata
+        # (sitting real nunca llega aquí: draw() lo salta cuando estado=="sitting")
+        if npc.anim_state in ("idle", "sitting"):
+            frames = self._load_frames(npc.nombre, "walk", npc.facing)
+            if not frames:
+                frames = self._load_frames(npc.nombre, "walk", "down")
+            frame_idx = 0
+        elif npc.anim_state == "walk":
+            frames = self._load_frames(npc.nombre, "walk", npc.facing)
+            frame_idx = npc.walk_frame_idx % max(1, len(frames))
+        else:
+            frames = self._load_frames(npc.nombre, npc.anim_state, npc.facing)
+            frame_idx = int(npc.anim_ms // 220) % max(1, len(frames))
+
         sx = int(npc.rx * world_w) - cam_x
         sy = int(npc.ry * world_h) - cam_y
 
@@ -915,11 +996,6 @@ class NPCAIManager:
             rect = pygame.Rect(sx - _NPC_W // 2, sy - _NPC_H // 2, _NPC_W, _NPC_H)
             pygame.draw.rect(screen, (255, 20, 147), rect, 2)
             return
-
-        if npc.anim_state == "walk":
-            frame_idx = npc.walk_frame_idx % len(frames)
-        else:
-            frame_idx = int(npc.anim_ms // 220) % len(frames)
 
         frame = frames[frame_idx]
 

@@ -545,7 +545,7 @@ def main():
     current_rect = None
     current_shape = "rect"
     current_role = "wall"
-    interactable_actions = ["puerta", "silla", "npc"]
+    interactable_actions = ["puerta", "npc"]
     current_interactable_action = "puerta"
     current_target_bg_idx = 0
     current_file_name = os.path.basename(image_path)
@@ -783,6 +783,7 @@ def main():
     npc_anim_modal_selected = 0
     npc_modal_scroll = 0
     npc_anim_scroll = 0
+    npc_modal_source = "hitbox"   # "hitbox" | "deco"
     thumbnail_cache = {}
     THUMB = 72
     THUMB_COLS = 3
@@ -1171,7 +1172,7 @@ def main():
         return payload
 
     def _interactable_label(action):
-        return {"silla": "Silla", "npc": "NPC"}.get(str(action).lower(), "Puerta")
+        return {"npc": "NPC"}.get(str(action).lower(), "Puerta")
 
     # ── Panel helpers ─────────────────────────────────────────────────────────
     def _panel_items():
@@ -1191,9 +1192,6 @@ def main():
                 color = (100, 160, 255)
             elif act == "npc":
                 label = f"N{i+1} {char[:10]}"
-                color = (255, 200, 80)
-            elif act == "silla":
-                label = f"S{i+1} silla"
                 color = (255, 200, 80)
             else:
                 label = f"P{i+1} puerta"
@@ -1329,6 +1327,9 @@ def main():
                         current_npc_animation_options = _animations_for_character(
                             npc_character_options[current_npc_character_idx])
                         current_npc_animation_idx = 0
+                        if npc_modal_source == "deco" and selected_deco_idx is not None:
+                            decoracion[selected_deco_idx]["npc_owner"] = npc_character_options[npc_modal_selected]
+                            push_deco_history()
                         npc_char_modal = False
                     elif event.key == pygame.K_RIGHT:
                         npc_modal_selected = (npc_modal_selected + 1) % len(npc_character_options)
@@ -1351,6 +1352,9 @@ def main():
                         npc_anim_modal = False
                     elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                         current_npc_animation_idx = npc_anim_modal_selected
+                        if npc_modal_source == "deco" and selected_deco_idx is not None:
+                            decoracion[selected_deco_idx]["npc_animation"] = current_npc_animation_options[npc_anim_modal_selected]
+                            push_deco_history()
                         npc_anim_modal = False
                     elif event.key == pygame.K_RIGHT:
                         npc_anim_modal_selected = (npc_anim_modal_selected + 1) % len(current_npc_animation_options)
@@ -1765,11 +1769,43 @@ def main():
                     current_interactable_action = interactable_actions[(idx + 1) % len(interactable_actions)]
 
                 elif event.key == pygame.K_n:
-                    npc_modal_selected = current_npc_character_idx
+                    if editor_mode == "object" and selected_deco_idx is not None:
+                        obj = decoracion[selected_deco_idx]
+                        if "pupitre" in obj.get("name", "").lower():
+                            npc_modal_source = "deco"
+                            owner = obj.get("npc_owner", "")
+                            npc_modal_selected = (npc_character_options.index(owner)
+                                                  if owner in npc_character_options
+                                                  else current_npc_character_idx)
+                        else:
+                            npc_modal_source = "hitbox"
+                            npc_modal_selected = current_npc_character_idx
+                    else:
+                        npc_modal_source = "hitbox"
+                        npc_modal_selected = current_npc_character_idx
                     npc_char_modal = True
 
                 elif event.key == pygame.K_b:
-                    npc_anim_modal_selected = current_npc_animation_idx
+                    if editor_mode == "object" and selected_deco_idx is not None:
+                        obj = decoracion[selected_deco_idx]
+                        if "pupitre" in obj.get("name", "").lower():
+                            npc_modal_source = "deco"
+                            owner = obj.get("npc_owner", "")
+                            if owner and owner != npc_character_options[current_npc_character_idx]:
+                                if owner in npc_character_options:
+                                    current_npc_character_idx = npc_character_options.index(owner)
+                                    current_npc_animation_options = _animations_for_character(owner)
+                                    current_npc_animation_idx = 0
+                            saved_anim = obj.get("npc_animation", "")
+                            npc_anim_modal_selected = (current_npc_animation_options.index(saved_anim)
+                                                       if saved_anim in current_npc_animation_options
+                                                       else current_npc_animation_idx)
+                        else:
+                            npc_modal_source = "hitbox"
+                            npc_anim_modal_selected = current_npc_animation_idx
+                    else:
+                        npc_modal_source = "hitbox"
+                        npc_anim_modal_selected = current_npc_animation_idx
                     npc_anim_modal = True
 
                 elif event.key == pygame.K_m:
@@ -1901,7 +1937,8 @@ def main():
                     pygame.draw.rect(screen, border_col, sr, 2 if selected_deco_idx != j else 3)
                     if show_labels:
                         crop_tag = " [C]" if "crop" in obj else ""
-                        lbl = tiny.render(f"D{j+1} {obj['name'][:12]}{crop_tag}", True, (130, 240, 130))
+                        owner_tag = f" [{obj['npc_owner']}]" if obj.get("npc_owner") else ""
+                        lbl = tiny.render(f"D{j+1} {obj['name'][:12]}{crop_tag}{owner_tag}", True, (130, 240, 130))
                         screen.blit(lbl, (sr.x + 2, sr.y + 2))
 
         # Crop drag preview
@@ -2262,6 +2299,9 @@ def main():
                     current_npc_character_idx = ci
                     current_npc_animation_options = _animations_for_character(npc_character_options[ci])
                     current_npc_animation_idx = 0
+                    if npc_modal_source == "deco" and selected_deco_idx is not None:
+                        decoracion[selected_deco_idx]["npc_owner"] = npc_character_options[ci]
+                        push_deco_history()
                     npc_char_modal = False
 
         # ── NPC animation modal ───────────────────────────────────────────────
@@ -2299,6 +2339,9 @@ def main():
                 if pygame.mouse.get_pressed()[0] and cell_rect.collidepoint(pygame.mouse.get_pos()):
                     npc_anim_modal_selected = ai
                     current_npc_animation_idx = ai
+                    if npc_modal_source == "deco" and selected_deco_idx is not None:
+                        decoracion[selected_deco_idx]["npc_animation"] = current_npc_animation_options[ai]
+                        push_deco_history()
                     npc_anim_modal = False
 
         pygame.display.flip()

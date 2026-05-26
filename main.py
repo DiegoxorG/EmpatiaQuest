@@ -49,7 +49,7 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         self.selected_index = 0
         self.selected_play_index = 0
         self.message = ""
-
+    
         # ── Botones ───────────────────────────────────────────────────────────
         self.button_width = min(460, int(self.width * 0.34))
         self.button_height = 64

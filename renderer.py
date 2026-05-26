@@ -7,6 +7,7 @@ Contiene todos los métodos _draw_* y _render_current_screen.
 # 🎨 ASSET_UI: Imagenes/UI/logo_menu.png            | 800x200 | Logo EMPATIA QUEST en menu (fallback: draw_pixel_text)
 """
 
+import json
 import os
 import pygame
 from config import (
@@ -738,11 +739,19 @@ class RendererMixin:
 
     def _draw_object_interactables_from_hitboxes(self):
         seated_pupitre = getattr(self, "story_seated_pupitre", None)
+        pup_ocupados = getattr(self, "pupitres_ocupados", set())
         for h in self.story_walls:
             if h.get("role") != "interactable" or h.get("action") != "objeto":
                 continue
             if seated_pupitre is not None and h is seated_pupitre:
                 continue  # pupitre hidden while player is seated there
+            # Mejora 2: ocultar pupitre decorativo si un NPC está sentado allí, dibujar su animación
+            if h.get("object_name", "") == "Pupitre-Salón1.png" and pup_ocupados:
+                cx = round(h["rx"] + h["rw"] / 2, 4)
+                cy = round(h["ry"] + h["rh"] / 2, 4)
+                if (cx, cy) in pup_ocupados:
+                    self._draw_seated_npc_at_pupitre(h)
+                    continue
             if h.get("type") != "rect":
                 continue
             object_name = h.get("object_name", "")
@@ -756,6 +765,103 @@ class RendererMixin:
             image = self._get_cropped_object_image(image, h.get("crop"))
             scaled = pygame.transform.smoothscale(image, (w, h_px))
             self.screen.blit(scaled, (x, y))
+
+    def _load_alineacion_offsets(self):
+        if not hasattr(self, "_alineacion_cache"):
+            path = os.path.join(os.path.dirname(__file__), "Alineaciones", "alineacion_offsets.json")
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    self._alineacion_cache = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                self._alineacion_cache = {}
+        return self._alineacion_cache
+
+    def _draw_seated_npc_at_pupitre(self, h):
+        npc_owner = h.get("npc_owner", "")
+        npc_animation = h.get("npc_animation", "")
+        # Si falta npc_owner o npc_animation, buscar en story_walls un hitbox
+        # en la misma posición que tenga esos datos (ej. action:"pupitre" original)
+        if not npc_owner or not npc_animation:
+            h_cx = round(h["rx"] + h["rw"] / 2, 4)
+            h_cy = round(h["ry"] + h["rh"] / 2, 4)
+            for w in getattr(self, "story_walls", []):
+                if not w.get("npc_owner"):
+                    continue
+                wcx = round(w["rx"] + w["rw"] / 2, 4)
+                wcy = round(w["ry"] + w["rh"] / 2, 4)
+                if wcx == h_cx and wcy == h_cy:
+                    if not npc_owner:
+                        npc_owner = w["npc_owner"]
+                    if not npc_animation:
+                        npc_animation = w.get("npc_animation", "")
+                    break
+        if not npc_owner:
+            return
+        # Fallback: si sigue sin animación usar _resolve_anim_file del NPC AI
+        sprite_path = None
+        if not npc_animation:
+            npc_mgr = getattr(self, "npc_ai_manager", None)
+            if npc_mgr is not None:
+                sprite_path = npc_mgr._resolve_anim_file(npc_owner, "sitting", "down") or None
+            if not sprite_path:
+                return
+            npc_animation = os.path.basename(sprite_path)
+        # Load sprite (cached per owner+animation)
+        cache = getattr(self, "_npc_seated_img_cache", None)
+        if cache is None:
+            self._npc_seated_img_cache = {}
+            cache = self._npc_seated_img_cache
+        img_key = (npc_owner, npc_animation)
+        sprite = cache.get(img_key)
+        if sprite is None:
+            if sprite_path is None:
+                sprite_path = os.path.join(
+                    os.path.dirname(__file__), "Imagenes", "Personajes", npc_owner, npc_animation
+                )
+            try:
+                sprite = pygame.image.load(sprite_path).convert_alpha()
+            except (OSError, pygame.error):
+                sprite = False
+            cache[img_key] = sprite
+        if not sprite:
+            return
+        # Load alineacion offsets
+        object_name = h.get("object_name", "")
+        offsets = self._load_alineacion_offsets().get(f"{object_name}|{npc_animation}", {})
+        offset_x  = float(offsets.get("offset_x",  0.0))
+        offset_y  = float(offsets.get("offset_y",  0.0))
+        desk_frac = float(offsets.get("desk_frac", 0.35))
+        scale_w   = float(offsets.get("scale_w",   1.0))
+        scale_h   = float(offsets.get("scale_h",   1.0))
+        # Geometry — same layout as player seated rendering
+        pw_base = max(8, int(self.story_world_width * h["rw"]))
+        ph_base = max(8, int(self.story_world_height * h["rh"]))
+        frac    = max(0.05, min(0.95, desk_frac))
+        base    = int(ph_base / (1.0 - frac))
+        sw      = max(1, int(base * scale_w))
+        sh      = max(1, int(base * scale_h))
+        spx = int(self.story_world_width  * h["rx"]) - self.story_camera_x
+        spy = int(self.story_world_height * h["ry"]) - self.story_camera_y
+        # Extraer primer frame del spritesheet usando idle_width del NPC AI
+        npc_mgr = getattr(self, "npc_ai_manager", None)
+        spr_w, spr_h = sprite.get_size()
+        idle_w = 0
+        if npc_mgr is not None:
+            idle_w = npc_mgr._get_idle_width(npc_owner)
+        if idle_w > 0 and spr_w > idle_w:
+            frame_w = idle_w
+        elif spr_w > spr_h:
+            frame_w = spr_h  # fallback: spritesheet cuadrado
+        else:
+            frame_w = spr_w  # imagen única
+        frame = sprite.subsurface(pygame.Rect(0, 0, frame_w, spr_h))
+        # Escalar preservando proporción; sh determina la altura
+        draw_h = sh
+        draw_w = max(1, int(draw_h * frame_w / max(1, spr_h)))
+        scaled = pygame.transform.smoothscale(frame, (draw_w, draw_h))
+        draw_x = spx + pw_base // 2 - draw_w // 2 + int(offset_x)
+        draw_y = spy - int(frac * sh)               + int(offset_y)
+        self.screen.blit(scaled, (draw_x, draw_y))
 
     # ──────────────────────────────────────────────────────────────────────────
     # CAMBIO 2 — Flecha guía

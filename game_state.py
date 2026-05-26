@@ -411,6 +411,8 @@ class GameStateMixin:
         self.current_mission = "Ir a la escuela"
         # NPC AI Manager (Evento 1)
         self.npc_ai_manager = NPCAIManager(os.path.dirname(__file__))
+        # Mejora 2: set de posiciones (rx, ry) de pupitres actualmente ocupados por NPCs
+        self.pupitres_ocupados: set = set()
         self.popup_logro_timer = 0
         self.popup_logro_actual = None
         self.player_rect = pygame.Rect(0, 0, 28, 28)
@@ -606,6 +608,10 @@ class GameStateMixin:
                         }
                     except (TypeError, ValueError):
                         pass
+                if obj.get("npc_owner"):
+                    hitbox["npc_owner"] = str(obj["npc_owner"])
+                if obj.get("npc_animation"):
+                    hitbox["npc_animation"] = str(obj["npc_animation"])
                 hitboxes.append(hitbox)
             except (KeyError, TypeError, ValueError):
                 continue
@@ -756,6 +762,8 @@ class GameStateMixin:
         self.cached_background_source = None
         self.story_previous_map_name = prev_name
         self.story_walls = self._build_story_wall_hitboxes(self.aventura_fondo.ruta_imagen)
+        if hasattr(self, "pupitres_ocupados"):
+            self.pupitres_ocupados.clear()
         self._rebuild_story_world(keep_player=False)
         spawn_x, spawn_y = self._get_spawn_position_for_current_map()
         self.player_rect.x = spawn_x
@@ -780,7 +788,8 @@ class GameStateMixin:
             self.day1_patio_entered = True
             npc_mgr = getattr(self, "npc_ai_manager", None)
             if npc_mgr is not None:
-                npc_mgr.init_event1_routine(self.story_world_width, self.story_world_height)
+                npc_mgr.init_event1_routine(self.story_world_width, self.story_world_height,
+                                             getattr(self, "story_walls", []))
         if base == "salondía.png" or base == "salondia.png":
             if not getattr(self, "day1_salon_entered", False):
                 self.day1_salon_entered = True
@@ -855,15 +864,18 @@ class GameStateMixin:
         if action == "objeto":
             raw_name = interactable.get("object_name", "objeto")
             if raw_name == "Pupitre-Salón1.png":
+                npc_owner = interactable.get("npc_owner", "")
+                if npc_owner:
+                    self.story_interaction_text = f"El pupitre de {npc_owner} está reservado."
+                    self.audio.sfx_interactuar()
+                    return
                 if self.story_is_seated and self.story_seated_pupitre is interactable:
-                    # Stand up — restore normal movement
                     self.story_is_seated = False
                     self.story_seated_hitbox = None
                     self.story_seated_pupitre = None
                     self.story_interaction_text = "Te levantaste del pupitre."
                     self.story_thought = ""
                 else:
-                    # Sit down at pupitre
                     self.story_is_seated = True
                     self.story_seated_hitbox = interactable
                     self.story_seated_pupitre = interactable
