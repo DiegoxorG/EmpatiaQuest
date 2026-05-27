@@ -1,10 +1,10 @@
-"""
-Pantalla de Progreso — estadísticas, logros y completitud del juego.
+﻿"""
+Pantalla de Progreso â€” estadÃ­sticas, logros y completitud del juego.
 
-# 🎨 ASSET_UI: Imagenes/UI/barra_felicidad.png       | 240x24 | Barra de felicidad estilo pixel-art
-# 🎨 ASSET_UI: Imagenes/UI/barra_reputacion.png      | 240x24 | Barra de reputación estilo pixel-art
-# 🎨 ASSET_UI: Imagenes/UI/icono_logro_desbloqueado.png | 36x36 | Icono de logro desbloqueado (estrella dorada)
-# 🎨 ASSET_UI: Imagenes/UI/icono_logro_bloqueado.png    | 36x36 | Icono de logro bloqueado (candado gris)
+# ðŸŽ¨ ASSET_UI: Imagenes/UI/barra_felicidad.png       | 240x24 | Barra de felicidad estilo pixel-art
+# ðŸŽ¨ ASSET_UI: Imagenes/UI/barra_reputacion.png      | 240x24 | Barra de reputaciÃ³n estilo pixel-art
+# ðŸŽ¨ ASSET_UI: Imagenes/UI/icono_logro_desbloqueado.png | 36x36 | Icono de logro desbloqueado (estrella dorada)
+# ðŸŽ¨ ASSET_UI: Imagenes/UI/icono_logro_bloqueado.png    | 36x36 | Icono de logro bloqueado (candado gris)
 """
 
 import pygame
@@ -13,11 +13,11 @@ from config import (
     PIXEL_CYAN, PIXEL_PINK, BG_DARK,
 )
 
-_SCROLL = 0   # Scroll del panel de logros (módulo-level para persistencia en sesión)
+_SCROLL = 0   # Scroll del panel de logros (mÃ³dulo-level para persistencia en sesiÃ³n)
 
 
 def _draw_stat_bar(game, label, value, max_val, x, y, bar_w, bar_h, fill_color):
-    """Dibuja una barra de estadística con etiqueta y valor numérico."""
+    """Dibuja una barra de estadÃ­stica con etiqueta y valor numÃ©rico."""
     game.draw_pixel_text(label, x, y - 26, "small", TEXT_SOFT, False)
     bg = pygame.Rect(x, y, bar_w, bar_h)
     pygame.draw.rect(game.screen, (200, 208, 192), bg)
@@ -37,7 +37,7 @@ def draw(game):
 
     w, h = game.screen.get_size()
 
-    # ── Panel principal ────────────────────────────────────────────────────────
+    # â”€â”€ Panel principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     panel = pygame.Rect(w // 2 - 520, 40, 1040, h - 80)
     shadow = panel.move(5, 5)
     pygame.draw.rect(game.screen, (13, 12, 24), shadow)
@@ -49,7 +49,7 @@ def draw(game):
         "Tu camino en EmpatiaQuest", w // 2, panel.y + 82, "small", TEXT_SOFT, True
     )
 
-    # ── Estadísticas ─────────────────────────────────────────────────────────
+    # â”€â”€ EstadÃ­sticas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     stats_y = panel.y + 124
     bar_w = 320
     bar_h = 22
@@ -62,13 +62,13 @@ def draw(game):
     story_goal = getattr(game, "story_goal", 12)
 
     # Barra de Felicidad
-    # 🎨 ASSET_UI: Imagenes/UI/barra_felicidad.png | 240x24 | Barra de felicidad estilo pixel-art
+    # ðŸŽ¨ ASSET_UI: Imagenes/UI/barra_felicidad.png | 240x24 | Barra de felicidad estilo pixel-art
     _draw_stat_bar(game, "Felicidad (F)", felicidad, 100,
                    left_col, stats_y, bar_w, bar_h, (245, 170, 70))
 
-    # Barra de Reputación
-    # 🎨 ASSET_UI: Imagenes/UI/barra_reputacion.png | 240x24 | Barra de reputación estilo pixel-art
-    _draw_stat_bar(game, "Reputacion (R)", reputacion, 100,
+    # Barra de ReputaciÃ³n
+    # ðŸŽ¨ ASSET_UI: Imagenes/UI/barra_reputacion.png | 240x24 | Barra de reputaciÃ³n estilo pixel-art
+    _draw_stat_bar(game, "Reputación (R)", reputacion, 100,
                    right_col, stats_y, bar_w, bar_h, (90, 190, 255))
 
     # Barra de completitud
@@ -78,7 +78,7 @@ def draw(game):
                    left_col, stats_y, bar_w * 2 + right_col - left_col - bar_w, bar_h,
                    PIXEL_CYAN)
 
-    # ── Habilidades ───────────────────────────────────────────────────────────
+    # â”€â”€ Habilidades â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     skills_y = stats_y + 60
     pygame.draw.line(
         game.screen, CARD_BORDER,
@@ -96,7 +96,7 @@ def draw(game):
         nivel = skill_data.get("nivel", 0)
         max_nivel = 3
 
-        # 🎨 ASSET_UI: Imagenes/UI/icono_habilidad.png | 48x48 | Icono genérico de habilidad
+        # ðŸŽ¨ ASSET_UI: Imagenes/UI/icono_habilidad.png | 48x48 | Icono genÃ©rico de habilidad
         icon_rect = pygame.Rect(sx, skill_y, 48, 48)
         color = PIXEL_CYAN if nivel > 0 else (160, 165, 175)
         pygame.draw.rect(game.screen, color, icon_rect, 0, 8)
@@ -115,7 +115,7 @@ def draw(game):
             dot_color = PIXEL_CYAN if lvl < nivel else (190, 195, 200)
             pygame.draw.rect(game.screen, dot_color, dot_rect, 0, 3)
 
-    # ── Panel de logros ───────────────────────────────────────────────────────
+    # â”€â”€ Panel de logros â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     logros_y = skill_y + 96
     pygame.draw.line(
         game.screen, CARD_BORDER,
@@ -146,13 +146,13 @@ def draw(game):
         row_rect = pygame.Rect(panel.x + 40, row_y, panel.width - 80, ROW_H)
 
         if logro.completo:
-            # 🎨 ASSET_UI: Imagenes/UI/icono_logro_desbloqueado.png | 36x36 | Estrella dorada
+            # ðŸŽ¨ ASSET_UI: Imagenes/UI/icono_logro_desbloqueado.png | 36x36 | Estrella dorada
             bg = (230, 245, 215)
             border = (60, 160, 60)
             nombre_color = TEXT_MAIN
             desc_color = TEXT_SOFT
         else:
-            # 🎨 ASSET_UI: Imagenes/UI/icono_logro_bloqueado.png | 36x36 | Candado gris
+            # ðŸŽ¨ ASSET_UI: Imagenes/UI/icono_logro_bloqueado.png | 36x36 | Candado gris
             bg = (205, 210, 215)
             border = (150, 155, 165)
             nombre_color = (140, 145, 155)
@@ -161,7 +161,7 @@ def draw(game):
         pygame.draw.rect(game.screen, bg, row_rect, 0, 6)
         pygame.draw.rect(game.screen, border, row_rect, 2, 6)
 
-        # Ícono de estado (procedural)
+        # Ãcono de estado (procedural)
         icon_x = row_rect.x + 12
         icon_y = row_rect.centery
         if logro.completo:
@@ -213,3 +213,4 @@ def handle_event(game, event):
             _SCROLL = max(0, _SCROLL - 1)
     if event.type == pygame.MOUSEWHEEL:
         _SCROLL = max(0, _SCROLL - event.y)
+

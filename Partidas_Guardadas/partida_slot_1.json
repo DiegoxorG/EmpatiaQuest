@@ -1,55 +1,22 @@
 {
   "save_version": 3,
-  "player_name": "",
+  "player_name": "Diego",
   "current_day": 1,
-  "story_felicidad": 79,
-  "story_reputacion": 58,
-  "story_completed": 5,
-  "story_thought": "No queria quedarme callado.",
+  "story_felicidad": 47,
+  "story_reputacion": 52,
+  "story_completed": 1,
+  "story_thought": "Diego: Voy a borrar esto.",
   "story_pending_end": false,
   "story_final_key": "",
   "story_final_text": "",
-  "prologo_razon": "forma de hablar",
+  "prologo_razon": "apariencia fisica",
   "decision_history": [
     {
-      "event_id": "primer_dia",
-      "option_idx": 2,
-      "option_label": "3) Intentar unirlos",
-      "thought": "Nadie deberia quedarse aparte el primer dia.",
-      "dF": 10,
-      "dR": 3
-    },
-    {
-      "event_id": "voces_pasillo",
-      "option_idx": 0,
-      "option_label": "1) Defender calmadamente",
-      "thought": "Hablar con calma tambien puede detener el dano.",
-      "dF": 10,
-      "dR": 5
-    },
-    {
-      "event_id": "reenviado",
-      "option_idx": 1,
-      "option_label": "2) Defender con insultos",
-      "thought": "Termine sumando caos al caos.",
-      "dF": 5,
-      "dR": -5
-    },
-    {
-      "event_id": "detras_agresor",
-      "option_idx": 2,
-      "option_label": "3) Ignorarlo",
-      "thought": "Decidi no mirar lo que habia detras.",
-      "dF": -8,
-      "dR": 0
-    },
-    {
-      "event_id": "encajar",
-      "option_idx": 2,
-      "option_label": "3) Intentar detenerlos",
-      "thought": "No queria quedarme callado.",
-      "dF": 12,
-      "dR": 5
+      "event_id": "primer_dia_asiento",
+      "option_label": "diego",
+      "dF": -3,
+      "dR": 2,
+      "thought": "Me sent\u00e9 cerca de Diego."
     }
   ],
   "character_colors": {
@@ -128,7 +95,7 @@
       "descripcion": "Prestar atencion sin interrumpir."
     },
     "Intervencion Pacifica": {
-      "nivel": 2,
+      "nivel": 0,
       "max_nivel": 3,
       "descripcion": "Actuar para detener el dano sin escalar la violencia."
     },
@@ -138,12 +105,12 @@
       "descripcion": "Manejar situaciones de ciberbullying de forma correcta."
     },
     "Valentia Social": {
-      "nivel": 2,
+      "nivel": 0,
       "max_nivel": 3,
       "descripcion": "Decir no cuando es lo correcto, aunque cueste."
     },
     "Mediacion de Conflictos": {
-      "nivel": 1,
+      "nivel": 0,
       "max_nivel": 3,
       "descripcion": "Ayudar a resolver conflictos de forma dialogada."
     }
@@ -153,13 +120,13 @@
       "id": "primera_empatia",
       "nombre": "Primera Empatia",
       "descripcion": "Tomaste tu primera decision empatica.",
-      "completo": true
+      "completo": false
     },
     {
       "id": "defensor",
       "nombre": "Defensor Silencioso",
       "descripcion": "Defendiste a alguien que lo necesitaba.",
-      "completo": true
+      "completo": false
     },
     {
       "id": "mediador",
@@ -219,7 +186,7 @@
       "id": "valiente",
       "nombre": "Valiente",
       "descripcion": "Dijiste no cuando era lo correcto, aunque costara.",
-      "completo": true
+      "completo": false
     },
     {
       "id": "rey_de_los_bullies",
@@ -234,7 +201,7 @@
       "completo": false
     }
   ],
-  "escena_dia1_completada": false,
+  "escena_dia1_completada": true,
   "pupitre_rayado_completado": false,
   "escena_dia2_chat_completada": false,
   "escena_dia2_lucas_completada": false,

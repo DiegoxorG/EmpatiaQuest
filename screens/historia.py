@@ -1,9 +1,9 @@
-"""
-Pantalla de Historia — muestra los capítulos/días del juego y las decisiones tomadas.
+﻿"""
+Pantalla de Historia â€” muestra los capÃ­tulos/dÃ­as del juego y las decisiones tomadas.
 
-# 🎨 ASSET_UI: Imagenes/UI/capitulo_completado.png | 300x80 | Banner de capítulo completado estilo pixel
-# 🎨 ASSET_UI: Imagenes/UI/capitulo_bloqueado.png  | 300x80 | Banner de capítulo bloqueado con candado
-# 🎨 ASSET_UI: Imagenes/UI/icono_dia.png           | 40x40  | Icono de día del calendario escolar
+# ðŸŽ¨ ASSET_UI: Imagenes/UI/capitulo_completado.png | 300x80 | Banner de capÃ­tulo completado estilo pixel
+# ðŸŽ¨ ASSET_UI: Imagenes/UI/capitulo_bloqueado.png  | 300x80 | Banner de capÃ­tulo bloqueado con candado
+# ðŸŽ¨ ASSET_UI: Imagenes/UI/icono_dia.png           | 40x40  | Icono de dÃ­a del calendario escolar
 """
 
 import pygame
@@ -12,7 +12,7 @@ from config import (
     TEXT_MAIN, TEXT_SOFT, PIXEL_CYAN, PIXEL_PINK,
 )
 
-# Definición de los 5 días / capítulos de la historia
+# DefiniciÃ³n de los 5 dÃ­as / capÃ­tulos de la historia
 CAPITULOS = [
     {
         "dia": 1,
@@ -24,7 +24,7 @@ CAPITULOS = [
         "dia": 2,
         "titulo": "Dia 2: El mundo digital",
         "eventos": ["reenviado", "detras_agresor"],
-        "descripcion": "El bullying no para en el colegio — sigue en el celular.",
+        "descripcion": "El bullying no para en el colegio - sigue en el celular.",
     },
     {
         "dia": 3,
@@ -87,7 +87,7 @@ def draw(game):
         cx = start_x + i * (cap_w + 16)
         cap_rect = pygame.Rect(cx, cap_y, cap_w, cap_h)
 
-        # Determinar estado del capítulo
+        # Determinar estado del capÃ­tulo
         completados_en_cap = sum(
             1 for eid in cap["eventos"] if _event_completed(decision_history, eid)
         )
@@ -95,7 +95,7 @@ def draw(game):
         cap_en_progreso = 0 < completados_en_cap < len(cap["eventos"])
         cap_bloqueado = completados_en_cap == 0
 
-        # Fondo del capítulo
+        # Fondo del capÃ­tulo
         if cap_completado:
             bg_color = (220, 240, 210)
             border_color = (60, 160, 60)
@@ -107,7 +107,7 @@ def draw(game):
             estado_text = "EN PROGRESO"
             estado_color = (30, 140, 200)
         else:
-            # 🎨 ASSET_UI: Imagenes/UI/capitulo_bloqueado.png | 300x80 | Capítulo bloqueado con candado
+            # ðŸŽ¨ ASSET_UI: Imagenes/UI/capitulo_bloqueado.png | 300x80 | CapÃ­tulo bloqueado con candado
             bg_color = (190, 195, 200)
             border_color = (130, 130, 150)
             estado_text = "BLOQUEADO"
@@ -118,7 +118,7 @@ def draw(game):
         pygame.draw.rect(game.screen, bg_color, cap_rect)
         pygame.draw.rect(game.screen, border_color, cap_rect, 4)
 
-        # Título del capítulo
+        # TÃ­tulo del capÃ­tulo
         game.draw_pixel_text(
             cap["titulo"], cap_rect.centerx, cap_rect.y + 28,
             "small", TEXT_MAIN, True
@@ -130,14 +130,14 @@ def draw(game):
             "small", estado_color, True
         )
 
-        # Línea separadora
+        # LÃ­nea separadora
         pygame.draw.line(
             game.screen, border_color,
             (cap_rect.x + 16, cap_rect.y + 72),
             (cap_rect.right - 16, cap_rect.y + 72), 2
         )
 
-        # Eventos del capítulo
+        # Eventos del capÃ­tulo
         ey = cap_rect.y + 86
         for eid in cap["eventos"]:
             dec = _get_event_decision(decision_history, eid)
@@ -171,7 +171,7 @@ def draw(game):
                 )
                 ey += 30
 
-        # Descripción del día
+        # DescripciÃ³n del dÃ­a
         desc = cap["descripcion"]
         if len(desc) > 36:
             desc = desc[:34] + ".."
@@ -179,7 +179,7 @@ def draw(game):
             desc, cap_rect.centerx, cap_rect.bottom - 26, "small", TEXT_SOFT, True
         )
 
-    # Estadísticas rápidas al fondo
+    # EstadÃ­sticas rÃ¡pidas al fondo
     story_completed = getattr(game, "story_completed", 0)
     story_goal = getattr(game, "story_goal", 12)
     pct = int((story_completed / max(1, story_goal)) * 100)
@@ -193,9 +193,10 @@ def draw(game):
 
 
 def handle_event(game, event):
-    """Maneja eventos de teclado/ratón en la pantalla Historia."""
+    """Maneja eventos de teclado/ratÃ³n en la pantalla Historia."""
     if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_ESCAPE:
             game.transitions.request(game, "menu")
     if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-        pass  # Reservado para futuras interacciones con capítulos
+        pass  # Reservado para futuras interacciones con capÃ­tulos
+

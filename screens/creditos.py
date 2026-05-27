@@ -1,7 +1,7 @@
-"""
-Pantalla de Créditos — scroll automático con el equipo, herramientas y licencias.
+﻿"""
+Pantalla de CrÃ©ditos â€” scroll automÃ¡tico con el equipo, herramientas y licencias.
 
-# 🎨 ASSET_UI: Imagenes/UI/logo_empatia_quest.png | 600x200 | Logo del juego en estilo pixel-art
+# ðŸŽ¨ ASSET_UI: Imagenes/UI/logo_empatia_quest.png | 600x200 | Logo del juego en estilo pixel-art
 """
 
 import pygame
@@ -10,9 +10,9 @@ from config import (
     PIXEL_CYAN, PIXEL_PINK, BG_DARK,
 )
 
-# Velocidad de scroll automático en píxeles por segundo
+# Velocidad de scroll automÃ¡tico en pÃ­xeles por segundo
 _SCROLL_SPEED = 42
-_scroll_y = 0      # posición actual del scroll (módulo-level)
+_scroll_y = 0      # posiciÃ³n actual del scroll (mÃ³dulo-level)
 _paused = False    # el usuario puede pausar el scroll con ESPACIO
 
 _CREDITOS = [
@@ -59,7 +59,7 @@ _CREDITOS = [
     ("separador", ""),
     ("separador", ""),
     ("titulo",    "EMPATIA QUEST"),
-    ("subtitulo", "2024 — Universidad del Norte"),
+    ("subtitulo", "2024 - Universidad del Norte"),
     ("separador", ""),
     ("separador", ""),
     ("separador", ""),
@@ -108,7 +108,7 @@ def _reset():
 
 
 def draw(game):
-    """Renderiza la pantalla de Créditos con scroll automático."""
+    """Renderiza la pantalla de CrÃ©ditos con scroll automÃ¡tico."""
     global _scroll_y, _paused
 
     screen = game.screen
@@ -119,11 +119,11 @@ def draw(game):
     if not _paused:
         _scroll_y += (_SCROLL_SPEED * dt_ms) / 1000.0
 
-    # Reiniciar si terminó el scroll
+    # Reiniciar si terminÃ³ el scroll
     if _scroll_y > _total_height + h:
         _scroll_y = -h * 0.5
 
-    # 🎨 ASSET_UI: Imagenes/UI/logo_empatia_quest.png | 600x200 | Logo estilo pixel-art
+    # ðŸŽ¨ ASSET_UI: Imagenes/UI/logo_empatia_quest.png | 600x200 | Logo estilo pixel-art
     # (procedural fallback: renderizado con texto)
 
     current_y = h // 2 - int(_scroll_y)
@@ -162,7 +162,7 @@ def draw(game):
 
 
 def handle_event(game, event):
-    """Maneja eventos en la pantalla de Créditos."""
+    """Maneja eventos en la pantalla de CrÃ©ditos."""
     global _scroll_y, _paused
     if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_ESCAPE:
@@ -176,3 +176,4 @@ def handle_event(game, event):
             _scroll_y = max(-game.screen.get_height() * 0.5, _scroll_y - 40)
     if event.type == pygame.MOUSEWHEEL:
         _scroll_y -= event.y * 30
+

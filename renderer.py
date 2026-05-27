@@ -133,7 +133,7 @@ class RendererMixin:
 
     def _draw_menu_background(self):
         """Dibuja el fondo del menu principal; si falla, usa el fondo pixel-art."""
-        path = os.path.join("Imagenes", "Fondos", "MenuFondo.jpeg")
+        path = os.path.join("Imagenes", "Fondos", "FondoPrincipal.png")
         target_size = (self.width, self.height)
         cache = getattr(self, "_menu_bg_cache", None)
         cache_size = getattr(self, "_menu_bg_cache_size", None)
@@ -451,7 +451,7 @@ class RendererMixin:
         pygame.draw.rect(self.screen, CARD, panel)
         pygame.draw.rect(self.screen, CARD_BORDER, panel, width=5)
         self.draw_pixel_text("NUEVA PARTIDA", self.width // 2, panel.y + 55, "title", TEXT_MAIN, True)
-        self.draw_pixel_text("Â¿CuÃ¡l es tu nombre?", self.width // 2, panel.y + 110, "subtitle", TEXT_SOFT, True)
+        self.draw_pixel_text("¿Cuál es tu nombre?", self.width // 2, panel.y + 110, "subtitle", TEXT_SOFT, True)
 
         field_rect = pygame.Rect(panel.x + 80, panel.y + 155, panel.width - 160, 56)
         pygame.draw.rect(self.screen, (255, 255, 255), field_rect)
@@ -465,7 +465,7 @@ class RendererMixin:
         self.draw_pixel_text(display_text, field_rect.x + 14, text_y, "button", TEXT_MAIN, False)
 
         self.draw_pixel_text(
-            "Solo letras, espacios y nÃºmeros. MÃ¡ximo 20 caracteres.",
+            "Solo letras, espacios y números. Máximo 20 caracteres.",
             self.width // 2, panel.y + 240, "small", TEXT_SOFT, True,
         )
         can_confirm = len(text.strip()) > 0
@@ -776,7 +776,8 @@ class RendererMixin:
             if seated_pupitre is not None and h is seated_pupitre:
                 continue  # pupitre hidden while player is seated there
             # Mejora 2: ocultar pupitre decorativo si un NPC estÃ¡ sentado allÃ­
-            if h.get("object_name", "") == "Pupitre-SalÃ³n1.png" and pup_ocupados:
+            object_name = str(h.get("object_name", "")).lower()
+            if "pupitre-sal" in object_name and pup_ocupados:
                 cx = round(h["rx"] + h["rw"] / 2, 4)
                 cy = round(h["ry"] + h["rh"] / 2, 4)
                 if (cx, cy) in pup_ocupados:
@@ -940,6 +941,26 @@ class RendererMixin:
         if current_day == 2 and not target:
             return
 
+        def _norm(s):
+            s = str(s).lower().replace("\\", "/")
+            repl = (
+                ("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"),
+                ("à", "a"), ("è", "e"), ("ì", "i"), ("ò", "o"), ("ù", "u"),
+                ("ä", "a"), ("ë", "e"), ("ï", "i"), ("ö", "o"), ("ü", "u"),
+                ("ñ", "n"),
+            )
+            for a, b in repl:
+                s = s.replace(a, b)
+            return s
+
+        fondo = getattr(self, "aventura_fondo", None)
+        ruta = _norm(getattr(fondo, "ruta_imagen", ""))
+        current_map = ruta.split("/")[-1]
+
+        # Si ya llegamos a casa, ocultar flecha de regreso.
+        if current_map.startswith("habtarde") and (going_home or target == "habtarde"):
+            return
+
         if current_day == 2:
             # DÃ­a 2:
             #  - target escuela: HabDÃ­a -> CalleDia -> PatioDia -> Pasillo1_dia
@@ -947,7 +968,6 @@ class RendererMixin:
             #  - target habtarde: retorno a casa desde BaÃ±oDia o SalÃ³n
             if target == "escuela":
                 DAY1_NEXT = {
-                    "habdÃ­a": "calledia",
                     "habdia": "calledia",
                     "calledia": "patiodia",
                     "calledia (1)": "patiodia",
@@ -955,12 +975,13 @@ class RendererMixin:
                 }
             elif target == "bano":
                 DAY1_NEXT = {
-                    "pasillo1_dia": "baÃ±odia",
+                    "pasillo1_dia": "banodia",
+                    "pasillo1dia": "banodia",
                 }
             else:
                 # habtarde: volver a casa (ruta desde baÃ±o o desde salÃ³n)
                 DAY1_NEXT = {
-                    "baÃ±odia":    "pasillo1_dia",
+                    "banodia":    "pasillo1_dia",
                     "pasillo1":   "patio",
                     "patiot":     "calle",
                     "patiod":     "calle",
@@ -981,12 +1002,9 @@ class RendererMixin:
             DAY1_NEXT = {
                 "habdia":       "calle",
                 "calledia":     "patio",
-                "patiod":       "pasillo1",  # cubre patiodÃ­a y patiodia
+                "patiod":       "pasillo1",
                 "pasillo1_dia": "salon",
             }
-        fondo = getattr(self, "aventura_fondo", None)
-        ruta = str(getattr(fondo, "ruta_imagen", "")).lower().replace("\\", "/")
-        current_map = ruta.split("/")[-1]  # basename en minÃºsculas
         next_keyword = ""
         for key, val in DAY1_NEXT.items():
             if key in current_map:
@@ -999,7 +1017,7 @@ class RendererMixin:
             if h.get("role") != "interactable" or h.get("action") != "puerta":
                 continue
             if next_keyword:
-                tgt = h.get("target_image", "").lower().replace("\\", "/")
+                tgt = _norm(h.get("target_image", ""))
                 if next_keyword not in tgt:
                     continue
             mw, mh = self.story_world_width, self.story_world_height
@@ -1190,7 +1208,7 @@ class RendererMixin:
         pname = getattr(self, "player_name", "") or "Protagonista"
         if seq == 1:
             speaker = pname
-            text = "Â¿DÃ³nde deberÃ­a sentarme?"
+            text = "¿Dónde debería sentarme?"
             hint = "ENTER para continuar"
         elif seq == 2:
             speaker = "Diego"
@@ -1252,7 +1270,7 @@ class RendererMixin:
                 _bx  = 40
                 _by  = self.height - 48
                 self.draw_pixel_text(
-                    "Arrastra el ratÃ³n sobre los mensajes para borrarlos",
+                    "Arrastra el ratón sobre los mensajes para borrarlos",
                     self.width // 2, self.height - 30, "small", TEXT_MAIN, True,
                 )
             else:
@@ -1264,7 +1282,7 @@ class RendererMixin:
                 self.screen.blit(overlay, panel.topleft)
                 pygame.draw.rect(self.screen, (18, 18, 18), panel, 4)
                 self.draw_pixel_text(
-                    f"{pname}: Vaya... Â¿quiÃ©n le habrÃ¡ escrito esto a Sara?",
+                    f"{pname}: Vaya... ¿quién le habrá escrito esto a Sara?",
                     panel.x + 16, panel.y + 22, "body", TEXT_MAIN, False,
                 )
                 opts = [
@@ -1486,7 +1504,7 @@ class RendererMixin:
                 "2. Reportar grupo",
                 "3. Ignorar",
                 "4. Reenviar contenido",
-                "5. Decirle que vaya al psicÃ³logo",
+                "5. Decirle que vaya al psicólogo",
             ]
             y = panel.y + 36
             for line in options:
@@ -1503,7 +1521,7 @@ class RendererMixin:
         pygame.draw.rect(self.screen, (245, 245, 245), panel, 2)
         lines = [
             "A) Consolar",
-            "B) Preguntar quÃ© ocurre",
+            "B) Preguntar qué ocurre",
             "C) Ignorar",
             "D) Decir: 'no es para tanto'",
         ]
@@ -2060,5 +2078,6 @@ class RendererMixin:
 
         if self.settings["Mostrar FPS"]:
             self.draw_pixel_text(f"FPS {int(self.clock.get_fps())}", 20, 16, "small", (210, 230, 255), False)
+
 
 
