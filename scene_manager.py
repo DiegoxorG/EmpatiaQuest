@@ -83,8 +83,10 @@ class DialogBeat:
 
 @dataclass
 class WaitBeat:
-    condicion:  object = None  # callable(game) → bool
+    condicion:  object = None  # callable(game) ??? bool
     timeout_ms: int    = 0
+    prompt: str = "Elige dónde sentarte y presiona  E"
+    hint: str = "E para interactuar con un pupitre libre"
 
 
 @dataclass
@@ -310,13 +312,12 @@ class SceneManager:
             pygame.draw.line(screen, (200, 200, 100), (0, box_y), (width, box_y), 2)
             font_body = fonts.get("body") or fonts.get("small")
             if font_body:
-                surf = font_body.render(
-                    "Elige dónde sentarte y presiona  E", True, (220, 220, 160))
+                surf = font_body.render(beat.prompt, True, (220, 220, 160))
                 screen.blit(surf, (24, box_y + 38))
             if font_body and (pygame.time.get_ticks() // 700) % 2:
-                hint = font_body.render(
-                    "E — interactuar con un pupitre libre", True, (140, 200, 140))
+                hint = font_body.render(beat.hint, True, (140, 200, 140))
                 screen.blit(hint, (24, box_y + 80))
+
 
 
 # ── Escenas predefinidas ──────────────────────────────────────────────────────
@@ -849,6 +850,7 @@ def get_scene_dia2_chat(player_name: str) -> SceneManager:
         game.day2_chat_overlay_until_ms = 0
         game.day2_chat_choice = ""
         game.day2_chat_pending_choice = ""
+        game.current_mission = "Tomar una decisión acerca del grupo"
         audio = getattr(game, "audio", None)
         if audio is not None:
             audio.play_sfx("notificaciones", cooldown_ms=150)
@@ -877,8 +879,9 @@ def get_scene_dia2_chat(player_name: str) -> SceneManager:
         game.player_can_move = True
         game.escena_activa = None
         game._change_adventure_background("HabDía.png")
-        game.current_mission = "Ir al baño"
-        game.day2_guide_target = "bano"
+        game.story_thought = "Bueno, hora de ir a la escuela."
+        game.current_mission = "Ir a la escuela"
+        game.day2_guide_target = "escuela"
 
     return SceneManager([
         ActionBeat(beat1_setup),
@@ -887,7 +890,11 @@ def get_scene_dia2_chat(player_name: str) -> SceneManager:
         DialogBeat("Chat escolar", "Pásenlo.", avanza_con="tiempo", tiempo_ms=1000),
         DialogBeat(pname, "Esto no está bien... están compartiendo imágenes editadas de Ana por todo el grupo.", avanza_con="click"),
         ActionBeat(beat6_show_choices),
-        WaitBeat(condicion=lambda g: bool(getattr(g, "day2_chat_choice", ""))),
+        WaitBeat(
+            condicion=lambda g: bool(getattr(g, "day2_chat_choice", "")),
+            prompt="Toma una decisión del chat (1-5)",
+            hint="1 Defender  2 Reportar  3 Ignorar  4 Reenviar  5 Psicólogo",
+        ),
         DialogBeat("Chat escolar", "No la traten así. Bórrenlo. Eso no da risa.", avanza_con="click", condition=lambda g: getattr(g, "day2_chat_choice", "") == "defender"),
         DialogBeat("Chat escolar", "Uy, qué intenso.", avanza_con="tiempo", tiempo_ms=1200, condition=lambda g: getattr(g, "day2_chat_choice", "") == "defender"),
         DialogBeat(pname, "Al menos por un momento dejaron de reenviar.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day2_chat_choice", "") == "defender"),
@@ -914,17 +921,60 @@ def get_scene_dia2_lucas_bano(player_name: str) -> SceneManager:
         game.day2_lucas_choice_menu_active = False
         game.day2_lucas_choice = ""
         game.day2_lucas_sprite = "llorando"
+        # Entrada al baño: jugador mira hacia abajo (idle_down)
+        p = getattr(game, "aventura_personaje", None)
+        if p is not None:
+            p.direccion = "down"
+            p.moviendose = False
+        # Paneo cinematográfico hacia Lucas (igual que evento 1 Día 1)
+        game.camera_mode   = "cinematic"
+        game.camera_lerp   = 0.05
+        game.camera_target = (
+            int(game.story_world_width  * 0.25),
+            int(game.story_world_height * 0.52),
+        )
+        game.camera_return_after_ms = 2200   # vuelve al jugador tras ver a Lucas
         audio = getattr(game, "audio", None)
         if audio is not None:
             audio.play_sfx("llanto_suave", cooldown_ms=150)
 
     def beat4_change_sprite(game):
-        game.day2_lucas_sprite = "mirando"
+        game.day2_lucas_sprite = "llorando"
 
     def beat5_choices(game):
         game.player_can_move = True
         game.day2_lucas_choice_menu_active = True
         game.day2_lucas_choice = ""
+        # Devolver cámara al jugador para que pueda navegar
+        game.camera_mode = "follow_player"
+
+    def beat6_approach(game):
+        """Acercar o alejar al jugador a Lucas según su decisión."""
+        choice = getattr(game, "day2_lucas_choice", "") or "ignorar"
+        game.player_can_move = False
+        p = getattr(game, "aventura_personaje", None)
+        if p is not None:
+            mw = getattr(game, "story_world_width", 1280)
+            mh = getattr(game, "story_world_height", 960)
+            if choice in ("consolar", "preguntar"):
+                # Se acerca a Lucas: coloca al jugador junto a él
+                p.x = int(mw * 0.31)
+                p.y = int(mh * 0.50)
+                p.direccion = "up"
+                p.moviendose = False
+                # Cámara pana suavemente hacia Lucas con el jugador
+                game.camera_mode   = "cinematic"
+                game.camera_lerp   = 0.10
+                game.camera_target = (
+                    int(mw * 0.25),
+                    int(mh * 0.52),
+                )
+                game.camera_return_after_ms = 0   # sin retorno automático; beat7 lo libera
+            else:
+                # Ignorar/Minimizar: da la espalda (hacia la salida)
+                p.direccion = "down"
+                p.moviendose = False
+                # Cámara ya sigue al jugador (set en beat5_choices)
 
     def beat7_finalize(game):
         deltas = {
@@ -944,8 +994,28 @@ def get_scene_dia2_lucas_bano(player_name: str) -> SceneManager:
         game.day2_lucas_sprite = ""
         game.current_mission = "Volver a casa"
         game.day2_guide_target = "habtarde"
+        # Liberar cámara; el jugador queda bloqueado hasta beat_complete
+        game.camera_mode = "follow_player"
+        game.player_can_move = False   # se libera en beat_complete
+
+    def beat9_tarde(game):
+        """Salto temporal: ya pasaron las clases → transición al pasillo tarde."""
+        game.story_clock_hour   = 14
+        game.story_clock_minute = 30
+        transitions = getattr(game, "transitions", None)
+        target = "Pasillo1_tarde.png"
+        if transitions is not None and transitions.is_idle():
+            transitions.request(
+                game, "aventura",
+                callback=lambda: game._change_adventure_background(target),
+                duration_ms=600,
+            )
+        else:
+            game._change_adventure_background(target)
+
+    def beat_complete(game):
+        game.escena_activa   = None
         game.player_can_move = True
-        game.escena_activa = None
 
     return SceneManager([
         ActionBeat(beat1_setup),
@@ -954,7 +1024,12 @@ def get_scene_dia2_lucas_bano(player_name: str) -> SceneManager:
         DialogBeat("Lucas", "...", avanza_con="tiempo", tiempo_ms=1500),
         ActionBeat(beat4_change_sprite),
         ActionBeat(beat5_choices),
-        WaitBeat(condicion=lambda g: bool(getattr(g, "day2_lucas_choice", ""))),
+        WaitBeat(
+            condicion=lambda g: bool(getattr(g, "day2_lucas_choice", "")),
+            prompt="Elige cómo responder a Lucas (A-D)",
+            hint="A Consolar  B Preguntar  C Ignorar  D Minimizar",
+        ),
+        ActionBeat(beat6_approach),
         DialogBeat(pname, "Me senté a su lado sin decir nada al principio.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "consolar"),
         DialogBeat("Lucas", "Gracias... de verdad.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "consolar"),
         DialogBeat(pname, "No tienes que pasarlo solo.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "consolar"),
@@ -966,5 +1041,9 @@ def get_scene_dia2_lucas_bano(player_name: str) -> SceneManager:
         DialogBeat("Lucas", "...", avanza_con="tiempo", tiempo_ms=1200, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "minimizar"),
         DialogBeat(pname, "Creo que lo empeoré.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "minimizar"),
         ActionBeat(beat7_finalize),
+        DialogBeat("", "Pasaron las horas...", avanza_con="tiempo", tiempo_ms=1400),
+        DialogBeat(pname, "Las clases terminaron. Es hora de volver a casa.", avanza_con="tiempo", tiempo_ms=2000),
+        ActionBeat(beat9_tarde),
+        ActionBeat(beat_complete),
     ])
 

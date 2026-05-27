@@ -143,6 +143,7 @@ class GameStateMixin:
             "escena_dia2_lucas_completada": getattr(self, "escena_dia2_lucas_completada", False),
             "decision_dia2_chat": getattr(self, "decision_dia2_chat", ""),
             "decision_dia2_lucas": getattr(self, "decision_dia2_lucas", ""),
+            "day2_pasillo_prompt_done": getattr(self, "day2_pasillo_prompt_done", False),
         }
 
     def _migrate_save_data(self, data):
@@ -179,6 +180,7 @@ class GameStateMixin:
         self.escena_dia2_lucas_completada = bool(data.get("escena_dia2_lucas_completada", False))
         self.decision_dia2_chat = str(data.get("decision_dia2_chat", ""))
         self.decision_dia2_lucas = str(data.get("decision_dia2_lucas", ""))
+        self.day2_pasillo_prompt_done = bool(data.get("day2_pasillo_prompt_done", False))
         self.player_name = str(data.get("player_name", ""))
         self.current_day = int(data.get("current_day", 1))
         self.story_felicidad = int(data.get("story_felicidad", 50))
@@ -481,6 +483,7 @@ class GameStateMixin:
         self.day2_lucas_choice = ""
         self.day2_lucas_sprite = ""
         self.day2_guide_target = ""
+        self.day2_pasillo_prompt_done = False
         self.day2_fin_active = False
         self.day2_fin_timer_ms = 0
         # NPC AI Manager (Evento 1)
@@ -1024,7 +1027,16 @@ class GameStateMixin:
                 self.escena_activa = "dia2_chat"
                 self.player_can_move = False
 
-        is_bano = ("baño" in base) or ("bano" in base)
+        if (getattr(self, "current_day", 1) == 2
+                and "pasillo1_dia" in base
+                and getattr(self, "day2_guide_target", "") == "escuela"
+                and not getattr(self, "day2_pasillo_prompt_done", False)):
+            self.day2_pasillo_prompt_done = True
+            self.story_thought = "Vaya, me dieron ganas de ir al baño."
+            self.current_mission = "Ir al baño"
+            self.day2_guide_target = "bano"
+
+        is_bano = "bañodia" in base or "banodia" in base
         if getattr(self, "current_day", 1) == 2 and is_bano:
             if not getattr(self, "escena_dia2_lucas_completada", False):
                 self.day2_guide_target = ""

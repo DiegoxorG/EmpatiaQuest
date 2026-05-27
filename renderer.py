@@ -1,10 +1,10 @@
-"""
+﻿"""
 Mixin de renderizado para EmpatiaQuestUI.
-Contiene todos los métodos _draw_* y _render_current_screen.
+Contiene todos los mÃ©todos _draw_* y _render_current_screen.
 
-# 🎨 ASSET_UI: Imagenes/UI/popup_logro.png          | 400x100 | Banner de logro estilo Undertale (fallback: rect + texto)
-# 🎨 ASSET_UI: Imagenes/UI/habilidades_panel.png    | 500x600 | Panel lateral de habilidades (fallback: rect + texto)
-# 🎨 ASSET_UI: Imagenes/UI/logo_menu.png            | 800x200 | Logo EMPATIA QUEST en menu (fallback: draw_pixel_text)
+# ðŸŽ¨ ASSET_UI: Imagenes/UI/popup_logro.png          | 400x100 | Banner de logro estilo Undertale (fallback: rect + texto)
+# ðŸŽ¨ ASSET_UI: Imagenes/UI/habilidades_panel.png    | 500x600 | Panel lateral de habilidades (fallback: rect + texto)
+# ðŸŽ¨ ASSET_UI: Imagenes/UI/logo_menu.png            | 800x200 | Logo EMPATIA QUEST en menu (fallback: draw_pixel_text)
 """
 
 import json
@@ -24,11 +24,11 @@ import screens.creditos as creditos_screen
 
 
 class RendererMixin:
-    """Todos los métodos de renderizado de EmpatiaQuestUI."""
+    """Todos los mÃ©todos de renderizado de EmpatiaQuestUI."""
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Texto pixel-art
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def draw_pixel_text(self, text, x, y, style, color, center=True):
         base = self.base_fonts[style].render(text, True, color)
@@ -47,9 +47,9 @@ class RendererMixin:
         self.screen.blit(pixel_text, rect)
         return rect
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # Constructores de botones (dependen del tamaño de pantalla)
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Constructores de botones (dependen del tamaÃ±o de pantalla)
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _build_menu_buttons(self):
         labels = [
@@ -60,7 +60,7 @@ class RendererMixin:
         ]
         buttons = []
         total_height = len(labels) * self.button_height + (len(labels) - 1) * self.button_gap
-        center_y = self.height // 2 + 70
+        center_y = self.height // 2 + 120
         start_y = center_y - total_height // 2
         for i, (text, action) in enumerate(labels):
             y = start_y + i * (self.button_height + self.button_gap)
@@ -109,9 +109,9 @@ class RendererMixin:
             )
         return buttons
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Fondo compartido
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_pixel_background(self):
         self.screen.fill(BG_DARK)
@@ -131,21 +131,36 @@ class RendererMixin:
         pygame.draw.rect(self.screen, PIXEL_PINK, (self.width - 100, 88, 28, 28))
         pygame.draw.rect(self.screen, PIXEL_CYAN, (self.width - 118, self.height - 130, 44, 44))
 
-    # ──────────────────────────────────────────────────────────────────────────
+    def _draw_menu_background(self):
+        """Dibuja el fondo del menu principal; si falla, usa el fondo pixel-art."""
+        path = os.path.join("Imagenes", "Fondos", "MenuFondo.jpeg")
+        target_size = (self.width, self.height)
+        cache = getattr(self, "_menu_bg_cache", None)
+        cache_size = getattr(self, "_menu_bg_cache_size", None)
+        cache_path = getattr(self, "_menu_bg_cache_path", None)
+
+        if cache is None or cache_size != target_size or cache_path != path:
+            try:
+                raw = pygame.image.load(path).convert()
+                cache = pygame.transform.smoothscale(raw, target_size)
+                self._menu_bg_cache = cache
+                self._menu_bg_cache_size = target_size
+                self._menu_bg_cache_path = path
+            except Exception:
+                self._menu_bg_cache = None
+                self._menu_bg_cache_size = None
+                self._menu_bg_cache_path = None
+                self._draw_pixel_background()
+                return
+
+        self.screen.blit(cache, (0, 0))
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Pantallas principales
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_menu(self):
-        self._draw_pixel_background()
-        # 🎨 ASSET_UI: Imagenes/UI/logo_menu.png | 800x200 | Logo EMPATIA QUEST (fallback: texto pixel)
-        first_button_y = self.buttons[0].rect.y
-        title_y = first_button_y - 130
-        subtitle_y = first_button_y - 72
-        self.draw_pixel_text("EMPATIA QUEST", self.width // 2 + 4, title_y + 3, "title", (14, 15, 25), True)
-        self.draw_pixel_text("EMPATIA QUEST", self.width // 2, title_y, "title", (245, 247, 255), True)
-        self.draw_pixel_text(
-            "La empatia tambien salva partidas", self.width // 2, subtitle_y, "subtitle", (198, 220, 255), True
-        )
+        self._draw_menu_background()
+        # ðŸŽ¨ ASSET_UI: Imagenes/UI/logo_menu.png | 800x200 | Logo EMPATIA QUEST (fallback: texto pixel)
         mouse_pos = pygame.mouse.get_pos()
         for i, button in enumerate(self.buttons):
             hover = button.contains(mouse_pos) or i == self.selected_index
@@ -277,9 +292,9 @@ class RendererMixin:
             self.width // 2, panel.bottom - 24, "small", TEXT_SOFT, True,
         )
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # Configuración y controles
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ConfiguraciÃ³n y controles
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _settings_layout(self):
         panel = pygame.Rect(self.width // 2 - 600, self.height // 2 - 370, 1200, 740)
@@ -423,12 +438,12 @@ class RendererMixin:
             panel.x + 24, panel.bottom - 34, "small", TEXT_SOFT, False,
         )
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # CAMBIO 1 — Pantalla de ingreso de nombre
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # CAMBIO 1 â€” Pantalla de ingreso de nombre
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_name_input_screen(self):
-        # 🎨 ASSET_UI: Imagenes/UI/fondo_nombre.png | 1280x720 | Pantalla de ingreso de nombre, estilo pixel-art escolar
+        # ðŸŽ¨ ASSET_UI: Imagenes/UI/fondo_nombre.png | 1280x720 | Pantalla de ingreso de nombre, estilo pixel-art escolar
         self._draw_pixel_background()
         panel = pygame.Rect(self.width // 2 - 380, self.height // 2 - 200, 760, 400)
         shadow = panel.move(6, 6)
@@ -436,7 +451,7 @@ class RendererMixin:
         pygame.draw.rect(self.screen, CARD, panel)
         pygame.draw.rect(self.screen, CARD_BORDER, panel, width=5)
         self.draw_pixel_text("NUEVA PARTIDA", self.width // 2, panel.y + 55, "title", TEXT_MAIN, True)
-        self.draw_pixel_text("¿Cuál es tu nombre?", self.width // 2, panel.y + 110, "subtitle", TEXT_SOFT, True)
+        self.draw_pixel_text("Â¿CuÃ¡l es tu nombre?", self.width // 2, panel.y + 110, "subtitle", TEXT_SOFT, True)
 
         field_rect = pygame.Rect(panel.x + 80, panel.y + 155, panel.width - 160, 56)
         pygame.draw.rect(self.screen, (255, 255, 255), field_rect)
@@ -450,7 +465,7 @@ class RendererMixin:
         self.draw_pixel_text(display_text, field_rect.x + 14, text_y, "button", TEXT_MAIN, False)
 
         self.draw_pixel_text(
-            "Solo letras, espacios y números. Máximo 20 caracteres.",
+            "Solo letras, espacios y nÃºmeros. MÃ¡ximo 20 caracteres.",
             self.width // 2, panel.y + 240, "small", TEXT_SOFT, True,
         )
         can_confirm = len(text.strip()) > 0
@@ -464,9 +479,9 @@ class RendererMixin:
         )
         self.draw_pixel_text("ESC para volver", self.width // 2, panel.bottom - 22, "small", TEXT_SOFT, True)
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Creador de personaje
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_character_preview(self, x, y, scale=6):
         c = self.character_colors
@@ -593,9 +608,9 @@ class RendererMixin:
             self.width // 2, panel.y + panel.height - 28, "small", TEXT_SOFT, True,
         )
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # Prólogo
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # PrÃ³logo
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_prologo_screen(self):
         self.screen.fill((30, 30, 30))
@@ -617,9 +632,9 @@ class RendererMixin:
             dialog_box.right - 16, dialog_box.bottom - 20, "small", TEXT_SOFT, False,
         )
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Aventura
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_reputation_face(self, x, y):
         if self.story_reputacion > 50:
@@ -737,13 +752,13 @@ class RendererMixin:
 
     # _load_object_interactable_image and _get_cropped_object_image defined in GameStateMixin
 
-    # Coordenadas del pupitre de Sara en SalonTarde (del JSON, para identificación dinámica)
+    # Coordenadas del pupitre de Sara en SalonTarde (del JSON, para identificaciÃ³n dinÃ¡mica)
     _SARA_TARDE_RX = 0.16969
     _SARA_TARDE_RY = 0.68955
-    _SARA_TARDE_TOL = 0.006   # tolerancia para comparación de posición
+    _SARA_TARDE_TOL = 0.006   # tolerancia para comparaciÃ³n de posiciÃ³n
 
     def _is_sara_tarde_desk(self, h):
-        """Devuelve True si este hitbox de decoración es el pupitre de Sara en SalonTarde."""
+        """Devuelve True si este hitbox de decoraciÃ³n es el pupitre de Sara en SalonTarde."""
         return (
             abs(h.get("rx", 0) - self._SARA_TARDE_RX) < self._SARA_TARDE_TOL
             and abs(h.get("ry", 0) - self._SARA_TARDE_RY) < self._SARA_TARDE_TOL
@@ -760,8 +775,8 @@ class RendererMixin:
                 continue
             if seated_pupitre is not None and h is seated_pupitre:
                 continue  # pupitre hidden while player is seated there
-            # Mejora 2: ocultar pupitre decorativo si un NPC está sentado allí
-            if h.get("object_name", "") == "Pupitre-Salón1.png" and pup_ocupados:
+            # Mejora 2: ocultar pupitre decorativo si un NPC estÃ¡ sentado allÃ­
+            if h.get("object_name", "") == "Pupitre-SalÃ³n1.png" and pup_ocupados:
                 cx = round(h["rx"] + h["rw"] / 2, 4)
                 cy = round(h["ry"] + h["rh"] / 2, 4)
                 if (cx, cy) in pup_ocupados:
@@ -770,19 +785,19 @@ class RendererMixin:
             if h.get("type") != "rect":
                 continue
 
-            # ── Cama en HabDía: ocultarla mientras duerme (la reemplaza la animación) ─
+            # â”€â”€ Cama en HabDÃ­a: ocultarla mientras duerme (la reemplaza la animaciÃ³n) â”€
             if getattr(self, "bedroom_sleeping_active", False):
                 if "cama" in h.get("object_name", "").lower():
                     continue
 
-            # ── Profesora: ocultarla de su posición original cuando ya está junto a Sara ─
+            # â”€â”€ Profesora: ocultarla de su posiciÃ³n original cuando ya estÃ¡ junto a Sara â”€
             if getattr(self, "profe_en_sara", False):
                 if "profesor" in h.get("object_name", "").lower():
                     continue
 
-            # ── Pupitre de Sara en SalonTarde: lo dibuja _draw_sara_tarde_seated ─
+            # â”€â”€ Pupitre de Sara en SalonTarde: lo dibuja _draw_sara_tarde_seated â”€
             # Saltamos el sprite del pupitre completamente para que no se vea ni
-            # Pupitre-Salón1.png ni el placeholder de pupitre_rayado.png encima de Sara.
+            # Pupitre-SalÃ³n1.png ni el placeholder de pupitre_rayado.png encima de Sara.
             if in_tarde and self._is_sara_tarde_desk(h):
                 continue
 
@@ -820,9 +835,11 @@ class RendererMixin:
 
     def _draw_seated_npc_at_pupitre(self, h):
         npc_owner = h.get("npc_owner", "")
+        if getattr(self, "day2_lucas_event_active", False) and str(npc_owner).lower() == "lucas":
+            return
         npc_animation = h.get("npc_animation", "")
         # Si falta npc_owner o npc_animation, buscar en story_walls un hitbox
-        # en la misma posición que tenga esos datos (ej. action:"pupitre" original)
+        # en la misma posiciÃ³n que tenga esos datos (ej. action:"pupitre" original)
         if not npc_owner or not npc_animation:
             h_cx = round(h["rx"] + h["rw"] / 2, 4)
             h_cy = round(h["ry"] + h["rh"] / 2, 4)
@@ -839,7 +856,7 @@ class RendererMixin:
                     break
         if not npc_owner:
             return
-        # Fallback: si sigue sin animación usar _resolve_anim_file del NPC AI
+        # Fallback: si sigue sin animaciÃ³n usar _resolve_anim_file del NPC AI
         sprite_path = None
         if not npc_animation:
             npc_mgr = getattr(self, "npc_ai_manager", None)
@@ -875,7 +892,7 @@ class RendererMixin:
         desk_frac = float(offsets.get("desk_frac", 0.35))
         scale_w   = float(offsets.get("scale_w",   1.0))
         scale_h   = float(offsets.get("scale_h",   1.0))
-        # Geometry — same layout as player seated rendering
+        # Geometry â€” same layout as player seated rendering
         pw_base = max(8, int(self.story_world_width * h["rw"]))
         ph_base = max(8, int(self.story_world_height * h["rh"]))
         frac    = max(0.05, min(0.95, desk_frac))
@@ -895,9 +912,9 @@ class RendererMixin:
         elif spr_w > spr_h:
             frame_w = spr_h  # fallback: spritesheet cuadrado
         else:
-            frame_w = spr_w  # imagen única
+            frame_w = spr_w  # imagen Ãºnica
         frame = sprite.subsurface(pygame.Rect(0, 0, frame_w, spr_h))
-        # Escalar preservando proporción; sh determina la altura
+        # Escalar preservando proporciÃ³n; sh determina la altura
         draw_h = sh
         draw_w = max(1, int(draw_h * frame_w / max(1, spr_h)))
         scaled = pygame.transform.smoothscale(frame, (draw_w, draw_h))
@@ -905,52 +922,71 @@ class RendererMixin:
         draw_y = spy - int(frac * sh)               + int(offset_y)
         self.screen.blit(scaled, (draw_x, draw_y))
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # CAMBIO 2 — Flecha guía
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # CAMBIO 2 â€” Flecha guÃ­a
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_guide_arrow(self):
-        # 🎨 ASSET_UI: Imagenes/flecha_guia.png | 64x64 | Flecha pixel-art amarilla, se rota por código
+        # ðŸŽ¨ ASSET_UI: Imagenes/flecha_guia.png | 64x64 | Flecha pixel-art amarilla, se rota por cÃ³digo
         guide_active = getattr(self, "day1_guide_active", False)
         going_home   = (getattr(self, "current_mission", "") == "Volver a casa")
 
-        if getattr(self, "current_day", 1) == 2:
-            guide_active = True
-            target = getattr(self, "day2_guide_target", "")
-            if not target:
-                return
+        current_day = getattr(self, "current_day", 1)
+        target = getattr(self, "day2_guide_target", "") if current_day == 2 else ""
 
-        # Bug-6 fix: mostrar flecha tanto en el camino a la escuela como en el
-        # camino de vuelta a casa cuando current_mission == "Volver a casa".
-        if not guide_active and not going_home:
+        # Guardianes: no mostrar flecha si no hay destino activo
+        if current_day == 1 and not guide_active and not going_home:
+            return
+        if current_day == 2 and not target:
             return
 
-        # Ya llegó a la habitación: ocultar flecha
-        _fondo_early = getattr(self, "aventura_fondo", None)
-        _ruta_early  = str(getattr(_fondo_early, "ruta_imagen", "")).lower().replace("\\", "/")
-        if "habtarde" in _ruta_early or "habdia" in _ruta_early:
-            return
-
-        if going_home:
-            # Ruta de vuelta: SalonTarde → Pasillo → Patio → Calle → Habitación
+        if current_day == 2:
+            # DÃ­a 2:
+            #  - target escuela: HabDÃ­a -> CalleDia -> PatioDia -> Pasillo1_dia
+            #  - target bano: Pasillo1_dia -> BaÃ±oDia (hombres)
+            #  - target habtarde: retorno a casa desde BaÃ±oDia o SalÃ³n
+            if target == "escuela":
+                DAY1_NEXT = {
+                    "habdÃ­a": "calledia",
+                    "habdia": "calledia",
+                    "calledia": "patiodia",
+                    "calledia (1)": "patiodia",
+                    "patiodia": "pasillo1_dia",
+                }
+            elif target == "bano":
+                DAY1_NEXT = {
+                    "pasillo1_dia": "baÃ±odia",
+                }
+            else:
+                # habtarde: volver a casa (ruta desde baÃ±o o desde salÃ³n)
+                DAY1_NEXT = {
+                    "baÃ±odia":    "pasillo1_dia",
+                    "pasillo1":   "patio",
+                    "patiot":     "calle",
+                    "patiod":     "calle",
+                    "calle":      "habtarde",
+                    "salontarde": "pasillo1",
+                }
+        elif going_home:
+            # Ruta de vuelta: SalonTarde â†’ Pasillo â†’ Patio â†’ Calle â†’ HabitaciÃ³n
             DAY1_NEXT = {
-                "salontarde": "pasillo1",   # SalonTarde.png → Pasillo1_tarde.png
-                "pasillo1":   "patio",      # cualquier Pasillo1_*.png → patio
-                "patiot":     "calle",      # PatioTarde.png → CalleTarde*.png (Item-3 fix)
-                "patiod":     "calle",      # PatioDia.png → CalleDia*.png
-                "calle":      "hab",        # CalleDia*.png / CalleTarde*.png → HabDia/HabTarde
+                "salontarde": "pasillo1",   # SalonTarde.png â†’ Pasillo1_tarde.png
+                "pasillo1":   "patio",      # cualquier Pasillo1_*.png â†’ patio
+                "patiot":     "calle",      # PatioTarde.png â†’ CalleTarde*.png (Item-3 fix)
+                "patiod":     "calle",      # PatioDia.png â†’ CalleDia*.png
+                "calle":      "hab",        # CalleDia*.png / CalleTarde*.png â†’ HabDia/HabTarde
             }
         else:
-            # Ruta de ida: Habitación → Calle → Patio → Pasillo → Salón
+            # Ruta de ida: HabitaciÃ³n â†’ Calle â†’ Patio â†’ Pasillo â†’ SalÃ³n
             DAY1_NEXT = {
                 "habdia":       "calle",
                 "calledia":     "patio",
-                "patiod":       "pasillo1",  # cubre patiodía y patiodia
+                "patiod":       "pasillo1",  # cubre patiodÃ­a y patiodia
                 "pasillo1_dia": "salon",
             }
         fondo = getattr(self, "aventura_fondo", None)
         ruta = str(getattr(fondo, "ruta_imagen", "")).lower().replace("\\", "/")
-        current_map = ruta.split("/")[-1]  # basename en minúsculas
+        current_map = ruta.split("/")[-1]  # basename en minÃºsculas
         next_keyword = ""
         for key, val in DAY1_NEXT.items():
             if key in current_map:
@@ -972,7 +1008,7 @@ class RendererMixin:
             target_world = (cx, cy)
             break
 
-        # Fallback: cualquier puerta si no encontramos la específica
+        # Fallback: cualquier puerta si no encontramos la especÃ­fica
         if target_world is None:
             for h in self.story_walls:
                 if h.get("role") == "interactable" and h.get("action") == "puerta":
@@ -983,12 +1019,12 @@ class RendererMixin:
                     break
         if target_world is None:
             return
-        # Posición de la flecha en pantalla: sobre el jugador
+        # PosiciÃ³n de la flecha en pantalla: sobre el jugador
         player_screen_x = self.player_rect.centerx - self.story_camera_x
         player_screen_y = self.player_rect.centery - self.story_camera_y
         arrow_cx = player_screen_x
         arrow_cy = player_screen_y - 48
-        # Calcular ángulo hacia el destino
+        # Calcular Ã¡ngulo hacia el destino
         import math
         tx = target_world[0] - self.story_camera_x
         ty = target_world[1] - self.story_camera_y
@@ -996,11 +1032,11 @@ class RendererMixin:
         dy = ty - player_screen_y
         angle_rad = math.atan2(-dy, dx)  # positivo Y en pantalla va hacia abajo
         angle_deg = math.degrees(angle_rad)
-        # Animación de rebote
+        # AnimaciÃ³n de rebote
         t = pygame.time.get_ticks() / 1000.0
         bounce = int(4 * abs(math.sin(t * 4)))
         arrow_cy -= bounce
-        # Dibujar flecha procedural (triángulo amarillo)
+        # Dibujar flecha procedural (triÃ¡ngulo amarillo)
         size = 22
         tip_x = arrow_cx + int(size * math.cos(math.radians(angle_deg)))
         tip_y = arrow_cy - int(size * math.sin(math.radians(angle_deg)))
@@ -1013,9 +1049,9 @@ class RendererMixin:
         pygame.draw.polygon(self.screen, (255, 220, 30), [p1, p2, p3])
         pygame.draw.polygon(self.screen, (180, 140, 0), [p1, p2, p3], 2)
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # Intro cinematográfica — mensajes al inicio de la aventura
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Intro cinematogrÃ¡fica â€” mensajes al inicio de la aventura
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_day1_intro_dialog(self):
         step = getattr(self, "day1_intro_step", 2)
@@ -1037,13 +1073,13 @@ class RendererMixin:
         self.draw_pixel_text(text, box.x + 24, box.y + 52, "body", TEXT_MAIN, False)
         self.draw_pixel_text("ENTER para continuar", box.right - 16, box.bottom - 18, "small", TEXT_SOFT, False)
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # Profesora junto al pupitre de Sara (tras llamarla, opción D)
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Profesora junto al pupitre de Sara (tras llamarla, opciÃ³n D)
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_profe_en_sara(self):
         """Dibuja a la profesora parada junto al pupitre de Sara en SalonTarde.
-        Activo sólo cuando profe_en_sara=True y el mapa actual es SalonTarde."""
+        Activo sÃ³lo cuando profe_en_sara=True y el mapa actual es SalonTarde."""
         if not getattr(self, "profe_en_sara", False):
             return
         fondo = getattr(self, "aventura_fondo", None)
@@ -1076,8 +1112,8 @@ class RendererMixin:
         if sprite is None:
             return
 
-        # Posición: a la derecha del pupitre de Sara
-        # Sara: _SARA_TARDE_RX=0.16969, rw≈0.1024 → borde derecho ≈ 0.272
+        # PosiciÃ³n: a la derecha del pupitre de Sara
+        # Sara: _SARA_TARDE_RX=0.16969, rwâ‰ˆ0.1024 â†’ borde derecho â‰ˆ 0.272
         # La profesora aparece ligeramente a la derecha y a la misma altura
         PROFE_RX = 0.30   # a la derecha del pupitre de Sara
         PROFE_RY = 0.64   # mismo nivel vertical (centro del sprite)
@@ -1088,25 +1124,25 @@ class RendererMixin:
         sy = wy - self.story_camera_y - sprite.get_height() // 2
         self.screen.blit(sprite, (sx, sy))
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # Item-4 — Overlay dormitorio (A_Sleeping.png)
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Item-4 â€” Overlay dormitorio (A_Sleeping.png)
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_bedroom_sleeping_overlay(self):
-        """Anima A_Sleeping.png (spritesheet 8 frames) sobre la posición de la cama,
+        """Anima A_Sleeping.png (spritesheet 8 frames) sobre la posiciÃ³n de la cama,
         reemplazando visualmente a Cama-HabDia.png (que ya fue ocultada en
         _draw_object_interactables_from_hitboxes).
 
-        Coordenadas de la cama tomadas de HabDía_hitboxes.json → decoracion:
+        Coordenadas de la cama tomadas de HabDÃ­a_hitboxes.json â†’ decoracion:
             name: Cama-HabDia.png, x/y/w/h (normalizados al mundo).
         """
-        # Posición normalizada de la cama en HabDía (de HabDía_hitboxes.json)
+        # PosiciÃ³n normalizada de la cama en HabDÃ­a (de HabDÃ­a_hitboxes.json)
         _BED_RX = 0.08487555839183153
         _BED_RY = 0.24882995319812792
         _BED_RW = 0.20548819400127633
         _BED_RH = 0.3861154446177847
 
-        # Cargar y cachear los 8 frames del spritesheet (2048×256 → 8 × 256×256)
+        # Cargar y cachear los 8 frames del spritesheet (2048Ã—256 â†’ 8 Ã— 256Ã—256)
         if not hasattr(self, "_cached_sleeping_frames"):
             _base = os.path.dirname(__file__)
             _paths = [
@@ -1128,13 +1164,13 @@ class RendererMixin:
                     continue
 
         if not self._cached_sleeping_frames:
-            return  # Sin sprite — la cama ya fue ocultada, simplemente no se muestra nada
+            return  # Sin sprite â€” la cama ya fue ocultada, simplemente no se muestra nada
 
-        # Ciclo de animación a ~8 fps (120 ms por frame)
+        # Ciclo de animaciÃ³n a ~8 fps (120 ms por frame)
         frame_idx = (pygame.time.get_ticks() // 120) % len(self._cached_sleeping_frames)
         frame = self._cached_sleeping_frames[int(frame_idx)]
 
-        # Calcular posición y tamaño en pantalla (mismas fórmulas que el renderer de decoracion)
+        # Calcular posiciÃ³n y tamaÃ±o en pantalla (mismas fÃ³rmulas que el renderer de decoracion)
         bx = int(_BED_RX * self.story_world_width)  - self.story_camera_x
         by = int(_BED_RY * self.story_world_height) - self.story_camera_y
         bw = max(8, int(_BED_RW * self.story_world_width))
@@ -1143,9 +1179,9 @@ class RendererMixin:
         scaled = pygame.transform.smoothscale(frame, (bw, bh))
         self.screen.blit(scaled, (bx, by))
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # CAMBIO 3 — Caja de diálogo Día 1
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # CAMBIO 3 â€” Caja de diÃ¡logo DÃ­a 1
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_day1_dialog(self):
         seq = getattr(self, "day1_seq_step", 0)
@@ -1154,16 +1190,16 @@ class RendererMixin:
         pname = getattr(self, "player_name", "") or "Protagonista"
         if seq == 1:
             speaker = pname
-            text = "¿Dónde debería sentarme?"
+            text = "Â¿DÃ³nde deberÃ­a sentarme?"
             hint = "ENTER para continuar"
         elif seq == 2:
             speaker = "Diego"
-            text = "Ey, acá hay puesto."
+            text = "Ey, acÃ¡ hay puesto."
             hint = "ENTER para continuar"
         else:  # 3
             speaker = pname
-            text = "Voy a elegir dónde sentarme."
-            hint = "Acércate a una silla y presiona E"
+            text = "Voy a elegir dÃ³nde sentarme."
+            hint = "AcÃ©rcate a una silla y presiona E"
 
         box_h = 130
         box = pygame.Rect(26, self.height - box_h - 22, self.width - 52, box_h)
@@ -1178,29 +1214,29 @@ class RendererMixin:
         self.draw_pixel_text(text, box.x + 24, box.y + 52, "body", TEXT_MAIN, False)
         self.draw_pixel_text(hint, box.right - 16, box.bottom - 18, "small", TEXT_SOFT, False)
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # CAMBIO 4 — Zoom pupitre rayado
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # CAMBIO 4 â€” Zoom pupitre rayado
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_pupitre_zoom(self):
         if not getattr(self, "day1_pupitre_zoom_active", False):
             return
 
-        # ── 1. Fondo del pupitre limpio ───────────────────────────────────────
-        # 🖼️ ASSET_IMG: Imagenes/Interactuables/Pupitre.png | fondo del pupitre sin graffiti
+        # â”€â”€ 1. Fondo del pupitre limpio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ðŸ–¼ï¸ ASSET_IMG: Imagenes/Interactuables/Pupitre.png | fondo del pupitre sin graffiti
         zoom_img = self._load_object_interactable_image("Pupitre.png")
         if zoom_img is not None:
             self.screen.blit(pygame.transform.scale(zoom_img, (self.width, self.height)), (0, 0))
         else:
-            # Fallback: fondo de madera marrón con textura simple
+            # Fallback: fondo de madera marrÃ³n con textura simple
             placeholder = pygame.Surface((self.width, self.height))
             placeholder.fill((100, 72, 40))
             for _lx in range(0, self.width, 90):
                 pygame.draw.line(placeholder, (80, 55, 28), (_lx, 0), (_lx, self.height), 2)
             self.screen.blit(placeholder, (0, 0))
 
-        # ── 2. Capa de letras.png borrables ───────────────────────────────────
-        # 🖼️ ASSET_IMG: Imagenes/Interactuables/letras.png | capa PNG con insultos (se borra con el ratón)
+        # â”€â”€ 2. Capa de letras.png borrables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ðŸ–¼ï¸ ASSET_IMG: Imagenes/Interactuables/letras.png | capa PNG con insultos (se borra con el ratÃ³n)
         erase_surf = getattr(self, "day1_pupitre_erase_surface", None)
         if erase_surf is not None:
             self.screen.blit(erase_surf, (0, 0))
@@ -1210,23 +1246,17 @@ class RendererMixin:
         erase_mode = getattr(self, "day1_pupitre_erase_mode", False)
         if step == 2:
             if erase_mode:
-                # ── 3a. Modo borrador activo: mostrar solo barra de progreso ─
+                # â”€â”€ 3a. Modo borrador activo: mostrar solo barra de progreso â”€
                 prog = getattr(self, "day1_pupitre_erase_progress", 0.0)
                 _bw  = self.width - 80
                 _bx  = 40
                 _by  = self.height - 48
-                pygame.draw.rect(self.screen, (30, 30, 30, 200),
-                                 (_bx - 4, _by - 4, _bw + 8, 32))
-                pygame.draw.rect(self.screen, (180, 180, 180), (_bx, _by, _bw, 22))
-                pygame.draw.rect(self.screen, (60, 200, 80),
-                                 (_bx, _by, int(_bw * prog), 22))
-                pygame.draw.rect(self.screen, (18, 18, 18), (_bx, _by, _bw, 22), 2)
                 self.draw_pixel_text(
-                    f"Borrando... {int(prog * 100)}%  —  arrastra el ratón sobre los mensajes",
-                    _bx + _bw // 2, _by + 11, "small", TEXT_MAIN, True,
+                    "Arrastra el ratÃ³n sobre los mensajes para borrarlos",
+                    self.width // 2, self.height - 30, "small", TEXT_MAIN, True,
                 )
             else:
-                # ── 3b. Panel de decisiones (A/B/C/D) ─────────────────────────
+                # â”€â”€ 3b. Panel de decisiones (A/B/C/D) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 panel_h = 230
                 panel = pygame.Rect(26, self.height - panel_h - 10, self.width - 52, panel_h)
                 overlay = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
@@ -1234,7 +1264,7 @@ class RendererMixin:
                 self.screen.blit(overlay, panel.topleft)
                 pygame.draw.rect(self.screen, (18, 18, 18), panel, 4)
                 self.draw_pixel_text(
-                    f"{pname}: Vaya... ¿quién le habrá escrito esto a Sara?",
+                    f"{pname}: Vaya... Â¿quiÃ©n le habrÃ¡ escrito esto a Sara?",
                     panel.x + 16, panel.y + 22, "body", TEXT_MAIN, False,
                 )
                 opts = [
@@ -1250,24 +1280,11 @@ class RendererMixin:
                     _x   = panel.x + 16 + _col * col_w
                     _y   = panel.y + 68 + _row * 54
                     self.draw_pixel_text(f"[{key}] {label}", _x, _y, "small", TEXT_MAIN, False)
-                # Barra de progreso (si ya estaba borrando antes)
-                prog = getattr(self, "day1_pupitre_erase_progress", 0.0)
-                if prog > 0:
-                    _bx = panel.x + 16
-                    _by = panel.y + 185
-                    _bw = panel.width - 32
-                    pygame.draw.rect(self.screen, (180, 180, 180), (_bx, _by, _bw, 16))
-                    pygame.draw.rect(self.screen, (60, 180, 80),   (_bx, _by, int(_bw * prog), 16))
-                    pygame.draw.rect(self.screen, (18, 18, 18),    (_bx, _by, _bw, 16), 2)
-                    self.draw_pixel_text(
-                        f"Borrado: {int(prog * 100)}%",
-                        _bx + _bw // 2, _by + 8, "small", TEXT_MAIN, True,
-                    )
                 self.draw_pixel_text(
                     "ESC = ignorar", panel.right - 16, panel.bottom - 16, "small", TEXT_SOFT, False
                 )
 
-        # ── 4. Flash de foto ──────────────────────────────────────────────────
+        # â”€â”€ 4. Flash de foto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if getattr(self, "pupitre_rayado_foto_active", False):
             _timer = getattr(self, "pupitre_rayado_foto_timer", 0)
             _alpha = max(0, min(255, int(255 * _timer / 800)))
@@ -1275,18 +1292,18 @@ class RendererMixin:
             _flash.fill((255, 255, 255, _alpha))
             self.screen.blit(_flash, (0, 0))
 
-        # ── 5. Cursor del borrador (sigue al ratón cuando A fue presionado) ──
+        # â”€â”€ 5. Cursor del borrador (sigue al ratÃ³n cuando A fue presionado) â”€â”€
         if getattr(self, "day1_pupitre_erase_mode", False):
             self._draw_eraser_cursor()
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Cursor del borrador
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_eraser_cursor(self):
-        """Dibuja Borradortab.png centrado en la posición actual del ratón.
-        El cursor del sistema se oculta mientras el modo borrador está activo."""
-        # 🖼️ ASSET_IMG: Imagenes/Interactuables/Borradortab.png | imagen-cursor del borrador
+        """Dibuja Borradortab.png centrado en la posiciÃ³n actual del ratÃ³n.
+        El cursor del sistema se oculta mientras el modo borrador estÃ¡ activo."""
+        # ðŸ–¼ï¸ ASSET_IMG: Imagenes/Interactuables/Borradortab.png | imagen-cursor del borrador
         cache = getattr(self, "_eraser_cursor_surf", None)
         if cache is None:
             _path = os.path.join(
@@ -1296,7 +1313,7 @@ class RendererMixin:
                 raw   = pygame.image.load(_path).convert_alpha()
                 cache = pygame.transform.scale(raw, (64, 64))
             except (OSError, pygame.error):
-                # Fallback: círculo blanco traslúcido con cruz interior
+                # Fallback: cÃ­rculo blanco traslÃºcido con cruz interior
                 cache = pygame.Surface((64, 64), pygame.SRCALPHA)
                 pygame.draw.circle(cache, (255, 255, 255, 180), (32, 32), 28, 3)
                 pygame.draw.line(cache, (255, 255, 255, 220), (20, 32), (44, 32), 2)
@@ -1306,14 +1323,14 @@ class RendererMixin:
         w, h   = cache.get_size()
         self.screen.blit(cache, (mx - w // 2, my - h // 2))
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # SalonTarde: fondo sara + Sara sentada
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_pupitre_sara_fondo(self):
         """Dibuja sara_pupitre_rayado_256x256.png escalado a pantalla completa.
-        Se muestra mientras dure la escena cinemática del pupitre rayado."""
-        # 🖼️ ASSET_IMG: Imagenes/Interactuables/sara_pupitre_rayado_256x256.png | 256x256 | Fondo conversación
+        Se muestra mientras dure la escena cinemÃ¡tica del pupitre rayado."""
+        # ðŸ–¼ï¸ ASSET_IMG: Imagenes/Interactuables/sara_pupitre_rayado_256x256.png | 256x256 | Fondo conversaciÃ³n
         _path = os.path.join(
             os.path.dirname(__file__), "Imagenes", "Interactuables",
             "sara_pupitre_rayado_256x256.png",
@@ -1338,15 +1355,15 @@ class RendererMixin:
                 self.width // 2, self.height // 2 - 30, "subtitle", (180, 160, 200), True,
             )
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # Overlays Misión 3 — Bugs 8 y 9
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Overlays MisiÃ³n 3 â€” Bugs 8 y 9
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_mision3_overlay(self, flag_active: str, flag_ms: str, filename: str,
                                cache_attr: str, cache_size_attr: str):
-        """Helper genérico: dibuja una imagen LoquehizoJimara a pantalla completa
-        con fade-out en los últimos 400ms del timer."""
-        # 🖼️ ASSET_IMG: Imagenes/LoquehizoJimara/Interacciones/<filename>
+        """Helper genÃ©rico: dibuja una imagen LoquehizoJimara a pantalla completa
+        con fade-out en los Ãºltimos 400ms del timer."""
+        # ðŸ–¼ï¸ ASSET_IMG: Imagenes/LoquehizoJimara/Interacciones/<filename>
         _path = os.path.join(
             os.path.dirname(__file__),
             "Imagenes", "LoquehizoJimara", "Interacciones", filename,
@@ -1366,10 +1383,10 @@ class RendererMixin:
         ms = getattr(self, flag_ms, 0)
         _FADE_MS = 400
         if ms == 0:
-            # Sin timer → opacidad completa permanente (la escena limpia el flag)
+            # Sin timer â†’ opacidad completa permanente (la escena limpia el flag)
             self.screen.blit(cache, (0, 0))
         elif ms < _FADE_MS:
-            # Fade-out en los últimos 400ms
+            # Fade-out en los Ãºltimos 400ms
             alpha = max(0, int(255 * ms / _FADE_MS))
             surf = cache.copy()
             surf.set_alpha(alpha)
@@ -1379,7 +1396,7 @@ class RendererMixin:
 
     def _draw_mision3_foto_overlay(self):
         """Bug-8: muestra Mision3-TomarFoto.png a pantalla completa."""
-        # 🖼️ ASSET_IMG: Imagenes/LoquehizoJimara/Interacciones/Mision3-TomarFoto.png
+        # ðŸ–¼ï¸ ASSET_IMG: Imagenes/LoquehizoJimara/Interacciones/Mision3-TomarFoto.png
         self._draw_mision3_overlay(
             "mision3_foto_overlay_active", "mision3_foto_overlay_ms",
             "Mision3-TomarFoto.png",
@@ -1388,14 +1405,14 @@ class RendererMixin:
 
     def _draw_mision3_llamar_profe_overlay(self):
         """Bug-9: muestra Mision3-Llamarprofe.png a pantalla completa."""
-        # 🖼️ ASSET_IMG: Imagenes/LoquehizoJimara/Interacciones/Mision3-Llamarprofe.png
+        # ðŸ–¼ï¸ ASSET_IMG: Imagenes/LoquehizoJimara/Interacciones/Mision3-Llamarprofe.png
         self._draw_mision3_overlay(
             "mision3_llamar_profe_active", "mision3_llamar_profe_ms",
             "Mision3-Llamarprofe.png",
             "_m3llamar_surf", "_m3llamar_size",
         )
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_sara_tarde_seated(self):
         """Dibuja a Sara sentada en su pupitre rayado durante SalonTarde.
@@ -1404,7 +1421,7 @@ class RendererMixin:
         if not getattr(self, "day1_in_tarde", False):
             return
         # Verificar que el mapa actual sea SalonTarde; day1_in_tarde no se resetea
-        # al cambiar de mapa, así que sin este check Sara aparecería en otros fondos.
+        # al cambiar de mapa, asÃ­ que sin este check Sara aparecerÃ­a en otros fondos.
         _fondo = getattr(self, "aventura_fondo", None)
         if _fondo is None:
             return
@@ -1415,7 +1432,7 @@ class RendererMixin:
             return
         if getattr(self, "day1_pupitre_zoom_active", False):
             return
-        # Hitbox sintético que apunta a la posición de Sara en SalonTarde
+        # Hitbox sintÃ©tico que apunta a la posiciÃ³n de Sara en SalonTarde
         _h = {
             "type":          "rect",
             "role":          "interactable",
@@ -1469,7 +1486,7 @@ class RendererMixin:
                 "2. Reportar grupo",
                 "3. Ignorar",
                 "4. Reenviar contenido",
-                "5. Decirle que vaya al psicólogo",
+                "5. Decirle que vaya al psicÃ³logo",
             ]
             y = panel.y + 36
             for line in options:
@@ -1486,7 +1503,7 @@ class RendererMixin:
         pygame.draw.rect(self.screen, (245, 245, 245), panel, 2)
         lines = [
             "A) Consolar",
-            "B) Preguntar qué ocurre",
+            "B) Preguntar quÃ© ocurre",
             "C) Ignorar",
             "D) Decir: 'no es para tanto'",
         ]
@@ -1501,7 +1518,7 @@ class RendererMixin:
         s = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         s.fill((0, 0, 0, 220))
         self.screen.blit(s, (0, 0))
-        self.draw_pixel_text("Fin del Día 2", self.width // 2, self.height // 2, "title", (245, 248, 255), True)
+        self.draw_pixel_text("Fin del DÃ­a 2", self.width // 2, self.height // 2, "title", (245, 248, 255), True)
 
     def _draw_adventure_screen(self):
         self.screen.fill((255, 255, 255))
@@ -1517,9 +1534,9 @@ class RendererMixin:
                 sm.draw(self.screen, self.base_fonts, self.width, self.height)
             return
 
-        # ── Fondo sara: imagen fullscreen mientras dure la conversación ────────
+        # â”€â”€ Fondo sara: imagen fullscreen mientras dure la conversaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€
         # pupitre_rayado_fondo == "sara" se activa al levantarse del pupitre y
-        # se borra cuando el ActionBeat activa el zoom de decisión.
+        # se borra cuando el ActionBeat activa el zoom de decisiÃ³n.
         if getattr(self, "pupitre_rayado_fondo", "") == "sara":
             self._draw_pupitre_sara_fondo()
             self._draw_story_clock_hud()
@@ -1609,7 +1626,7 @@ class RendererMixin:
         if not _npc_ai_on:
             self._draw_npc_interactables_from_hitboxes()
 
-        # NPC AI draw — misma capa que los NPCs estáticos, debajo del jugador
+        # NPC AI draw â€” misma capa que los NPCs estÃ¡ticos, debajo del jugador
         if _npc_ai_mgr is not None and self.aventura_fondo is not None:
             _cur_map = os.path.basename(str(getattr(self.aventura_fondo, "ruta_imagen", "")))
             _npc_ai_mgr.draw(
@@ -1623,10 +1640,10 @@ class RendererMixin:
         if getattr(self, "day1_in_tarde", False):
             self._draw_sara_tarde_seated()
 
-        # SalonTarde: profesora junto a Sara (tras llamarla, opción D)
+        # SalonTarde: profesora junto a Sara (tras llamarla, opciÃ³n D)
         self._draw_profe_en_sara()
 
-        # Item-4: no dibujar al jugador mientras duerme (la animación lo "representa")
+        # Item-4: no dibujar al jugador mientras duerme (la animaciÃ³n lo "representa")
         if not getattr(self, "bedroom_sleeping_active", False):
             if self.aventura_personaje is not None:
                 if self.story_is_seated and self.story_seated_sprite is not None:
@@ -1676,60 +1693,90 @@ class RendererMixin:
                 if self.settings.get("Mostrar hitboxes", False):
                     pygame.draw.rect(self.screen, (255, 0, 0), player_view, 2)
 
-        # ── Misión 3: overlay foto (Bug-8) ────────────────────────────────────
-        # Fullscreen por encima del mundo pero debajo del HUD y diálogos.
+        # â”€â”€ MisiÃ³n 3: overlay foto (Bug-8) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # Fullscreen por encima del mundo pero debajo del HUD y diÃ¡logos.
         if getattr(self, "mision3_foto_overlay_active", False):
             self._draw_mision3_foto_overlay()
 
-        # ── Misión 3: overlay llamar profesora (Bug-9) ─────────────────────
+        # â”€â”€ MisiÃ³n 3: overlay llamar profesora (Bug-9) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if getattr(self, "mision3_llamar_profe_active", False):
             self._draw_mision3_llamar_profe_overlay()
 
-        # ── Item-4: overlay A_Sleeping.png durante intro del dormitorio ─────
-        # Cubre todo el mundo; el diálogo de SceneManager se dibuja encima.
+        # Día 2: Lucas visible en baño de hombres durante su evento
+        if getattr(self, "day2_lucas_event_active", False):
+            sprite_mode = getattr(self, "day2_lucas_sprite", "llorando")
+            img = None
+            if sprite_mode == "llorando":
+                frames = self._load_sprite_sheet_frames(
+                    self._resolve_image_path("Lucas_llorando_animacion.png")
+                )
+                if frames:
+                    idxf = (pygame.time.get_ticks() // 180) % len(frames)
+                    img = frames[int(idxf)]
+            if img is None:
+                fallback_name = "Lucas_llorando.png" if sprite_mode == "llorando" else "Lucas_mirando.png"
+                try:
+                    pth = self._resolve_image_path(fallback_name)
+                    img = pygame.image.load(pth).convert_alpha() if os.path.exists(pth) else None
+                except (OSError, pygame.error):
+                    img = None
+            if img is not None:
+                h = 190
+                w = max(100, int(img.get_width() * (h / max(1, img.get_height())) * 1.25))
+                spr = pygame.transform.smoothscale(img, (w, h))
+                # PosiciÃ³n fija en el mundo (no en pantalla) â†’ sigue a la cÃ¡mara
+                _lucas_wx = int(self.story_world_width * 0.25)
+                _lucas_wy = int(self.story_world_height * 0.52)
+                x = _lucas_wx - self.story_camera_x - w // 2
+                y = _lucas_wy - self.story_camera_y - h
+                self.screen.blit(spr, (x, y))
+            self._draw_day2_lucas_choice_overlay()
+
+        # â”€â”€ Item-4: overlay A_Sleeping.png durante intro del dormitorio â”€â”€â”€â”€â”€
+        # Cubre todo el mundo; el diÃ¡logo de SceneManager se dibuja encima.
         if getattr(self, "bedroom_sleeping_active", False):
             self._draw_bedroom_sleeping_overlay()
 
-        # CAMBIO 2: flecha guía (oculta mientras el jugador duerme)
+        # CAMBIO 2: flecha guÃ­a (oculta mientras el jugador duerme)
         if not getattr(self, "bedroom_sleeping_active", False):
             self._draw_guide_arrow()
 
-        # HUD de día — dibuja al frente, encima de objetos y NPCs
+        # HUD de dÃ­a â€” dibuja al frente, encima de objetos y NPCs
         self._draw_story_clock_hud()
 
-        # CAMBIO 4: zoom pupitre (dibuja encima de todo si está activo)
+        # CAMBIO 4: zoom pupitre (dibuja encima de todo si estÃ¡ activo)
         if getattr(self, "day1_pupitre_zoom_active", False):
             self._draw_pupitre_zoom()
-            return  # No dibujar el event box mientras está el zoom
+            return  # No dibujar el event box mientras estÃ¡ el zoom
 
         # Intro: bloquea el event box hasta que el jugador avance los dos mensajes
         if getattr(self, "day1_intro_step", 2) < 2:
             self._draw_day1_intro_dialog()
             return
 
-        # Ocultar barra entera mientras el jugador camina a la escuela (después del intro).
-        # EXCEPCIÓN: si hay una escena activa (ej. bedroom_intro), la SceneManager
-        # necesita dibujarse aunque todavía no hayamos llegado al salón.
+        # Ocultar barra entera mientras el jugador camina a la escuela (despuÃ©s del intro).
+        # EXCEPCIÃ“N: si hay una escena activa (ej. bedroom_intro), la SceneManager
+        # necesita dibujarse aunque todavÃ­a no hayamos llegado al salÃ³n.
         if not getattr(self, "day1_salon_entered", True) and getattr(self, "escena_activa", None) is None:
             return
 
-        # ── SceneManager overlay ──────────────────────────────────────────────
-        # Reemplaza la caja del Día 1 cuando hay una escena cinemática activa.
-        # La cámara ya se actualiza en _update_story_camera con lerp; aquí solo
-        # dibujamos el overlay de diálogo encima de todo lo ya renderizado.
+        # â”€â”€ SceneManager overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # Reemplaza la caja del DÃ­a 1 cuando hay una escena cinemÃ¡tica activa.
+        # La cÃ¡mara ya se actualiza en _update_story_camera con lerp; aquÃ­ solo
+        # dibujamos el overlay de diÃ¡logo encima de todo lo ya renderizado.
         if getattr(self, "escena_activa", None) is not None:
             sm = getattr(self, "scene_manager", None)
             if sm is not None:
                 sm.draw(self.screen, self.base_fonts, self.width, self.height)
             return
 
-        # CAMBIO 3: caja de diálogo Día 1 (reemplaza event box mientras está en secuencia)
+        # CAMBIO 3: caja de diÃ¡logo DÃ­a 1 (reemplaza event box mientras estÃ¡ en secuencia)
         seq_step = getattr(self, "day1_seq_step", 0)
         if seq_step in (1, 2, 3):
             self._draw_day1_dialog()
             return
 
-        # ── Pantalla de final ────────────────────────────────────────────────────
+        # â”€â”€ Pantalla de final â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if self.story_pending_end:
             end_overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
             end_overlay.fill((0, 0, 0, 210))
@@ -1739,7 +1786,7 @@ class RendererMixin:
             self.draw_pixel_text("ENTER para volver al menu", self.width // 2, self.height // 2 + 80, "small", TEXT_SOFT, True)
             return
 
-        # ── Barra de estado inferior ─────────────────────────────────────────────
+        # â”€â”€ Barra de estado inferior â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         status_h = 72
         status_box = pygame.Rect(26, self.height - status_h - 10, self.width - 52, status_h)
         status_surf = pygame.Surface((status_box.width, status_box.height), pygame.SRCALPHA)
@@ -1767,9 +1814,9 @@ class RendererMixin:
             status_box.right - 14, status_box.bottom - 10, "small", TEXT_SOFT, False,
         )
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # Simulación
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # SimulaciÃ³n
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_simulacion_screen(self):
         if not self.simulacion_activa:
@@ -1790,14 +1837,14 @@ class RendererMixin:
         self.draw_pixel_text("Flechas: cambiar R/G, Q/W: cambiar B, ENTER: guardar", self.width // 2, 80, "small", (255, 255, 255), True)
         self.draw_pixel_text("ESC: menu", self.width // 2, self.height - 32, "small", (255, 255, 255), True)
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Nuevo: popup de logro (Undertale-style)
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_achievement_popup(self):
         """
         Muestra el banner de logro desbloqueado en la esquina superior derecha.
-        # 🎨 ASSET_UI: Imagenes/UI/popup_logro.png | 400x100 | Banner de logro estilo Undertale (fallback procedural)
+        # ðŸŽ¨ ASSET_UI: Imagenes/UI/popup_logro.png | 400x100 | Banner de logro estilo Undertale (fallback procedural)
         """
         logro = getattr(self, "popup_logro_actual", None)
         if logro is None:
@@ -1809,7 +1856,7 @@ class RendererMixin:
         bg.fill((20, 22, 38, 220))
         self.screen.blit(bg, (px, py))
         pygame.draw.rect(self.screen, PIXEL_CYAN, (px, py, pw, ph), 3)
-        # Estrella pequeña (procedural)
+        # Estrella pequeÃ±a (procedural)
         star_cx = px + 28
         star_cy = py + ph // 2
         pygame.draw.polygon(
@@ -1822,14 +1869,14 @@ class RendererMixin:
         nombre = logro.nombre[:38] + ".." if len(logro.nombre) > 40 else logro.nombre
         self.draw_pixel_text(nombre, px + 52, py + 50, "small", (245, 248, 255), False)
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Nuevo: panel lateral de habilidades (TAB)
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_skills_inventory_overlay(self):
         """
         Panel lateral de habilidades, activado con TAB durante la aventura.
-        # 🎨 ASSET_UI: Imagenes/UI/habilidades_panel.png | 500x600 | Panel lateral de habilidades (fallback procedural)
+        # ðŸŽ¨ ASSET_UI: Imagenes/UI/habilidades_panel.png | 500x600 | Panel lateral de habilidades (fallback procedural)
         """
         pw = 420
         ph = min(self.height - 40, 520)
@@ -1874,9 +1921,9 @@ class RendererMixin:
 
         self.draw_pixel_text("TAB para cerrar", self.width // 2, py + ph - 20, "small", (62, 74, 98), True)
 
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Dispatcher principal
-    # ──────────────────────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _draw_minijuego_screen(self):
         """Delegado de renderizado al MinigameManager activo."""
@@ -1891,7 +1938,7 @@ class RendererMixin:
             self._draw_minijuego_pause_overlay()
 
     def _draw_minijuego_pause_overlay(self):
-        """Menú de pausa sobre el minijuego (ESC)."""
+        """MenÃº de pausa sobre el minijuego (ESC)."""
         w, h = self.width, self.height
 
         # Fondo semitransparente
@@ -1909,7 +1956,7 @@ class RendererMixin:
 
         self.draw_pixel_text("PAUSA", w // 2, panel.y + 46, "title", TEXT_MAIN, True)
         self.draw_pixel_text(
-            "↑↓ navegar   ENTER seleccionar   ESC continuar",
+            "â†‘â†“ navegar   ENTER seleccionar   ESC continuar",
             w // 2, panel.y + 92, "small", TEXT_SOFT, True,
         )
 
@@ -1940,7 +1987,7 @@ class RendererMixin:
 
             self.draw_pixel_text(label, opt_rect.centerx, opt_rect.centery, "body", color, True)
 
-        # Subtítulo con el tipo de minijuego activo
+        # SubtÃ­tulo con el tipo de minijuego activo
         tipo_label = "Pelea agresiva" if tipo == "agresivo" else "Defensa con palabras"
         self.draw_pixel_text(
             f"Modo: {tipo_label}",
@@ -2006,10 +2053,12 @@ class RendererMixin:
         if popup_timer > 0:
             self._draw_achievement_popup()
 
-        # Transición de pantalla (fade negro)
+        # TransiciÃ³n de pantalla (fade negro)
         transitions = getattr(self, "transitions", None)
         if transitions is not None:
             transitions.draw(self.screen)
 
         if self.settings["Mostrar FPS"]:
             self.draw_pixel_text(f"FPS {int(self.clock.get_fps())}", 20, 16, "small", (210, 230, 255), False)
+
+

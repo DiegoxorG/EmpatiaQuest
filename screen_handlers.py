@@ -650,7 +650,7 @@ class ScreenHandlersMixin:
                         erase_surf.blit(pygame.transform.scale(raw, (self.width, self.height)), (0, 0))
                     except (OSError, pygame.error):
                         erase_surf.fill((80, 40, 40, 160))
-                    self.day1_pupitre_erase_surface = erase_surf
+                    self.day1_pupitre_erase_surface  = erase_surf
                     self.day1_pupitre_erase_progress = 0.0
                     audio = getattr(self, "audio", None)
                     if audio is not None:
