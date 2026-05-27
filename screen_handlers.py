@@ -493,8 +493,8 @@ class ScreenHandlersMixin:
                 self.prologo_activo = False
                 if audio is not None:
                     audio.play_bgm_for_screen("aventura")
-                    if getattr(self, "aventura_fondo", None) is not None:
-                        audio.play_ambience_for_map(self.aventura_fondo.ruta_imagen)
+                    if hasattr(self, "_sync_scene_audio"):
+                        self._sync_scene_audio()
                 self.current_screen = "aventura"
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -1133,8 +1133,8 @@ class ScreenHandlersMixin:
         self.minijuego_manager = None
         transitions = getattr(self, "transitions", None)
         audio = getattr(self, "audio", None)
-        if audio is not None and getattr(self, "aventura_fondo", None) is not None:
-            audio.play_ambience_for_map(self.aventura_fondo.ruta_imagen)
+        if audio is not None and hasattr(self, "_sync_scene_audio"):
+            self._sync_scene_audio()
         self._transition_to("aventura", transitions)
 
 

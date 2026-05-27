@@ -458,11 +458,10 @@ class GameStateMixin:
             placeholder = self._make_placeholder_surface(1280, 720, "HabDía.png")
             self.aventura_fondo = self._make_fondo_placeholder(hab_path, placeholder)
         audio = getattr(self, "audio", None)
-        if audio is not None and self.aventura_fondo is not None:
-            audio.play_ambience_for_map(self.aventura_fondo.ruta_imagen)
         self.story_walls = self._build_story_wall_hitboxes(
             self.aventura_fondo.ruta_imagen if self.aventura_fondo else None
         )
+        self._sync_scene_audio()
         spawn_x, spawn_y = self._get_spawn_position_for_current_map()
         try:
             self.aventura_personaje = Personaje(
@@ -650,6 +649,35 @@ class GameStateMixin:
                 continue
         return hitboxes
 
+    def _current_scene_has_students(self):
+        """Detecta si la escena actual debe tener bullicio de estudiantes."""
+        if getattr(self, "story_npc_positions", None):
+            return True
+        for h in getattr(self, "story_walls", []):
+            if h.get("role") == "interactable" and h.get("action") == "npc":
+                return True
+            npc_name = str(h.get("npc_character", "")).lower()
+            if npc_name:
+                return True
+        npc_mgr = getattr(self, "npc_ai_manager", None)
+        if npc_mgr is not None:
+            for attr in ("npcs", "active_npcs", "event_npcs", "characters"):
+                value = getattr(npc_mgr, attr, None)
+                if value:
+                    return True
+        return False
+
+    def _sync_scene_audio(self):
+        audio = getattr(self, "audio", None)
+        fondo = getattr(self, "aventura_fondo", None)
+        if audio is None or fondo is None:
+            return
+        audio.play_bgm_for_screen("aventura")
+        audio.play_ambience_for_map(
+            fondo.ruta_imagen,
+            has_students=self._current_scene_has_students(),
+        )
+
     def _get_spawn_position_for_current_map(self):
         if self.story_previous_map_name:
             by_origin = self.story_spawn_by_origin.get(self.story_previous_map_name)
@@ -809,7 +837,7 @@ class GameStateMixin:
         self._update_story_camera()
         self.story_interaction_text = f"Entraste a: {target_image_name}"
         self.audio.sfx_puerta()
-        self.audio.play_ambience_for_map(self.aventura_fondo.ruta_imagen)
+        self._sync_scene_audio()
         # ── NPC AI: notificar cambio de mapa ─────────────────────────────────
         npc_mgr = getattr(self, "npc_ai_manager", None)
         if npc_mgr is not None:
@@ -1045,6 +1073,7 @@ class GameStateMixin:
         npc_mgr = getattr(self, "npc_ai_manager", None)
         if npc_mgr is not None:
             npc_mgr.update(dt_ms, self)
+        self._sync_scene_audio()
 
         # ── SceneManager update ───────────────────────────────────────────────
         sm = getattr(self, "scene_manager", None)
@@ -1074,9 +1103,19 @@ class GameStateMixin:
                         self.story_clock_hour = 0
                         self.story_clock_day += 1
             if self.story_npc_sara_frames:
+                old_idx = self.story_npc_sara_index
                 self.story_npc_sara_index = (self.story_npc_anim_timer // 220) % len(self.story_npc_sara_frames)
+                if self.story_npc_sara_index != old_idx:
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_animation("npc_walk")
             if self.story_npc_diego_frames:
+                old_idx = self.story_npc_diego_index
                 self.story_npc_diego_index = (self.story_npc_anim_timer // 220) % len(self.story_npc_diego_frames)
+                if self.story_npc_diego_index != old_idx:
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_animation("npc_walk")
 
         # ── Fin del Día 1 countdown ───────────────────────────────────────────
         if getattr(self, "day1_end_timer", 0) > 0:

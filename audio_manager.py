@@ -20,23 +20,26 @@ _SAMPLE_RATE = 44100
 _MAX_I16 = 32767
 
 
+MAIN_THEME = "cambiar_el_mundo"
+
+
 BGM_MAP = {
-    "menu": "menu_principal",
-    "jugar": "menu_principal",
-    "creador": "menu_principal",
-    "configuracion": "menu_principal",
-    "controles": "menu_principal",
-    "historia": "menu_principal",
-    "progreso": "menu_principal",
-    "tutorial": "menu_principal",
-    "creditos": "menu_principal",
-    "prologo": "prologo",
-    "aventura": "exploracion",
-    "pause": "exploracion",
-    "pause_guardar": "exploracion",
-    "load_slots": "menu_principal",
-    "simulacion": "exploracion",
-    "minijuego": "minijuego_batalla",
+    "menu": MAIN_THEME,
+    "jugar": MAIN_THEME,
+    "creador": MAIN_THEME,
+    "configuracion": MAIN_THEME,
+    "controles": MAIN_THEME,
+    "historia": MAIN_THEME,
+    "progreso": MAIN_THEME,
+    "tutorial": MAIN_THEME,
+    "creditos": MAIN_THEME,
+    "prologo": MAIN_THEME,
+    "aventura": MAIN_THEME,
+    "pause": MAIN_THEME,
+    "pause_guardar": MAIN_THEME,
+    "load_slots": MAIN_THEME,
+    "simulacion": MAIN_THEME,
+    "minijuego": MAIN_THEME,
 }
 
 
@@ -74,24 +77,30 @@ class AudioManager:
         self._initialized = False
         self._current_bgm_name = None
         self._current_ambience_name = None
+        self._current_detail_name = None
         self._volume = 0.7
         self._sfx_cache = {}
         self._generated_cache = {}
         self._ambience_cache = {}
+        self._detail_cache = {}
         self._bgm_fallback_cache = {}
         self._last_step_ms = 0
+        self._last_named_sfx_ms = {}
         self._step_toggle = False
         self._try_init()
         if self._initialized:
             try:
                 pygame.mixer.set_num_channels(max(16, pygame.mixer.get_num_channels()))
-                self._ambience_channel = pygame.mixer.Channel(6)
+                self._ambience_channel = pygame.mixer.Channel(5)
+                self._detail_channel = pygame.mixer.Channel(6)
                 self._bgm_fallback_channel = pygame.mixer.Channel(7)
             except Exception:
                 self._ambience_channel = None
+                self._detail_channel = None
                 self._bgm_fallback_channel = None
         else:
             self._ambience_channel = None
+            self._detail_channel = None
             self._bgm_fallback_channel = None
 
     def _try_init(self):
@@ -195,6 +204,90 @@ class AudioManager:
             samples.append(s)
         return self._make_sound(samples)
 
+    def _main_theme_loop(self):
+        """Tema esperanzador y sobrio: tension social + impulso de cambio."""
+        duration = 12.8
+        n = max(1, int(_SAMPLE_RATE * duration))
+        samples = array("h")
+        chords = [
+            (220.00, 261.63, 329.63),  # A menor
+            (174.61, 261.63, 329.63),  # F maj7 sin quinta
+            (196.00, 246.94, 293.66),  # G suspendido
+            (164.81, 246.94, 329.63),  # E menor abierto
+        ]
+        motif = [440.00, 493.88, 523.25, 659.25, 587.33, 523.25, 493.88, 392.00]
+        for i in range(n):
+            t = i / _SAMPLE_RATE
+            bar = int(t / 3.2) % len(chords)
+            beat_pos = (t % 3.2) / 3.2
+            chord = chords[bar]
+            pad = 0.0
+            for freq in chord:
+                pad += math.sin(2 * math.pi * freq * t) * 0.18
+                pad += math.sin(2 * math.pi * freq * 2.0 * t) * 0.035
+            bass_freq = chord[0] / 2.0
+            bass_pulse = 0.55 + 0.45 * math.sin(2 * math.pi * 0.625 * t)
+            bass = math.sin(2 * math.pi * bass_freq * t) * 0.36 * bass_pulse
+            step = int((t * 2.5) % len(motif))
+            note_env = max(0.0, 1.0 - ((t * 2.5) % 1.0) * 2.4)
+            melody = math.sin(2 * math.pi * motif[step] * t) * 0.16 * note_env
+            resolve = math.sin(2 * math.pi * 880.0 * t) * 0.035 if beat_pos > 0.78 else 0.0
+            breath = random.uniform(-1.0, 1.0) * 0.008
+            env = min(1.0, t / 0.7, (duration - t) / 0.7)
+            v = (pad + bass + melody + resolve + breath) * env
+            left = _clamp_sample(v * 0.90 * _MAX_I16)
+            right = _clamp_sample((v * 0.82 + melody * 0.22) * _MAX_I16)
+            samples.append(left)
+            samples.append(right)
+        return self._make_sound(samples)
+
+    def _texture_loop(self, name):
+        duration = 4.0
+        n = max(1, int(_SAMPLE_RATE * duration))
+        samples = array("h")
+        car_events = [0.35, 1.9, 3.15]
+        bird_events = [0.7, 2.55, 3.55]
+        bell_events = [1.2]
+        for i in range(n):
+            t = i / _SAMPLE_RATE
+            v = 0.0
+            if name == "calle":
+                low = math.sin(2 * math.pi * 45 * t) * 0.10
+                roll = math.sin(2 * math.pi * (65 + 10 * math.sin(t * 1.7)) * t) * 0.07
+                v += low + roll + random.uniform(-1.0, 1.0) * 0.018
+                for ev in car_events:
+                    d = abs((t - ev + duration / 2) % duration - duration / 2)
+                    if d < 0.42:
+                        v += math.sin(2 * math.pi * (80 + 160 * d) * t) * (0.16 * (1.0 - d / 0.42))
+                for ev in bird_events:
+                    d = abs((t - ev + duration / 2) % duration - duration / 2)
+                    if d < 0.09:
+                        chirp_freq = 2100 + 900 * math.sin(80 * d)
+                        v += math.sin(2 * math.pi * chirp_freq * t) * (0.12 * (1.0 - d / 0.09))
+            elif name == "estudiantes":
+                murmur = 0.0
+                for freq in (180, 230, 310, 370, 460, 520):
+                    murmur += math.sin(2 * math.pi * (freq + 6 * math.sin(t * 2.0)) * t)
+                v += murmur * 0.018 + random.uniform(-1.0, 1.0) * 0.035
+                for ev in bell_events:
+                    d = abs((t - ev + duration / 2) % duration - duration / 2)
+                    if d < 0.18:
+                        v += math.sin(2 * math.pi * 880 * t) * 0.06 * (1.0 - d / 0.18)
+            elif name == "cafeteria_detalle":
+                v += random.uniform(-1.0, 1.0) * 0.045
+                v += math.sin(2 * math.pi * 620 * t) * 0.018 * (1.0 if int(t * 4) % 5 == 0 else 0.0)
+            elif name == "biblioteca_detalle":
+                v += random.uniform(-1.0, 1.0) * 0.012
+                if int(t * 1.5) % 5 == 0:
+                    v += math.sin(2 * math.pi * 140 * t) * 0.018
+            else:
+                v += random.uniform(-1.0, 1.0) * 0.01
+            env = min(1.0, t / 0.3, (duration - t) / 0.3)
+            s = _clamp_sample(v * env * _MAX_I16)
+            samples.append(s)
+            samples.append(s)
+        return self._make_sound(samples)
+
     # BGM
 
     def play_bgm(self, nombre, loop=True):
@@ -218,27 +311,15 @@ class AudioManager:
             return
         sound = self._bgm_fallback_cache.get(nombre)
         if sound is None:
-            if nombre == "prologo":
-                sound = self._rhythm_loop([220, 196, 174, 196], duration=4.0, volume=0.11, noise=0.01)
-            elif nombre == "decision":
-                sound = self._rhythm_loop([110, 116, 110, 123], duration=2.4, volume=0.13, noise=0.02)
-            elif nombre == "minijuego_batalla":
-                sound = self._rhythm_loop([330, 392, 440, 523], duration=1.6, volume=0.14, noise=0.01)
-            elif nombre == "final_positivo":
-                sound = self._rhythm_loop([392, 494, 587, 659], duration=4.0, volume=0.15)
-            elif nombre == "final_negativo":
-                sound = self._rhythm_loop([146, 138, 130, 123], duration=4.0, volume=0.12, noise=0.01)
-            elif nombre == "final_neutral":
-                sound = self._rhythm_loop([196, 247, 220, 174], duration=4.0, volume=0.12)
-            elif nombre == "exploracion":
-                sound = self._rhythm_loop([262, 330, 392, 330], duration=4.0, volume=0.10)
+            if nombre == MAIN_THEME:
+                sound = self._main_theme_loop()
             else:
-                sound = self._rhythm_loop([330, 392, 440, 392], duration=3.2, volume=0.10)
+                sound = self._main_theme_loop()
             self._bgm_fallback_cache[nombre] = sound
         if sound is None:
             return
         try:
-            sound.set_volume(self._volume * 0.45)
+            sound.set_volume(self._volume * 0.36)
             self._bgm_fallback_channel.play(sound, -1 if loop else 0, 0, 250)
             self._current_bgm_name = nombre
         except Exception:
@@ -264,22 +345,21 @@ class AudioManager:
         self.stop_bgm(fade_ms=ms)
 
     def play_decision_bgm(self):
-        self.play_bgm("decision")
+        self.play_bgm(MAIN_THEME)
+        self.play_sfx("decision_tension", 0.7)
 
     def play_ending_bgm(self, final_key):
-        if "POSITIVO" in final_key:
-            self.play_bgm("final_positivo", loop=False)
-        elif "NEGATIVO" in final_key:
-            self.play_bgm("final_negativo", loop=False)
-        else:
-            self.play_bgm("final_neutral", loop=False)
+        self.play_bgm(MAIN_THEME)
+        self.play_sfx("final_luz" if "POSITIVO" in final_key else "final_sombra", 0.85)
 
     # Ambientes por mapa
 
     def ambience_name_for_map(self, map_name):
         base = os.path.basename(str(map_name)).lower()
-        if any(k in base for k in ("patio", "calle", "azotea", "atras", "atr", "piscina")):
-            return "exterior"
+        if "calle" in base:
+            return "calle"
+        if any(k in base for k in ("patio", "azotea", "atras", "atr", "piscina")):
+            return "exterior_colegio"
         if "cafeteria" in base:
             return "cafeteria"
         if any(k in base for k in ("bano", "baño")):
@@ -292,28 +372,43 @@ class AudioManager:
             return "colegio"
         return "colegio"
 
-    def play_ambience_for_map(self, map_name):
+    def detail_name_for_map(self, map_name, has_students=False):
+        ambience = self.ambience_name_for_map(map_name)
+        if ambience == "calle":
+            return "calle"
+        if ambience in ("colegio", "exterior_colegio") and has_students:
+            return "estudiantes"
+        if ambience == "cafeteria":
+            return "cafeteria_detalle"
+        if ambience == "biblioteca":
+            return "biblioteca_detalle"
+        return None
+
+    def play_ambience_for_map(self, map_name, has_students=False):
         name = self.ambience_name_for_map(map_name)
         if not self._initialized or self._current_ambience_name == name:
+            self._play_detail_for_map(map_name, has_students)
             return
         if self._ambience_channel is None:
             return
         sound = self._ambience_cache.get(name)
         if sound is None:
-            if name == "exterior":
-                sound = self._noise_loop(duration=2.8, volume=0.10, tone=120)
+            if name == "calle":
+                sound = self._noise_loop(duration=3.2, volume=0.09, tone=72)
+            elif name == "exterior_colegio":
+                sound = self._noise_loop(duration=3.0, volume=0.075, tone=118)
             elif name == "cafeteria":
-                sound = self._noise_loop(duration=2.2, volume=0.13, tone=90)
+                sound = self._noise_loop(duration=2.6, volume=0.105, tone=90)
             elif name == "bano":
-                sound = self._noise_loop(duration=2.6, volume=0.08, tone=180)
+                sound = self._noise_loop(duration=2.8, volume=0.07, tone=180)
             elif name == "biblioteca":
-                sound = self._noise_loop(duration=3.0, volume=0.055, tone=75)
+                sound = self._noise_loop(duration=3.4, volume=0.045, tone=75)
             elif name == "habitacion_noche":
-                sound = self._noise_loop(duration=3.2, volume=0.045, tone=55)
+                sound = self._noise_loop(duration=3.4, volume=0.035, tone=55)
             elif name == "habitacion":
-                sound = self._noise_loop(duration=3.2, volume=0.06, tone=70)
+                sound = self._noise_loop(duration=3.2, volume=0.045, tone=70)
             else:
-                sound = self._noise_loop(duration=2.6, volume=0.08, tone=100)
+                sound = self._noise_loop(duration=2.8, volume=0.055 if not has_students else 0.07, tone=100)
             self._ambience_cache[name] = sound
         if sound is None:
             return
@@ -323,6 +418,34 @@ class AudioManager:
             self._current_ambience_name = name
         except Exception:
             pass
+        self._play_detail_for_map(map_name, has_students)
+
+    def _play_detail_for_map(self, map_name, has_students=False):
+        detail = self.detail_name_for_map(map_name, has_students)
+        if detail == self._current_detail_name:
+            return
+        if self._detail_channel is None:
+            self._current_detail_name = detail
+            return
+        if detail is None:
+            try:
+                self._detail_channel.fadeout(350)
+            except Exception:
+                pass
+            self._current_detail_name = None
+            return
+        sound = self._detail_cache.get(detail)
+        if sound is None:
+            sound = self._texture_loop(detail)
+            self._detail_cache[detail] = sound
+        if sound is None:
+            return
+        try:
+            sound.set_volume(self._volume * (0.26 if detail == "estudiantes" else 0.30))
+            self._detail_channel.play(sound, -1, 0, 500)
+            self._current_detail_name = detail
+        except Exception:
+            pass
 
     def stop_ambience(self, fade_ms=350):
         if self._ambience_channel is not None:
@@ -330,7 +453,13 @@ class AudioManager:
                 self._ambience_channel.fadeout(fade_ms)
             except Exception:
                 pass
+        if self._detail_channel is not None:
+            try:
+                self._detail_channel.fadeout(fade_ms)
+            except Exception:
+                pass
         self._current_ambience_name = None
+        self._current_detail_name = None
 
     # SFX
 
@@ -342,26 +471,31 @@ class AudioManager:
             "hover_boton": lambda: self._tone(880, 0.035, 0.16, "sine"),
             "guardar_partida": lambda: self._sweep(520, 980, 0.22, 0.32),
             "decision_tomada": lambda: self._tone([330, 494, 659], 0.22, 0.28, "triangle"),
+            "decision_tension": lambda: self._tone([196, 233, 294], 0.40, 0.20, "triangle", noise=0.04),
+            "final_luz": lambda: self._tone([392, 523, 659, 784], 0.70, 0.26, "sine"),
+            "final_sombra": lambda: self._sweep(196, 110, 0.70, 0.22, noise=0.08),
             "logro_desbloqueado": lambda: self._tone([523, 659, 784], 0.45, 0.30, "sine"),
-            "paso_suave": lambda: self._tone(120, 0.065, 0.20, "triangle", noise=0.35),
-            "paso_firme": lambda: self._tone(95, 0.075, 0.24, "triangle", noise=0.45),
-            "paso_exterior": lambda: self._tone(80, 0.08, 0.22, "triangle", noise=0.55),
-            "paso_madera": lambda: self._tone(150, 0.07, 0.20, "triangle", noise=0.25),
-            "puerta": lambda: self._sweep(180, 95, 0.28, 0.34, noise=0.25),
-            "interactuar": lambda: self._tone([440, 660], 0.12, 0.26, "sine"),
-            "sentarse": lambda: self._sweep(210, 120, 0.18, 0.28, noise=0.25),
-            "dialogo_avanzar": lambda: self._tone(720, 0.045, 0.18, "square"),
-            "error": lambda: self._sweep(260, 120, 0.16, 0.26, noise=0.12),
-            "camara_foto": lambda: self._tone(1000, 0.055, 0.34, "square", noise=0.60),
+            "paso_suave": lambda: self._tone(105, 0.06, 0.13, "triangle", noise=0.50),
+            "paso_firme": lambda: self._tone(86, 0.07, 0.17, "triangle", noise=0.55),
+            "paso_exterior": lambda: self._tone(72, 0.075, 0.14, "triangle", noise=0.72),
+            "paso_madera": lambda: self._tone(132, 0.065, 0.14, "triangle", noise=0.40),
+            "puerta": lambda: self._sweep(140, 70, 0.36, 0.24, noise=0.42),
+            "interactuar": lambda: self._tone([392, 587], 0.11, 0.18, "sine"),
+            "sentarse": lambda: self._sweep(180, 90, 0.20, 0.20, noise=0.35),
+            "dialogo_avanzar": lambda: self._tone(640, 0.035, 0.10, "triangle"),
+            "error": lambda: self._sweep(220, 105, 0.18, 0.20, noise=0.18),
+            "camara_foto": lambda: self._tone(980, 0.05, 0.30, "square", noise=0.72),
             "borrar": lambda: self._tone(180, 0.10, 0.18, "triangle", noise=0.75),
-            "madera": lambda: self._tone(180, 0.08, 0.24, "triangle", noise=0.35),
-            "armario": lambda: self._sweep(140, 90, 0.22, 0.30, noise=0.28),
-            "tela": lambda: self._tone(90, 0.10, 0.16, "triangle", noise=0.70),
+            "ropa_movimiento": lambda: self._tone(95, 0.06, 0.08, "triangle", noise=0.85),
+            "lapiz": lambda: self._tone(240, 0.08, 0.10, "triangle", noise=0.80),
+            "madera": lambda: self._tone(165, 0.09, 0.18, "triangle", noise=0.48),
+            "armario": lambda: self._sweep(125, 75, 0.28, 0.24, noise=0.38),
+            "tela": lambda: self._tone(78, 0.12, 0.12, "triangle", noise=0.82),
             "balon": lambda: self._sweep(110, 70, 0.12, 0.30, noise=0.18),
             "maquina": lambda: self._tone([220, 440], 0.22, 0.20, "square", noise=0.20),
-            "npc": lambda: self._tone([390, 520], 0.10, 0.18, "triangle"),
-            "burla": lambda: self._sweep(760, 520, 0.20, 0.20),
-            "pupitre_alerta": lambda: self._tone([220, 277, 330], 0.35, 0.25, "triangle"),
+            "npc": lambda: self._tone([360, 480], 0.10, 0.12, "triangle"),
+            "burla": lambda: self._sweep(700, 460, 0.22, 0.15),
+            "pupitre_alerta": lambda: self._tone([196, 247, 294], 0.40, 0.20, "triangle"),
             "hit_corazon": lambda: self._tone(72, 0.20, 0.40, "square", noise=0.35),
             "minijuego_ganar": lambda: self._tone([523, 659, 784, 1046], 0.55, 0.34, "sine"),
             "minijuego_perder": lambda: self._sweep(220, 80, 0.55, 0.34, noise=0.12),
@@ -398,7 +532,13 @@ class AudioManager:
         self._sfx_cache[nombre] = sound
         return sound
 
-    def play_sfx(self, nombre, volume_scale=1.0):
+    def play_sfx(self, nombre, volume_scale=1.0, cooldown_ms=0):
+        if cooldown_ms > 0:
+            now = pygame.time.get_ticks()
+            last = self._last_named_sfx_ms.get(nombre, -cooldown_ms)
+            if now - last < cooldown_ms:
+                return
+            self._last_named_sfx_ms[nombre] = now
         sound = self._load_sfx(nombre)
         if sound is None:
             return
@@ -417,7 +557,7 @@ class AudioManager:
             return
         self._last_step_ms = now
         ambience = self.ambience_name_for_map(map_name)
-        if ambience == "exterior":
+        if ambience in ("calle", "exterior_colegio"):
             name = "paso_exterior"
         elif ambience in ("habitacion", "habitacion_noche", "biblioteca"):
             name = "paso_madera"
@@ -443,8 +583,10 @@ class AudioManager:
         try:
             if self._ambience_channel is not None:
                 self._ambience_channel.set_volume(self._volume * 0.35)
+            if self._detail_channel is not None:
+                self._detail_channel.set_volume(self._volume * 0.28)
             if self._bgm_fallback_channel is not None:
-                self._bgm_fallback_channel.set_volume(self._volume * 0.45)
+                self._bgm_fallback_channel.set_volume(self._volume * 0.36)
         except Exception:
             pass
 
@@ -465,6 +607,17 @@ class AudioManager:
     def sfx_npc(self): self.play_sfx("npc")
     def sfx_burla(self): self.play_sfx("burla")
     def sfx_pausa(self): self.play_sfx("pausa")
+
+    def sfx_animation(self, animation_name):
+        lowered = str(animation_name).lower()
+        if "dibuj" in lowered or "write" in lowered:
+            self.play_sfx("lapiz", 0.55, cooldown_ms=260)
+        elif "walk" in lowered or "camin" in lowered or "run" in lowered:
+            self.play_sfx("ropa_movimiento", 0.45, cooldown_ms=260)
+        elif "sent" in lowered or "seat" in lowered:
+            self.play_sfx("sentarse", 0.7, cooldown_ms=450)
+        else:
+            self.play_sfx("ropa_movimiento", 0.35, cooldown_ms=320)
 
     def sfx_object(self, object_name):
         lowered = str(object_name).lower()
