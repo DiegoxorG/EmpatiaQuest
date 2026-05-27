@@ -212,6 +212,9 @@ class NPCAIManager:
 
         names = self._read_salon_chair_owners()
         self._pending_salon_npcs = names if names else ["Sara", "Diego", "Carlos", "Lucas"]
+        # NPC2 siempre se sienta en D3 (deco index 2, sin npc_owner en JSON)
+        if "NPC2" not in self._pending_salon_npcs:
+            self._pending_salon_npcs.append("NPC2")
 
     def notify_phase(self, phase: str):
         if phase == self._phase:
@@ -615,6 +618,11 @@ class NPCAIManager:
         npc.fade_alpha = 0
         npc.fade_in_ms = _FADE_DUR
 
+    # Posiciones normalizadas de sillas sin npc_owner en el JSON (no modificar JSON)
+    _SALON_NPC_FALLBACK: dict = {
+        "NPC2": (0.44587, 0.52964),   # D3 — decoracion index 2
+    }
+
     def _place_npcs_at_chairs(self, game):
         """Spawna (o recoloca) todos los NPCs pendientes directamente en sus sillas."""
         pup_set = getattr(game, "pupitres_ocupados", None)
@@ -637,6 +645,8 @@ class NPCAIManager:
         # Crear NPCs pendientes por primera vez
         for nombre in self._pending_salon_npcs:
             chair = self._get_npc_chair(nombre, game)
+            if chair is None:
+                chair = self._SALON_NPC_FALLBACK.get(nombre)
             if chair is None:
                 continue
             rx, ry = chair

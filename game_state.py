@@ -915,6 +915,14 @@ class GameStateMixin:
                 # ── SceneManager: eligiendo asiento ──────────────────────────
                 if (getattr(self, "eligiendo_asiento", False)
                         and not getattr(self, "jugador_sentado", False)):
+                    # Bloquear si ya hay un NPC sentado ahí
+                    cx = round(float(interactable.get("rx", 0)), 4)
+                    cy = round(float(interactable.get("ry", 0)), 4)
+                    pup_set = getattr(self, "pupitres_ocupados", set())
+                    if (cx, cy) in pup_set:
+                        self.story_interaction_text = "Este pupitre ya está ocupado."
+                        self.audio.sfx_interactuar()
+                        return
                     self.story_is_seated      = True
                     self.story_seated_hitbox  = interactable
                     self.story_seated_pupitre = interactable

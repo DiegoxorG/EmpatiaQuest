@@ -281,7 +281,9 @@
         "y": 0.2060546875,
         "w": 0.3834635416666667,
         "h": 0.5126953125
-      }
+      },
+      "npc_owner": "NPC2",
+      "npc_animation": "NPC2_Sentada.png"
     },
     {
       "name": "Pupitre-Sal\u00f3n1.png",

@@ -361,14 +361,14 @@ def get_scene_dia1_salon(player_name: str) -> SceneManager:
         Usa la posición del pupitre elegido para determinar la zona.
           D7 (index 6 deco): x≈0.288, y≈0.725  → sara_zone  → F+2, R-1
           D8 (index 7 deco): x≈0.447, y≈0.722  → diego_zone → F-3, R+2
-          D3 (index 2 deco): x≈0.446, y≈0.530  → solo       → F-2, R+0
-          cualquier otro      → solo
+          D3 está ocupado por NPC2 → no accesible para el jugador.
+          Sin elección (timeout)   → ninguno → F+0, R+0
         """
         seated_h = (getattr(game, "story_seated_pupitre", None)
                     or getattr(game, "story_seated_hitbox",  None))
 
-        result = "solo"
-        df, dr = -2, 0
+        result = "ninguno"
+        df, dr = 0, 0
 
         if seated_h:
             rx = float(seated_h.get("rx", 0.5))
@@ -386,9 +386,9 @@ def get_scene_dia1_salon(player_name: str) -> SceneManager:
 
         pname_inner = getattr(game, "player_name", "") or "Protagonista"
         thoughts = {
-            "sara":  "Me senté cerca de Sara.",
-            "diego": "Me senté cerca de Diego.",
-            "solo":  "Elegí sentarme solo.",
+            "sara":   "Me senté cerca de Sara.",
+            "diego":  "Me senté cerca de Diego.",
+            "ninguno": "",
         }
         game.story_thought = thoughts.get(result, "")
 
