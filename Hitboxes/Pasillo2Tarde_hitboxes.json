@@ -393,5 +393,16 @@
     }
   },
   "npc_positions": {},
-  "decoracion": []
+  "decoracion": [
+  {
+    "name": "MaquinaExp-Piso2.png",
+    "x": 0.02497398543184183,
+    "y": 0.6482059282371295,
+    "w": 0.17872008324661811,
+    "h": 0.3463338533541342,
+    "frames": 2,
+    "interactive_frame": true
+  }
+  
+  ]
 }

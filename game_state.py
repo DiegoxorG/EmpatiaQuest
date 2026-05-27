@@ -491,6 +491,7 @@ class GameStateMixin:
         self.npc_ai_manager = NPCAIManager(os.path.dirname(__file__))
         # Mejora 2: set de posiciones (rx, ry) de pupitres actualmente ocupados por NPCs
         self.pupitres_ocupados: set = set()
+        self.story_deco_frame_states = {}
         self.popup_logro_timer = 0
         # â”€â”€ SceneManager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.escena_dia1_completada:  bool  = False
@@ -717,6 +718,8 @@ class GameStateMixin:
                     hitbox["npc_animation"] = str(obj["npc_animation"])
                 if obj.get("frames"):
                     hitbox["frames"] = int(obj["frames"])
+                if obj.get("interactive_frame"):
+                    hitbox["interactive_frame"] = True
                 # Cachear nombre del sprite de la profesora para usarlo en _draw_profe_en_sara
                 if "profesor" in hitbox["object_name"].lower() and not self._profe_deco_name:
                     self._profe_deco_name = hitbox["object_name"]
@@ -1185,6 +1188,13 @@ class GameStateMixin:
                     self.story_thought = "Este es mi lugar."
                     self.audio.sfx_sentarse()
                 return
+            if interactable.get("interactive_frame"):
+                key = f"{interactable.get('object_name','')}_{interactable.get('rx',0):.4f}"
+                frames = int(interactable.get("frames", 2))
+                current = self.story_deco_frame_states.get(key, 0)
+                self.story_deco_frame_states[key] = (current + 1) % frames
+                self.audio.sfx_interactuar()
+            return
             friendly = self._friendly_object_name(raw_name)
             self.story_interaction_text = f"Interactuaste con {friendly}."
             self.story_thought = "Hay algo interesante aqui."
