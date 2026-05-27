@@ -34,6 +34,12 @@ automáticamente en la próxima ejecución.
 
 ## 🎨 Assets de interfaz de usuario (`ASSET_UI`)
 
+> **Escena cinemática Día 1 — nuevos assets de UI (SceneManager)**
+
+| Archivo | Dimensiones | Descripción |
+|---|---|---|
+| `Imagenes/UI/caja_dialogo.png` | 1280×140 | Fondo decorativo de la caja de diálogo cinemática (fallback: rect semitransparente) |
+
 > **Día 1 — nuevos assets de UI (CAMBIOS 1, 2)**
 
 | Archivo | Dimensiones | Descripción |
@@ -73,6 +79,12 @@ automáticamente en la próxima ejecución.
 | `Audio/SFX/hit_corazon.ogg` | Golpe recibido por el corazón del jugador |
 | `Audio/SFX/minijuego_ganar.ogg` | Fanfare breve de victoria al sobrevivir 60s |
 | `Audio/SFX/minijuego_perder.ogg` | Sonido de derrota al perder las 3 vidas |
+
+> **Escena cinemática Día 1 — nuevos SFX (SceneManager)**
+
+| Archivo | Descripción |
+|---|---|
+| `Audio/SFX/dialogo_letra.ogg` | Sonido de typewriter reproducido por cada carácter de la caja de diálogo cinemática |
 
 > **Día 1 — nuevos SFX (CAMBIO 4)**
 

@@ -512,6 +512,26 @@ class ScreenHandlersMixin:
                     audio.sfx_dialogo()
             return
 
+        # ── SceneManager: interceptar eventos cuando hay escena activa ─────────
+        if getattr(self, "escena_activa", None) is not None:
+            sm = getattr(self, "scene_manager", None)
+            if sm is not None:
+                if sm.handle_input(event):
+                    return
+                # Bloquear la tecla E (interactuar) durante DialogBeats
+                if (event.type == pygame.KEYDOWN
+                        and event.key == self.controls.get("interactuar", pygame.K_e)
+                        and sm.is_blocking_interaction):
+                    return
+            # Bloquear el avance del viejo day1_seq_step mientras la escena está activa
+            if event.type == pygame.KEYDOWN:
+                seq = getattr(self, "day1_seq_step", 0)
+                if seq in (1, 2) and event.key in (
+                    pygame.K_RETURN, pygame.K_SPACE, pygame.K_KP_ENTER,
+                    self.controls.get("continuar", pygame.K_RETURN),
+                ):
+                    return
+
         # ── CAMBIO 4: Minijuego borrador (mouse sobre erase_surface) ─────────
         if getattr(self, "day1_pupitre_zoom_active", False) and getattr(self, "day1_pupitre_step", 0) == 2:
             erase_surf = getattr(self, "day1_pupitre_erase_surface", None)
