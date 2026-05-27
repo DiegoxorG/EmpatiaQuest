@@ -225,9 +225,15 @@ def cortar_spritesheet_auto(ruta, cantidad_frames):
 
 
 def cargar_animaciones(ruta_pack, escala=1.0):
-    has_idle_sheet = all(
-        os.path.exists(os.path.join(ruta_pack, sprite))
+    idle_paths = {
+        sprite: os.path.join(ruta_pack, sprite)
         for sprite in REQUIRED_IDLE_SPRITES
+    }
+    has_idle_sheet = all(os.path.exists(path) for path in idle_paths.values())
+    has_idle_sheet_with_mirror_fallback = (
+        os.path.exists(idle_paths["idle_down.png"])
+        and os.path.exists(idle_paths["idle_up.png"])
+        and os.path.exists(idle_paths["idle_left.png"])
     )
     has_run_sheet = all(
         os.path.exists(os.path.join(ruta_pack, sprite))
@@ -238,8 +244,20 @@ def cargar_animaciones(ruta_pack, escala=1.0):
         for sprite in WALK_SPRITES
     )
 
-    if has_idle_sheet and (has_run_sheet or has_walk_sheet):
+    if (has_idle_sheet or has_idle_sheet_with_mirror_fallback) and (has_run_sheet or has_walk_sheet):
         move_prefix = "run" if has_run_sheet else "walk"
+        idle_right_path = idle_paths["idle_right.png"]
+        idle_right_frames = (
+            cortar_spritesheet_auto(idle_right_path, 1)
+            if os.path.exists(idle_right_path)
+            else [
+                pygame.transform.flip(
+                    cortar_spritesheet_auto(idle_paths["idle_left.png"], 1)[0],
+                    True,
+                    False,
+                )
+            ]
+        )
         animaciones = {
             "down": cortar_spritesheet_auto(os.path.join(ruta_pack, f"{move_prefix}_down.png"), 8),
             "up": cortar_spritesheet_auto(os.path.join(ruta_pack, f"{move_prefix}_up.png"), 8),
@@ -248,7 +266,7 @@ def cargar_animaciones(ruta_pack, escala=1.0):
             "idle_down": cortar_spritesheet_auto(os.path.join(ruta_pack, "idle_down.png"), 1),
             "idle_up": cortar_spritesheet_auto(os.path.join(ruta_pack, "idle_up.png"), 1),
             "idle_left": cortar_spritesheet_auto(os.path.join(ruta_pack, "idle_left.png"), 1),
-            "idle_right": cortar_spritesheet_auto(os.path.join(ruta_pack, "idle_right.png"), 1),
+            "idle_right": idle_right_frames,
         }
     else:
         walk_frames = _load_sequence_frames(ruta_pack, "Caminando_skin1")

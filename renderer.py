@@ -1483,6 +1483,7 @@ class RendererMixin:
         else:
             bg = pygame.transform.smoothscale(bg, (self.width, self.height))
         self.screen.blit(bg, (0, 0))
+        self._draw_ana_photo_in_chat_source()
 
         overlay_path = getattr(self, "day2_chat_overlay_image", None)
         if overlay_path:
@@ -1490,6 +1491,8 @@ class RendererMixin:
                 ov = pygame.image.load(overlay_path).convert_alpha()
                 ov = pygame.transform.smoothscale(ov, (self.width, self.height))
                 self.screen.blit(ov, (0, 0))
+                if os.path.basename(str(overlay_path)).lower() == "m3-reenviar.png":
+                    self._draw_ana_photo_in_reenviar_overlay()
             except (OSError, pygame.error):
                 pass
 
@@ -1510,6 +1513,69 @@ class RendererMixin:
             for line in options:
                 self.draw_pixel_text(line, panel.x + 28, y, "small", (245, 248, 255), False)
                 y += 52
+
+    def _load_ana_photo(self):
+        cache = getattr(self, "_ana_photo_surf", None)
+        if cache is False:
+            return None
+        if cache is None:
+            path = self._resolve_image_path("Ana_foto.png")
+            try:
+                cache = pygame.image.load(path).convert_alpha()
+            except (OSError, pygame.error):
+                cache = False
+            self._ana_photo_surf = cache
+        return cache if cache is not False else None
+
+    def _blit_cover(self, image, rect):
+        if image is None or rect.width <= 0 or rect.height <= 0:
+            return
+        iw, ih = image.get_size()
+        scale = max(rect.width / max(1, iw), rect.height / max(1, ih))
+        sw = max(1, int(iw * scale))
+        sh = max(1, int(ih * scale))
+        scaled = pygame.transform.smoothscale(image, (sw, sh))
+        src = pygame.Rect(
+            max(0, (sw - rect.width) // 2),
+            max(0, (sh - rect.height) // 2),
+            min(rect.width, sw),
+            min(rect.height, sh),
+        )
+        self.screen.blit(scaled, rect.topleft, area=src)
+
+    def _draw_photo_card(self, rect, border_color=(42, 165, 245)):
+        photo = self._load_ana_photo()
+        if photo is None:
+            return
+        pygame.draw.rect(self.screen, (12, 18, 30), rect.inflate(10, 10), border_radius=4)
+        pygame.draw.rect(self.screen, border_color, rect.inflate(12, 12), 3, border_radius=4)
+        self._blit_cover(photo, rect)
+
+    def _draw_ana_photo_in_chat_source(self):
+        # The base chat art is 1400x1024; normalized coordinates keep it aligned
+        # when the game window is resized.
+        rect = pygame.Rect(
+            int(self.width * 0.445),
+            int(self.height * 0.365),
+            int(self.width * 0.245),
+            int(self.height * 0.235),
+        )
+        self._draw_photo_card(rect, (95, 145, 245))
+
+    def _draw_ana_photo_in_reenviar_overlay(self):
+        photo_rects = [
+            (0.158, 0.184, 0.175, 0.122),
+            (0.632, 0.205, 0.175, 0.122),
+            (0.762, 0.717, 0.168, 0.130),
+        ]
+        for rx, ry, rw, rh in photo_rects:
+            rect = pygame.Rect(
+                int(self.width * rx),
+                int(self.height * ry),
+                int(self.width * rw),
+                int(self.height * rh),
+            )
+            self._draw_photo_card(rect, (42, 165, 245))
 
     def _draw_day2_lucas_choice_overlay(self):
         if not getattr(self, "day2_lucas_choice_menu_active", False):
