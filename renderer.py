@@ -770,6 +770,16 @@ class RendererMixin:
             if h.get("type") != "rect":
                 continue
 
+            # ── Cama en HabDía: ocultarla mientras duerme (la reemplaza la animación) ─
+            if getattr(self, "bedroom_sleeping_active", False):
+                if "cama" in h.get("object_name", "").lower():
+                    continue
+
+            # ── Profesora: ocultarla de su posición original cuando ya está junto a Sara ─
+            if getattr(self, "profe_en_sara", False):
+                if "profesor" in h.get("object_name", "").lower():
+                    continue
+
             # ── Pupitre de Sara en SalonTarde: lo dibuja _draw_sara_tarde_seated ─
             # Saltamos el sprite del pupitre completamente para que no se vea ni
             # Pupitre-Salón1.png ni el placeholder de pupitre_rayado.png encima de Sara.
@@ -890,17 +900,37 @@ class RendererMixin:
 
     def _draw_guide_arrow(self):
         # 🎨 ASSET_UI: Imagenes/flecha_guia.png | 64x64 | Flecha pixel-art amarilla, se rota por código
-        if not getattr(self, "day1_guide_active", False):
+        guide_active = getattr(self, "day1_guide_active", False)
+        going_home   = (getattr(self, "current_mission", "") == "Volver a casa")
+
+        # Bug-6 fix: mostrar flecha tanto en el camino a la escuela como en el
+        # camino de vuelta a casa cuando current_mission == "Volver a casa".
+        if not guide_active and not going_home:
             return
 
-        # Determinar el mapa siguiente en la secuencia del Día 1
-        # Clave: fragmento del nombre del mapa actual → fragmento esperado en target_image del destino
-        DAY1_NEXT = {
-            "habdia":       "calle",
-            "calledia":     "patio",
-            "patiod":       "pasillo1",  # cubre patiodía y patiodia
-            "pasillo1_dia": "salon",
-        }
+        # Ya llegó a la habitación: ocultar flecha
+        _fondo_early = getattr(self, "aventura_fondo", None)
+        _ruta_early  = str(getattr(_fondo_early, "ruta_imagen", "")).lower().replace("\\", "/")
+        if "habtarde" in _ruta_early or "habdia" in _ruta_early:
+            return
+
+        if going_home:
+            # Ruta de vuelta: SalonTarde → Pasillo → Patio → Calle → Habitación
+            DAY1_NEXT = {
+                "salontarde": "pasillo1",   # SalonTarde.png → Pasillo1_tarde.png
+                "pasillo1":   "patio",      # cualquier Pasillo1_*.png → patio
+                "patiot":     "calle",      # PatioTarde.png → CalleTarde*.png (Item-3 fix)
+                "patiod":     "calle",      # PatioDia.png → CalleDia*.png
+                "calle":      "hab",        # CalleDia*.png / CalleTarde*.png → HabDia/HabTarde
+            }
+        else:
+            # Ruta de ida: Habitación → Calle → Patio → Pasillo → Salón
+            DAY1_NEXT = {
+                "habdia":       "calle",
+                "calledia":     "patio",
+                "patiod":       "pasillo1",  # cubre patiodía y patiodia
+                "pasillo1_dia": "salon",
+            }
         fondo = getattr(self, "aventura_fondo", None)
         ruta = str(getattr(fondo, "ruta_imagen", "")).lower().replace("\\", "/")
         current_map = ruta.split("/")[-1]  # basename en minúsculas
@@ -991,6 +1021,112 @@ class RendererMixin:
         self.draw_pixel_text("ENTER para continuar", box.right - 16, box.bottom - 18, "small", TEXT_SOFT, False)
 
     # ──────────────────────────────────────────────────────────────────────────
+    # Profesora junto al pupitre de Sara (tras llamarla, opción D)
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _draw_profe_en_sara(self):
+        """Dibuja a la profesora parada junto al pupitre de Sara en SalonTarde.
+        Activo sólo cuando profe_en_sara=True y el mapa actual es SalonTarde."""
+        if not getattr(self, "profe_en_sara", False):
+            return
+        fondo = getattr(self, "aventura_fondo", None)
+        if fondo is None:
+            return
+        ruta = str(getattr(fondo, "ruta_imagen", "")).lower().replace("\\", "/")
+        if "salontarde" not in ruta:
+            return
+
+        # Obtener nombre del sprite (cacheado al pasar por SalonDia, o fallback)
+        sprite_name = getattr(self, "_profe_deco_name", "") or "Personajes/Profesor1/Profesor1_idle_down.png"
+
+        # Cargar y cachear (invalidar si cambia world_height)
+        cache_key   = "_profe_sara_surf"
+        cache_h_key = "_profe_sara_world_h"
+        if (not hasattr(self, cache_key)
+                or getattr(self, cache_h_key, 0) != self.story_world_height
+                or getattr(self, "_profe_sara_name_used", "") != sprite_name):
+            img = self._load_object_interactable_image(sprite_name)
+            if img is None:
+                setattr(self, cache_key, None)
+            else:
+                target_h = max(72, int(self.story_world_height * 0.14))
+                target_w = max(40, int(img.get_width() * target_h / max(1, img.get_height())))
+                setattr(self, cache_key, pygame.transform.smoothscale(img, (target_w, target_h)))
+            setattr(self, cache_h_key, self.story_world_height)
+            setattr(self, "_profe_sara_name_used", sprite_name)
+
+        sprite = getattr(self, cache_key, None)
+        if sprite is None:
+            return
+
+        # Posición: a la derecha del pupitre de Sara
+        # Sara: _SARA_TARDE_RX=0.16969, rw≈0.1024 → borde derecho ≈ 0.272
+        # La profesora aparece ligeramente a la derecha y a la misma altura
+        PROFE_RX = 0.30   # a la derecha del pupitre de Sara
+        PROFE_RY = 0.64   # mismo nivel vertical (centro del sprite)
+
+        wx = int(PROFE_RX * self.story_world_width)
+        wy = int(PROFE_RY * self.story_world_height)
+        sx = wx - self.story_camera_x - sprite.get_width()  // 2
+        sy = wy - self.story_camera_y - sprite.get_height() // 2
+        self.screen.blit(sprite, (sx, sy))
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Item-4 — Overlay dormitorio (A_Sleeping.png)
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _draw_bedroom_sleeping_overlay(self):
+        """Anima A_Sleeping.png (spritesheet 8 frames) sobre la posición de la cama,
+        reemplazando visualmente a Cama-HabDia.png (que ya fue ocultada en
+        _draw_object_interactables_from_hitboxes).
+
+        Coordenadas de la cama tomadas de HabDía_hitboxes.json → decoracion:
+            name: Cama-HabDia.png, x/y/w/h (normalizados al mundo).
+        """
+        # Posición normalizada de la cama en HabDía (de HabDía_hitboxes.json)
+        _BED_RX = 0.08487555839183153
+        _BED_RY = 0.24882995319812792
+        _BED_RW = 0.20548819400127633
+        _BED_RH = 0.3861154446177847
+
+        # Cargar y cachear los 8 frames del spritesheet (2048×256 → 8 × 256×256)
+        if not hasattr(self, "_cached_sleeping_frames"):
+            _base = os.path.dirname(__file__)
+            _paths = [
+                os.path.join(_base, "Imagenes", "LoquehizoJimara", "A_Sleeping.png"),
+                os.path.join(_base, "Imagenes", "LoquehizoJimara", "Main", "A_Sleeping.png"),
+            ]
+            self._cached_sleeping_frames = []
+            for _p in _paths:
+                try:
+                    sheet = pygame.image.load(_p).convert_alpha()
+                    sw_s, sh_s = sheet.get_size()
+                    n_frames = 8
+                    fw = sw_s // n_frames
+                    for _i in range(n_frames):
+                        rect = pygame.Rect(_i * fw, 0, fw, sh_s)
+                        self._cached_sleeping_frames.append(sheet.subsurface(rect).copy())
+                    break
+                except (OSError, pygame.error):
+                    continue
+
+        if not self._cached_sleeping_frames:
+            return  # Sin sprite — la cama ya fue ocultada, simplemente no se muestra nada
+
+        # Ciclo de animación a ~8 fps (120 ms por frame)
+        frame_idx = (pygame.time.get_ticks() // 120) % len(self._cached_sleeping_frames)
+        frame = self._cached_sleeping_frames[int(frame_idx)]
+
+        # Calcular posición y tamaño en pantalla (mismas fórmulas que el renderer de decoracion)
+        bx = int(_BED_RX * self.story_world_width)  - self.story_camera_x
+        by = int(_BED_RY * self.story_world_height) - self.story_camera_y
+        bw = max(8, int(_BED_RW * self.story_world_width))
+        bh = max(8, int(_BED_RH * self.story_world_height))
+
+        scaled = pygame.transform.smoothscale(frame, (bw, bh))
+        self.screen.blit(scaled, (bx, by))
+
+    # ──────────────────────────────────────────────────────────────────────────
     # CAMBIO 3 — Caja de diálogo Día 1
     # ──────────────────────────────────────────────────────────────────────────
 
@@ -1052,47 +1188,67 @@ class RendererMixin:
         if erase_surf is not None:
             self.screen.blit(erase_surf, (0, 0))
 
-        pname = getattr(self, "player_name", "") or "Protagonista"
-        step  = getattr(self, "day1_pupitre_step", 2)
+        pname      = getattr(self, "player_name", "") or "Protagonista"
+        step       = getattr(self, "day1_pupitre_step", 2)
+        erase_mode = getattr(self, "day1_pupitre_erase_mode", False)
         if step == 2:
-            # ── 3. Panel de decisiones ────────────────────────────────────────
-            panel_h = 230
-            panel = pygame.Rect(26, self.height - panel_h - 10, self.width - 52, panel_h)
-            overlay = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
-            overlay.fill((242, 242, 242, 225))
-            self.screen.blit(overlay, panel.topleft)
-            pygame.draw.rect(self.screen, (18, 18, 18), panel, 4)
-            self.draw_pixel_text(
-                f"{pname}: Vaya... ¿quién le habrá escrito esto a Sara?",
-                panel.x + 16, panel.y + 22, "body", TEXT_MAIN, False,
-            )
-            opts = [
-                ("A", "Borrar mensajes (arrastra el ratón)"),
-                ("B", "Ignorar"),
-                ("C", "Tomar foto"),
-                ("D", "Llamar a la profesora"),
-            ]
-            col_w = (panel.width - 32) // 2
-            for _i, (key, label) in enumerate(opts):
-                _col = _i % 2
-                _row = _i // 2
-                _x   = panel.x + 16 + _col * col_w
-                _y   = panel.y + 68 + _row * 54
-                self.draw_pixel_text(f"[{key}] {label}", _x, _y, "small", TEXT_MAIN, False)
-            # Barra de progreso del borrado
-            prog = getattr(self, "day1_pupitre_erase_progress", 0.0)
-            if prog > 0:
-                _bx = panel.x + 16
-                _by = panel.y + 185
-                _bw = panel.width - 32
-                pygame.draw.rect(self.screen, (180, 180, 180), (_bx, _by, _bw, 16))
-                pygame.draw.rect(self.screen, (60, 180, 80),   (_bx, _by, int(_bw * prog), 16))
-                pygame.draw.rect(self.screen, (18, 18, 18),    (_bx, _by, _bw, 16), 2)
+            if erase_mode:
+                # ── 3a. Modo borrador activo: mostrar solo barra de progreso ─
+                prog = getattr(self, "day1_pupitre_erase_progress", 0.0)
+                _bw  = self.width - 80
+                _bx  = 40
+                _by  = self.height - 48
+                pygame.draw.rect(self.screen, (30, 30, 30, 200),
+                                 (_bx - 4, _by - 4, _bw + 8, 32))
+                pygame.draw.rect(self.screen, (180, 180, 180), (_bx, _by, _bw, 22))
+                pygame.draw.rect(self.screen, (60, 200, 80),
+                                 (_bx, _by, int(_bw * prog), 22))
+                pygame.draw.rect(self.screen, (18, 18, 18), (_bx, _by, _bw, 22), 2)
                 self.draw_pixel_text(
-                    f"Borrado: {int(prog * 100)}%",
-                    _bx + _bw // 2, _by + 8, "small", TEXT_MAIN, True,
+                    f"Borrando... {int(prog * 100)}%  —  arrastra el ratón sobre los mensajes",
+                    _bx + _bw // 2, _by + 11, "small", TEXT_MAIN, True,
                 )
-            self.draw_pixel_text("ESC = ignorar", panel.right - 16, panel.bottom - 16, "small", TEXT_SOFT, False)
+            else:
+                # ── 3b. Panel de decisiones (A/B/C/D) ─────────────────────────
+                panel_h = 230
+                panel = pygame.Rect(26, self.height - panel_h - 10, self.width - 52, panel_h)
+                overlay = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
+                overlay.fill((242, 242, 242, 225))
+                self.screen.blit(overlay, panel.topleft)
+                pygame.draw.rect(self.screen, (18, 18, 18), panel, 4)
+                self.draw_pixel_text(
+                    f"{pname}: Vaya... ¿quién le habrá escrito esto a Sara?",
+                    panel.x + 16, panel.y + 22, "body", TEXT_MAIN, False,
+                )
+                opts = [
+                    ("A", "Borrar mensajes (activa el borrador)"),
+                    ("B", "Ignorar"),
+                    ("C", "Tomar foto"),
+                    ("D", "Llamar a la profesora"),
+                ]
+                col_w = (panel.width - 32) // 2
+                for _i, (key, label) in enumerate(opts):
+                    _col = _i % 2
+                    _row = _i // 2
+                    _x   = panel.x + 16 + _col * col_w
+                    _y   = panel.y + 68 + _row * 54
+                    self.draw_pixel_text(f"[{key}] {label}", _x, _y, "small", TEXT_MAIN, False)
+                # Barra de progreso (si ya estaba borrando antes)
+                prog = getattr(self, "day1_pupitre_erase_progress", 0.0)
+                if prog > 0:
+                    _bx = panel.x + 16
+                    _by = panel.y + 185
+                    _bw = panel.width - 32
+                    pygame.draw.rect(self.screen, (180, 180, 180), (_bx, _by, _bw, 16))
+                    pygame.draw.rect(self.screen, (60, 180, 80),   (_bx, _by, int(_bw * prog), 16))
+                    pygame.draw.rect(self.screen, (18, 18, 18),    (_bx, _by, _bw, 16), 2)
+                    self.draw_pixel_text(
+                        f"Borrado: {int(prog * 100)}%",
+                        _bx + _bw // 2, _by + 8, "small", TEXT_MAIN, True,
+                    )
+                self.draw_pixel_text(
+                    "ESC = ignorar", panel.right - 16, panel.bottom - 16, "small", TEXT_SOFT, False
+                )
 
         # ── 4. Flash de foto ──────────────────────────────────────────────────
         if getattr(self, "pupitre_rayado_foto_active", False):
@@ -1101,6 +1257,37 @@ class RendererMixin:
             _flash = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
             _flash.fill((255, 255, 255, _alpha))
             self.screen.blit(_flash, (0, 0))
+
+        # ── 5. Cursor del borrador (sigue al ratón cuando A fue presionado) ──
+        if getattr(self, "day1_pupitre_erase_mode", False):
+            self._draw_eraser_cursor()
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Cursor del borrador
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _draw_eraser_cursor(self):
+        """Dibuja Borradortab.png centrado en la posición actual del ratón.
+        El cursor del sistema se oculta mientras el modo borrador está activo."""
+        # 🖼️ ASSET_IMG: Imagenes/Interactuables/Borradortab.png | imagen-cursor del borrador
+        cache = getattr(self, "_eraser_cursor_surf", None)
+        if cache is None:
+            _path = os.path.join(
+                os.path.dirname(__file__), "Imagenes", "Interactuables", "Borradortab.png"
+            )
+            try:
+                raw   = pygame.image.load(_path).convert_alpha()
+                cache = pygame.transform.scale(raw, (64, 64))
+            except (OSError, pygame.error):
+                # Fallback: círculo blanco traslúcido con cruz interior
+                cache = pygame.Surface((64, 64), pygame.SRCALPHA)
+                pygame.draw.circle(cache, (255, 255, 255, 180), (32, 32), 28, 3)
+                pygame.draw.line(cache, (255, 255, 255, 220), (20, 32), (44, 32), 2)
+                pygame.draw.line(cache, (255, 255, 255, 220), (32, 20), (32, 44), 2)
+            self._eraser_cursor_surf = cache
+        mx, my = pygame.mouse.get_pos()
+        w, h   = cache.get_size()
+        self.screen.blit(cache, (mx - w // 2, my - h // 2))
 
     # ──────────────────────────────────────────────────────────────────────────
     # SalonTarde: fondo sara + Sara sentada
@@ -1133,6 +1320,65 @@ class RendererMixin:
                 "[ pupitre rayado de Sara ]",
                 self.width // 2, self.height // 2 - 30, "subtitle", (180, 160, 200), True,
             )
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Overlays Misión 3 — Bugs 8 y 9
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _draw_mision3_overlay(self, flag_active: str, flag_ms: str, filename: str,
+                               cache_attr: str, cache_size_attr: str):
+        """Helper genérico: dibuja una imagen LoquehizoJimara a pantalla completa
+        con fade-out en los últimos 400ms del timer."""
+        # 🖼️ ASSET_IMG: Imagenes/LoquehizoJimara/Interacciones/<filename>
+        _path = os.path.join(
+            os.path.dirname(__file__),
+            "Imagenes", "LoquehizoJimara", "Interacciones", filename,
+        )
+        cache = getattr(self, cache_attr, None)
+        cache_size = getattr(self, cache_size_attr, None)
+        if cache is None or cache_size != (self.width, self.height):
+            try:
+                raw = pygame.image.load(_path).convert_alpha()
+                cache = pygame.transform.scale(raw, (self.width, self.height))
+            except (OSError, pygame.error):
+                cache = False
+            setattr(self, cache_attr, cache)
+            setattr(self, cache_size_attr, (self.width, self.height))
+        if not cache:
+            return
+        ms = getattr(self, flag_ms, 0)
+        _FADE_MS = 400
+        if ms == 0:
+            # Sin timer → opacidad completa permanente (la escena limpia el flag)
+            self.screen.blit(cache, (0, 0))
+        elif ms < _FADE_MS:
+            # Fade-out en los últimos 400ms
+            alpha = max(0, int(255 * ms / _FADE_MS))
+            surf = cache.copy()
+            surf.set_alpha(alpha)
+            self.screen.blit(surf, (0, 0))
+        else:
+            self.screen.blit(cache, (0, 0))
+
+    def _draw_mision3_foto_overlay(self):
+        """Bug-8: muestra Mision3-TomarFoto.png a pantalla completa."""
+        # 🖼️ ASSET_IMG: Imagenes/LoquehizoJimara/Interacciones/Mision3-TomarFoto.png
+        self._draw_mision3_overlay(
+            "mision3_foto_overlay_active", "mision3_foto_overlay_ms",
+            "Mision3-TomarFoto.png",
+            "_m3foto_surf", "_m3foto_size",
+        )
+
+    def _draw_mision3_llamar_profe_overlay(self):
+        """Bug-9: muestra Mision3-Llamarprofe.png a pantalla completa."""
+        # 🖼️ ASSET_IMG: Imagenes/LoquehizoJimara/Interacciones/Mision3-Llamarprofe.png
+        self._draw_mision3_overlay(
+            "mision3_llamar_profe_active", "mision3_llamar_profe_ms",
+            "Mision3-Llamarprofe.png",
+            "_m3llamar_surf", "_m3llamar_size",
+        )
+
+    # ──────────────────────────────────────────────────────────────────────────
 
     def _draw_sara_tarde_seated(self):
         """Dibuja a Sara sentada en su pupitre rayado durante SalonTarde.
@@ -1285,56 +1531,76 @@ class RendererMixin:
         if getattr(self, "day1_in_tarde", False):
             self._draw_sara_tarde_seated()
 
-        if self.aventura_personaje is not None:
-            if self.story_is_seated and self.story_seated_sprite is not None:
-                p = getattr(self, "story_seated_pupitre", None)
-                if p is not None:
-                    pw_base = max(8, int(self.story_world_width * p["rw"]))
-                    ph_base = max(8, int(self.story_world_height * p["rh"]))
-                    # Scale sprite so its chair bottom = pupitre bottom, desk top = pupitre top
-                    frac = max(0.05, min(0.95, SEATED_DESK_TOP_FRAC))
-                    sw = sh = int(ph_base / (1.0 - frac))
-                    # Centered on pupitre X; desk-top aligned with pupitre top Y
-                    spx = int(self.story_world_width * p["rx"]) - self.story_camera_x
-                    spy = int(self.story_world_height * p["ry"]) - self.story_camera_y
-                    draw_x = spx + pw_base // 2 - sw // 2 + SEATED_OFFSET_X
-                    draw_y = spy - int(frac * sh)          + SEATED_OFFSET_Y
-                    seated_scaled = pygame.transform.smoothscale(self.story_seated_sprite, (sw, sh))
-                    self.screen.blit(seated_scaled, (draw_x, draw_y))
-                else:
-                    seat_center = (
-                        self._interactable_center(self.story_seated_hitbox)
-                        if self.story_seated_hitbox else self.player_rect.center
-                    )
-                    sprite_x = seat_center[0] - (self.story_seated_sprite.get_width() // 2) - self.story_camera_x
-                    sprite_y = seat_center[1] - (self.story_seated_sprite.get_height() // 2) - self.story_camera_y
-                    self.screen.blit(self.story_seated_sprite, (sprite_x, sprite_y))
-            else:
-                self.aventura_personaje.dibujar(self.screen, offset=(self.story_camera_x, self.story_camera_y))
-            if (
-                not self.story_is_seated
-                and self._should_show_interactable_prompt()
-                and self.story_interact_prompt_scaled is not None
-            ):
-                hitbox_view = self.aventura_personaje.hitbox.move(-self.story_camera_x, -self.story_camera_y)
-                bubble_x = hitbox_view.right - 6
-                bubble_y = hitbox_view.top - self.story_interact_prompt_scaled.get_height() - 18
-                self.screen.blit(self.story_interact_prompt_scaled, (bubble_x, bubble_y))
-            if self.settings.get("Mostrar hitboxes", False):
-                hitbox_view = self.aventura_personaje.hitbox.move(-self.story_camera_x, -self.story_camera_y)
-                pygame.draw.rect(self.screen, (255, 0, 0), hitbox_view, 2)
-                interactable_view = self.aventura_personaje.interactable_hitbox.move(
-                    -self.story_camera_x, -self.story_camera_y
-                )
-                pygame.draw.rect(self.screen, (255, 220, 0), interactable_view, 2)
-        else:
-            player_view = self.player_rect.move(-self.story_camera_x, -self.story_camera_y)
-            pygame.draw.rect(self.screen, PIXEL_CYAN, player_view)
-            if self.settings.get("Mostrar hitboxes", False):
-                pygame.draw.rect(self.screen, (255, 0, 0), player_view, 2)
+        # SalonTarde: profesora junto a Sara (tras llamarla, opción D)
+        self._draw_profe_en_sara()
 
-        # CAMBIO 2: flecha guía
-        self._draw_guide_arrow()
+        # Item-4: no dibujar al jugador mientras duerme (la animación lo "representa")
+        if not getattr(self, "bedroom_sleeping_active", False):
+            if self.aventura_personaje is not None:
+                if self.story_is_seated and self.story_seated_sprite is not None:
+                    p = getattr(self, "story_seated_pupitre", None)
+                    if p is not None:
+                        pw_base = max(8, int(self.story_world_width * p["rw"]))
+                        ph_base = max(8, int(self.story_world_height * p["rh"]))
+                        # Scale sprite so its chair bottom = pupitre bottom, desk top = pupitre top
+                        frac = max(0.05, min(0.95, SEATED_DESK_TOP_FRAC))
+                        sw = sh = int(ph_base / (1.0 - frac))
+                        # Centered on pupitre X; desk-top aligned with pupitre top Y
+                        spx = int(self.story_world_width * p["rx"]) - self.story_camera_x
+                        spy = int(self.story_world_height * p["ry"]) - self.story_camera_y
+                        draw_x = spx + pw_base // 2 - sw // 2 + SEATED_OFFSET_X
+                        draw_y = spy - int(frac * sh)          + SEATED_OFFSET_Y
+                        seated_scaled = pygame.transform.smoothscale(self.story_seated_sprite, (sw, sh))
+                        self.screen.blit(seated_scaled, (draw_x, draw_y))
+                    else:
+                        seat_center = (
+                            self._interactable_center(self.story_seated_hitbox)
+                            if self.story_seated_hitbox else self.player_rect.center
+                        )
+                        sprite_x = seat_center[0] - (self.story_seated_sprite.get_width() // 2) - self.story_camera_x
+                        sprite_y = seat_center[1] - (self.story_seated_sprite.get_height() // 2) - self.story_camera_y
+                        self.screen.blit(self.story_seated_sprite, (sprite_x, sprite_y))
+                else:
+                    self.aventura_personaje.dibujar(self.screen, offset=(self.story_camera_x, self.story_camera_y))
+                if (
+                    not self.story_is_seated
+                    and self._should_show_interactable_prompt()
+                    and self.story_interact_prompt_scaled is not None
+                ):
+                    hitbox_view = self.aventura_personaje.hitbox.move(-self.story_camera_x, -self.story_camera_y)
+                    bubble_x = hitbox_view.right - 6
+                    bubble_y = hitbox_view.top - self.story_interact_prompt_scaled.get_height() - 18
+                    self.screen.blit(self.story_interact_prompt_scaled, (bubble_x, bubble_y))
+                if self.settings.get("Mostrar hitboxes", False):
+                    hitbox_view = self.aventura_personaje.hitbox.move(-self.story_camera_x, -self.story_camera_y)
+                    pygame.draw.rect(self.screen, (255, 0, 0), hitbox_view, 2)
+                    interactable_view = self.aventura_personaje.interactable_hitbox.move(
+                        -self.story_camera_x, -self.story_camera_y
+                    )
+                    pygame.draw.rect(self.screen, (255, 220, 0), interactable_view, 2)
+            else:
+                player_view = self.player_rect.move(-self.story_camera_x, -self.story_camera_y)
+                pygame.draw.rect(self.screen, PIXEL_CYAN, player_view)
+                if self.settings.get("Mostrar hitboxes", False):
+                    pygame.draw.rect(self.screen, (255, 0, 0), player_view, 2)
+
+        # ── Misión 3: overlay foto (Bug-8) ────────────────────────────────────
+        # Fullscreen por encima del mundo pero debajo del HUD y diálogos.
+        if getattr(self, "mision3_foto_overlay_active", False):
+            self._draw_mision3_foto_overlay()
+
+        # ── Misión 3: overlay llamar profesora (Bug-9) ─────────────────────
+        if getattr(self, "mision3_llamar_profe_active", False):
+            self._draw_mision3_llamar_profe_overlay()
+
+        # ── Item-4: overlay A_Sleeping.png durante intro del dormitorio ─────
+        # Cubre todo el mundo; el diálogo de SceneManager se dibuja encima.
+        if getattr(self, "bedroom_sleeping_active", False):
+            self._draw_bedroom_sleeping_overlay()
+
+        # CAMBIO 2: flecha guía (oculta mientras el jugador duerme)
+        if not getattr(self, "bedroom_sleeping_active", False):
+            self._draw_guide_arrow()
 
         # HUD de día — dibuja al frente, encima de objetos y NPCs
         self._draw_story_clock_hud()
@@ -1344,21 +1610,15 @@ class RendererMixin:
             self._draw_pupitre_zoom()
             return  # No dibujar el event box mientras está el zoom
 
-        # CAMBIO 5: pantalla de fin del Día 1
-        if getattr(self, "day1_end_timer", 0) > 0:
-            overlay_end = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-            overlay_end.fill((0, 0, 0, 200))
-            self.screen.blit(overlay_end, (0, 0))
-            self.draw_pixel_text("Fin del Día 1", self.width // 2, self.height // 2, "title", (245, 247, 255), True)
-            return
-
         # Intro: bloquea el event box hasta que el jugador avance los dos mensajes
         if getattr(self, "day1_intro_step", 2) < 2:
             self._draw_day1_intro_dialog()
             return
 
-        # Ocultar barra entera mientras el jugador camina a la escuela (después del intro)
-        if not getattr(self, "day1_salon_entered", True):
+        # Ocultar barra entera mientras el jugador camina a la escuela (después del intro).
+        # EXCEPCIÓN: si hay una escena activa (ej. bedroom_intro), la SceneManager
+        # necesita dibujarse aunque todavía no hayamos llegado al salón.
+        if not getattr(self, "day1_salon_entered", True) and getattr(self, "escena_activa", None) is None:
             return
 
         # ── SceneManager overlay ──────────────────────────────────────────────

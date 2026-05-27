@@ -411,21 +411,30 @@ def get_scene_dia1_salon(player_name: str) -> SceneManager:
         npc_mgr = getattr(game, "npc_ai_manager", None)
         if npc_mgr is not None:
             npc_mgr.notify_phase("en_clase")
-        # Transición automática a SalonTarde → activa el evento del pupitre rayado
+        # Bug-5 fix: solo transicionar a SalonTarde si el jugador aún está en el salón de día.
+        # Si salió por la puerta antes de que el timeout disparara, no lo forzamos de vuelta.
+        _fondo = getattr(game, "aventura_fondo", None)
+        _ruta  = str(getattr(_fondo, "ruta_imagen", "")).lower().replace("\\", "/")
+        _mapa  = _ruta.rsplit("/", 1)[-1]  # basename
+        if "salond" not in _mapa:           # "salondia" / "salondía" — salió del salón
+            return
         transitions = getattr(game, "transitions", None)
         if transitions is not None and transitions.is_idle():
             transitions.request(
                 game, "aventura",
                 callback=lambda: game._change_adventure_background("SalonTarde.png"),
+                duration_ms=1000,   # fundido lento: ~1 seg oscureciendo, ~1 seg aclarando
             )
         else:
             game._change_adventure_background("SalonTarde.png")
 
     # Diego está en decoracion index 8: x≈0.610, y≈0.716
     _DIEGO_RX, _DIEGO_RY = 0.610, 0.716
+    # Profesora se ubica al frente del salón (centro-top del mapa)
+    _PROFE_RX, _PROFE_RY = 0.50, 0.25
 
     return SceneManager([
-        # 1 — bloquear + paneo general
+        # 1 — bloquear + paneo general al salón
         ActionBeat(beat1_bloquear_y_panear),
 
         # 2 — pensamiento del jugador (auto, 2500ms)
@@ -434,33 +443,54 @@ def get_scene_dia1_salon(player_name: str) -> SceneManager:
             avanza_con="tiempo", tiempo_ms=2500,
         ),
 
-        # 3 — Diego habla; cámara se mueve hacia su pupitre
+        # 3 — Bug-4: la Profesora da la bienvenida (cámara a pizarrón/frente)
+        DialogBeat(
+            "Profesora", "Buenos días a todos. Siéntense rápido, ya vamos a empezar.",
+            avanza_con="tiempo", tiempo_ms=2800,
+            camera_rx=_PROFE_RX, camera_ry=_PROFE_RY,
+        ),
+
+        # 4 — Diego habla; cámara se mueve hacia su pupitre
         DialogBeat(
             "Diego", "Ey, acá hay puesto.",
             avanza_con="click",
             camera_rx=_DIEGO_RX, camera_ry=_DIEGO_RY,
         ),
 
-        # 4 — desbloquear movimiento y activar elección de asiento
+        # 5 — desbloquear movimiento y activar elección de asiento
         ActionBeat(beat4_desbloquear),
 
-        # 5 — esperar que el jugador se siente (1 minuto de timeout)
+        # 6 — esperar que el jugador se siente (1 minuto de timeout)
         WaitBeat(
             condicion=lambda g: bool(getattr(g, "jugador_sentado", False)),
             timeout_ms=60_000,
         ),
 
-        # 6 — evaluar zona y aplicar stats
+        # 7 — evaluar zona y aplicar stats
         ActionBeat(beat6_evaluar_asiento),
 
-        # 7 — comentario de NPC si el jugador se sentó con Sara
+        # 8a — notificación "Te has sentado junto a Diego"
+        DialogBeat(
+            pname, "Me he sentado junto a Diego.",
+            avanza_con="tiempo", tiempo_ms=1800,
+            condition=lambda g: getattr(g, "decision_dia1_asiento", "") == "diego",
+        ),
+
+        # 8b — notificación "Te has sentado junto a Sara"
+        DialogBeat(
+            pname, "Me he sentado junto a Sara.",
+            avanza_con="tiempo", tiempo_ms=1800,
+            condition=lambda g: getattr(g, "decision_dia1_asiento", "") == "sara",
+        ),
+
+        # 9 — comentario de NPC si el jugador se sentó con Sara
         DialogBeat(
             "NPC", "Ella siempre anda sola...",
             avanza_con="tiempo", tiempo_ms=2000,
             condition=lambda g: getattr(g, "_sm_dia1_result", "") == "sara",
         ),
 
-        # 8 — marcar escena completada + transición a SalonTarde
+        # 10 — marcar escena completada + transición a SalonTarde
         ActionBeat(beat8_completar),
     ])
 
@@ -601,10 +631,17 @@ def get_scene_pupitre_profesor(player_name: str) -> SceneManager:
     pname = player_name or "Protagonista"
 
     def beat_completar(game):
-        game.escena_activa             = None
-        game.player_can_move           = True
-        game.pupitre_rayado_completado = True
-        game.current_mission           = "Volver a casa"
+        game.escena_activa               = None
+        game.player_can_move             = True
+        game.pupitre_rayado_completado   = True
+        game.current_mission             = "Volver a casa"
+        # Item-2 fix: restaurar cámara tras la escena (la cámara quedaba en modo cinemático)
+        game.camera_mode                 = "follow_player"
+        # Bug-9 fix: apagar el overlay de llamar profe al terminar la escena
+        game.mision3_llamar_profe_active = False
+        game.mision3_llamar_profe_ms     = 0
+        # La profesora aparece junto al pupitre de Sara (desaparece de su posición original)
+        game.profe_en_sara               = True
         game.decision_history.append({
             "event_id":     "dia1_pupitre_rayado",
             "option_label": "profesor",
@@ -616,11 +653,22 @@ def get_scene_pupitre_profesor(player_name: str) -> SceneManager:
             s = skills["Valentia Social"]
             s["nivel"] = min(s.get("max_nivel", 3), s.get("nivel", 0) + 1)
 
+    # Sara está en rx≈0.165, ry≈0.72 en SalonTarde
+    _SARA_RX, _SARA_RY = 0.165, 0.72
+
     return SceneManager([
+        # Jugador llama a la profesora
         DialogBeat(
             pname, "¡Profe! Venga, necesito que vea algo.",
             avanza_con="tiempo", tiempo_ms=1800,
         ),
+        # Bug-7: cámara se desplaza hacia el pupitre de Sara mientras la profesora camina
+        DialogBeat(
+            pname, "Se dirige hacia el pupitre de Sara...",
+            avanza_con="tiempo", tiempo_ms=1400,
+            camera_rx=_SARA_RX, camera_ry=_SARA_RY,
+        ),
+        # Profesora llega y ve el rayado (cámara ya está en el pupitre de Sara)
         DialogBeat(
             "Profesora", "Dios mío... ¿quién hizo esto?",
             avanza_con="click",
@@ -632,6 +680,128 @@ def get_scene_pupitre_profesor(player_name: str) -> SceneManager:
         DialogBeat(
             "Sara", "Gracias...",
             avanza_con="tiempo", tiempo_ms=2000,
+        ),
+        ActionBeat(beat_completar),
+    ])
+
+
+# ── Minijuego Penaltis — diálogo previo ──────────────────────────────────────
+
+def get_scene_patio_penaltis(player_name: str, tipo: str = "penaltis") -> SceneManager:
+    """
+    Bug-3 fix: diálogo de Lucas antes del minijuego de penaltis.
+    El ActionBeat final llama a game._trigger_minijuego(tipo) para lanzar el juego.
+
+    Beats:
+        1. DialogBeat  — Lucas invita al jugador a jugar (click)
+        2. DialogBeat  — respuesta del jugador (auto 1200ms)
+        3. ActionBeat  — lanza el minijuego y limpia la escena
+    """
+    pname = player_name or "Protagonista"
+    _tipo = tipo   # captura en closure para el ActionBeat
+
+    def beat_lanzar(game):
+        game.escena_activa   = None
+        game.player_can_move = True
+        _trigger = getattr(game, "_trigger_minijuego", None)
+        if _trigger is not None:
+            _trigger(_tipo)
+
+    return SceneManager([
+        DialogBeat(
+            "Lucas",
+            "¡Oye! ¿Una pachangita? Si le metes un gol al Diego ganas algo chévere.",
+            avanza_con="click",
+        ),
+        DialogBeat(
+            pname, "¡Claro que sí, vamos!",
+            avanza_con="tiempo", tiempo_ms=1200,
+        ),
+        ActionBeat(beat_lanzar),
+    ])
+
+
+# ── Intro del dormitorio — cinemática de inicio del Día 1 ────────────────────
+
+def get_scene_bedroom_intro(player_name: str) -> SceneManager:
+    """
+    Item-4: Cinemática de introducción del Día 1.
+    El jugador aparece durmiendo (overlay A_Sleeping.png), dice "Zzzzz...",
+    se despierta y exclama que llega tarde al colegio.
+
+    Solo se lanza en partidas nuevas (no al cargar guardado).
+
+    Beats:
+        1. ActionBeat  — activa overlay A_Sleeping.png, bloquea movimiento
+        2. DialogBeat  — "Zzzzz..." (sin speaker, 2.5 s automático)
+        3. ActionBeat  — desactiva overlay (jugador "despierta")
+        4. DialogBeat  — jugador: "¡Oh no! ¡Voy tarde al colegio!" (click)
+        5. ActionBeat  — limpia escena, restaura control
+    """
+    pname = player_name or "Protagonista"
+
+    def beat_dormir(game):
+        game.bedroom_sleeping_active = True
+        game.player_can_move         = False
+
+    def beat_despertar(game):
+        game.bedroom_sleeping_active = False
+
+    def beat_completar(game):
+        game.escena_activa           = None
+        game.player_can_move         = True
+
+    return SceneManager([
+        ActionBeat(beat_dormir),
+        DialogBeat(
+            "", "Zzzzz...",
+            avanza_con="tiempo", tiempo_ms=2500,
+        ),
+        ActionBeat(beat_despertar),
+        DialogBeat(
+            pname, "¡Oh no! ¡Voy tarde al colegio, tengo que salir ya!",
+            avanza_con="click",
+        ),
+        ActionBeat(beat_completar),
+    ])
+
+
+def get_scene_cama_dormir(player_name: str) -> SceneManager:
+    """
+    Cinemática al interactuar con la cama en HabTarde.
+    El jugador se duerme, se muestra un mensaje de fin del día,
+    y se devuelve el control (Día 2 pendiente de implementar).
+
+    Beats:
+        1. ActionBeat  — activa overlay de dormir, bloquea movimiento
+        2. DialogBeat  — "Zzzzz..." 2 s automático
+        3. ActionBeat  — desactiva overlay
+        4. DialogBeat  — mensaje placeholder Día 2
+        5. ActionBeat  — restaura control, limpia escena
+    """
+    pname = player_name or "Protagonista"
+
+    def beat_dormir(game):
+        game.bedroom_sleeping_active = True
+        game.player_can_move = False
+
+    def beat_despertar(game):
+        game.bedroom_sleeping_active = False
+
+    def beat_completar(game):
+        game.escena_activa   = None
+        game.player_can_move = True
+
+    return SceneManager([
+        ActionBeat(beat_dormir),
+        DialogBeat(
+            "", "Zzzzz...",
+            avanza_con="tiempo", tiempo_ms=2000,
+        ),
+        ActionBeat(beat_despertar),
+        DialogBeat(
+            pname, "Mañana será otro día... El Día 2 llegará pronto.",
+            avanza_con="tiempo", tiempo_ms=3000,
         ),
         ActionBeat(beat_completar),
     ])

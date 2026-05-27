@@ -626,9 +626,17 @@ class NPCAIManager:
     def _place_npcs_at_chairs(self, game):
         """Spawna (o recoloca) todos los NPCs pendientes directamente en sus sillas."""
         pup_set = getattr(game, "pupitres_ocupados", None)
-        # Reubicar NPCs ya existentes que aún no estén sentados
+        # Reubicar NPCs ya existentes que aún no estén sentados.
+        # Para los ya sentados, solo re-registrar su silla en pupitres_ocupados
+        # (que fue limpiado por _change_adventure_background al re-entrar al mapa).
         for npc in self.npcs:
-            if not npc.alive() or npc.estado == "sitting":
+            if not npc.alive():
+                continue
+            if npc.estado == "sitting":
+                # Volver a registrar la silla para que _draw_object_interactables
+                # sepa que debe dibujar al NPC sentado en lugar del pupitre vacío.
+                if pup_set is not None and npc.chair_rx is not None:
+                    pup_set.add((round(npc.chair_rx, 4), round(npc.chair_ry, 4)))
                 continue
             chair = self._get_npc_chair(npc.nombre, game)
             if chair:

@@ -819,13 +819,28 @@ def main():
         return img
 
     # ── Object / decoracion system ────────────────────────────────────────────
+    imagenes_dir     = os.path.join(project_root, "Imagenes")
     interactables_dir = os.path.join(project_root, "Imagenes", "Interactuables")
+    personajes_img_dir = os.path.join(project_root, "Imagenes", "Personajes")
     valid_obj_ext = {".png", ".jpg", ".jpeg"}
     available_objects = []
+    # Objetos del directorio Interactuables (sin prefijo, como siempre)
     if os.path.isdir(interactables_dir):
         available_objects = sorted([f for f in os.listdir(interactables_dir)
                                     if os.path.splitext(f)[1].lower() in valid_obj_ext
                                     and os.path.isfile(os.path.join(interactables_dir, f))])
+    # Sprites de personajes: guardados con prefijo "Personajes/<Carpeta>/<archivo>"
+    # para distinguirlos de los interactuables en el JSON.
+    if os.path.isdir(personajes_img_dir):
+        for char_folder in sorted(os.listdir(personajes_img_dir)):
+            char_path = os.path.join(personajes_img_dir, char_folder)
+            if not os.path.isdir(char_path):
+                continue
+            for fn in sorted(os.listdir(char_path)):
+                if os.path.splitext(fn)[1].lower() in valid_obj_ext:
+                    # clave relativa a Imagenes/ → "Personajes/Profesor1/Profesor1_idle_down.png"
+                    available_objects.append(
+                        os.path.join("Personajes", char_folder, fn).replace("\\", "/"))
     current_object_idx = 0
     object_cache = {}
     placement_sizes = {}
@@ -843,14 +858,22 @@ def main():
     deco_crop_current = None
 
     def load_object_image(obj_name):
+        """Carga imagen de objeto/decoración.
+        Busca primero en Interactuables/, luego en Imagenes/<obj_name>
+        (para sprites de personajes guardados como 'Personajes/Xxx/archivo.png')."""
         if obj_name in object_cache:
             return object_cache[obj_name]
+        # Ruta 1: Interactuables/<nombre> (objetos clásicos)
         path = os.path.join(interactables_dir, obj_name)
+        if not os.path.isfile(path):
+            # Ruta 2: Imagenes/<nombre> (sprites de personajes con prefijo)
+            path = os.path.join(imagenes_dir, obj_name.replace("/", os.sep))
         try:
             img = pygame.image.load(path).convert_alpha()
             object_cache[obj_name] = img
             return img
         except (OSError, pygame.error):
+            object_cache[obj_name] = None
             return None
 
     def get_deco_world_rect(obj):

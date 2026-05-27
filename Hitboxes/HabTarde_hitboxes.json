@@ -278,6 +278,26 @@
       "rh": 0.05850234009360374,
       "action": "puerta",
       "target_image": "CalleTarde (3).png"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.18,
+      "ry": 0.50,
+      "rw": 0.10,
+      "rh": 0.08,
+      "action": "cama",
+      "label": "Cama"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.40,
+      "ry": 0.42,
+      "rw": 0.16,
+      "rh": 0.07,
+      "action": "escritorio",
+      "label": "Escritorio / PC"
     }
   ],
   "spawn": {

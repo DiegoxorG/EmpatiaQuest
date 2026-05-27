@@ -27,6 +27,7 @@ class TransitionManager:
         self._pending_screen = None
         self._pending_callback = None
         self._overlay = None      # pygame.Surface creada bajo demanda
+        self._duration_override: int | None = None   # None → usa TRANSITION_DURATION_MS
 
     # ── API pública ───────────────────────────────────────────────────────────
 
@@ -37,18 +38,24 @@ class TransitionManager:
     def is_idle(self):
         return self._phase == "idle"
 
-    def request(self, game, new_screen, callback=None):
+    def request(self, game, new_screen, callback=None, duration_ms=None):
         """
         Solicita una transición hacia new_screen.
         callback opcional se llama justo al completar el fade-out (antes del fade-in).
+        duration_ms anula TRANSITION_DURATION_MS solo para esta transición.
         Si ya hay una transición activa, la ignora.
         """
         if self._phase != "idle":
             return
         self._pending_screen = new_screen
         self._pending_callback = callback
+        self._duration_override = duration_ms
         self._phase = "fade_out"
         self._elapsed = 0
+
+    def _dur(self) -> int:
+        """Duración activa: override si se pasó, si no el valor global."""
+        return self._duration_override if self._duration_override is not None else TRANSITION_DURATION_MS
 
     def update(self, game, dt_ms):
         """Avanza la transición. Debe llamarse cada frame."""
@@ -56,7 +63,7 @@ class TransitionManager:
             return
 
         self._elapsed += dt_ms
-        dur = TRANSITION_DURATION_MS
+        dur = self._dur()
 
         if self._phase == "fade_out" and self._elapsed >= dur:
             # Momento de cambio de pantalla
@@ -72,6 +79,7 @@ class TransitionManager:
             self._elapsed = 0
             self._pending_screen = None
             self._pending_callback = None
+            self._duration_override = None
 
     def draw(self, screen):
         """
@@ -83,7 +91,7 @@ class TransitionManager:
         if self._phase == "idle":
             return
 
-        dur = TRANSITION_DURATION_MS
+        dur = self._dur()
         progress = min(1.0, self._elapsed / max(1, dur))
 
         if self._phase == "fade_out":

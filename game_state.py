@@ -25,6 +25,9 @@ from scene_manager import (
     get_scene_pupitre_borrar_gracias,
     get_scene_pupitre_foto,
     get_scene_pupitre_profesor,
+    get_scene_patio_penaltis,
+    get_scene_bedroom_intro,
+    get_scene_cama_dormir,
 )
 
 
@@ -158,7 +161,10 @@ class GameStateMixin:
 
     def _apply_loaded_save_data(self, data):
         data = self._migrate_save_data(data)
+        # Item-4: flag temporal para que _start_adventure() no active la intro del dormitorio
+        self._loading_save = True
         self._start_adventure()
+        self._loading_save = False
         self.day1_intro_step        = 2   # No mostrar intro al cargar partida
         self.escena_dia1_completada    = bool(data.get("escena_dia1_completada",   False))
         self.pupitre_rayado_completado = bool(data.get("pupitre_rayado_completado", False))
@@ -424,6 +430,7 @@ class GameStateMixin:
         self.day1_pupitre_zoom_active = False
         self.day1_pupitre_erase_surface = None
         self.day1_pupitre_erase_progress = 0.0
+        self.day1_pupitre_erase_mode = False  # True cuando el jugador presiona A
         self.day1_pupitre_result = ""
         # ── Evento pupitre rayado ─────────────────────────────────────────────
         self.pupitre_rayado_completado  = False
@@ -431,11 +438,19 @@ class GameStateMixin:
         self.pupitre_rayado_foto_timer  = 0
         self.pupitre_rayado_fondo       = ""    # "" | "sara"
         self.tarde_player_seated        = False  # jugador auto-sentado en SalonTarde
+        # ── Overlays Misión 3 (Bugs 8 y 9) ───────────────────────────────────
+        self.mision3_foto_overlay_active    = False  # muestra Mision3-TomarFoto.png
+        self.mision3_foto_overlay_ms        = 0
+        self.mision3_llamar_profe_active    = False  # muestra Mision3-Llamarprofe.png
+        self.mision3_llamar_profe_ms        = 0
+        self.profe_en_sara                  = False  # profesora aparece junto a Sara tras llamarla
+        self._profe_deco_name               = ""     # nombre del sprite de la profesora (cacheado)
         self.day1_completed = False
         self.day1_end_timer = 0
         self.day1_sara_npc_warned = False
         self.day1_seq_dialog_done = False
         self.day1_intro_step = 0
+        self.bedroom_sleeping_active = False  # Item-4: True = mostrar overlay A_Sleeping.png
         self.day1_patio_entered = False
         self.current_mission = "Ir a la escuela"
         # NPC AI Manager (Evento 1)
@@ -495,6 +510,14 @@ class GameStateMixin:
         self.cached_background_scaled = None
         self.cached_background_size = None
         self.cached_background_source = None
+        # ── Item-4: intro cinemática del dormitorio (solo partidas nuevas) ────
+        # _loading_save=True cuando llamado desde _apply_loaded_save_data → no lanzar intro
+        if not getattr(self, "_loading_save", False):
+            pname = getattr(self, "player_name", "") or "Protagonista"
+            self.scene_manager   = get_scene_bedroom_intro(pname)
+            self.escena_activa   = "bedroom_intro"
+            self.player_can_move = False
+            self.day1_intro_step = 2  # desactiva el viejo texto intro (ya no se usa)
 
     def _init_prologo(self):
         self.prologo_razon = random.choice(PROLOGO_RAZON_CHOICES)
@@ -658,6 +681,9 @@ class GameStateMixin:
                     hitbox["npc_owner"] = str(obj["npc_owner"])
                 if obj.get("npc_animation"):
                     hitbox["npc_animation"] = str(obj["npc_animation"])
+                # Cachear nombre del sprite de la profesora para usarlo en _draw_profe_en_sara
+                if "profesor" in hitbox["object_name"].lower() and not self._profe_deco_name:
+                    self._profe_deco_name = hitbox["object_name"]
                 hitboxes.append(hitbox)
             except (KeyError, TypeError, ValueError):
                 continue
@@ -841,12 +867,16 @@ class GameStateMixin:
         self.audio.sfx_sentarse()
 
     def _auto_seat_player_tarde(self):
-        """Sienta automáticamente al jugador en SalonTarde en el 2.º pupitre de la fila 2.
-        El jugador permanece sentado hasta que presione E para levantarse y
-        activar el evento del pupitre rayado de Sara.
+        """Sienta automáticamente al jugador en SalonTarde según su decisión de asiento.
+        - 'diego' → 3.er pupitre fila inferior (rx≈0.4775, ry≈0.6864)
+        - sara / ninguno → 2.º pupitre fila inferior (rx≈0.3201, ry≈0.6911), junto a Sara
+        El jugador permanece sentado hasta presionar E → activa el evento del pupitre rayado.
         """
-        # 2.º pupitre de la fila inferior (rx≈0.3201, ry≈0.6911)
-        TARGET_RX, TARGET_RY = 0.3201, 0.6911
+        choice = getattr(self, "decision_dia1_asiento", "ninguno")
+        if choice == "diego":
+            TARGET_RX, TARGET_RY = 0.4775, 0.6864   # 3.er pupitre fila inferior
+        else:
+            TARGET_RX, TARGET_RY = 0.3201, 0.6911   # 2.º pupitre fila inferior (cerca Sara)
         desk = None
         best = float("inf")
         for h in self.story_walls:
@@ -902,7 +932,7 @@ class GameStateMixin:
             self.aventura_personaje.hitbox.y = self.player_rect.y
             self.aventura_personaje.sync_sprite_from_hitbox()
         self._update_story_camera()
-        self.story_interaction_text = f"Entraste a: {target_image_name}"
+        self.story_interaction_text = ""   # el cambio de mapa habla por sí solo
         self.audio.sfx_puerta()
         self._sync_scene_audio()
         # ── NPC AI: notificar cambio de mapa ─────────────────────────────────
@@ -947,7 +977,6 @@ class GameStateMixin:
                 self._auto_seat_player_tarde()
         elif base == "habtarde.png":
             if not getattr(self, "day1_completed", False) and getattr(self, "day1_in_tarde", False):
-                self.day1_end_timer = 2500  # 2.5 segundos para "Fin del Día 1"
                 self.day1_completed = True
 
     def _execute_interactable_action(self, interactable):
@@ -1013,8 +1042,23 @@ class GameStateMixin:
                 return
             self.story_thought = ""
             self.story_interaction_text = ""
-            # _trigger_minijuego está definido en ScreenHandlersMixin (mismo objeto)
-            self._trigger_minijuego(tipo)
+            # Bug-3 fix: mostrar diálogo previo del NPC antes de lanzar el minijuego
+            # El ActionBeat final de la escena llama a _trigger_minijuego(tipo).
+            pname = getattr(self, "player_name", "") or "Protagonista"
+            self.scene_manager   = get_scene_patio_penaltis(pname, tipo)
+            self.escena_activa   = "patio_minijuego_intro"
+            self.player_can_move = False
+            return
+        if action == "cama":
+            if getattr(self, "player_can_move", True):
+                pname = getattr(self, "player_name", "") or "Protagonista"
+                self.scene_manager = get_scene_cama_dormir(pname)
+                self.escena_activa = "cama_dormir"
+            return
+        if action == "escritorio":
+            self.story_thought          = "Aquí habrá minijuegos más adelante."
+            self.story_interaction_text = "[ Escritorio — contenido próximamente ]"
+            self.audio.sfx_interactuar()
             return
         if action == "objeto":
             raw_name = interactable.get("object_name", "objeto")
@@ -1057,12 +1101,40 @@ class GameStateMixin:
                     self.story_thought = "Este es mi lugar."
                     self.audio.sfx_sentarse()
                 return
-            object_name = os.path.splitext(raw_name)[0]
-            self.story_interaction_text = f"Interactuaste con {object_name}."
+            friendly = self._friendly_object_name(raw_name)
+            self.story_interaction_text = f"Interactuaste con {friendly}."
             self.story_thought = "Hay algo interesante aqui."
             self.audio.sfx_object(raw_name)
             return
-        self.story_interaction_text = f"Accion no soportada: {action}"
+        # Acción desconocida: no mostrar texto técnico al jugador
+        self.story_interaction_text = ""
+
+    # ── Nombres amigables para la UI ─────────────────────────────────────────
+    _FRIENDLY_OBJECTS: dict = {
+        "armario": "el armario",      "cama": "la cama",
+        "escritorio": "el escritorio","pupitre": "el pupitre",
+        "silla": "la silla",          "mochila": "la mochila",
+        "ventana": "la ventana",      "pizarra": "la pizarra",
+        "puerta": "la puerta",        "balon": "el balón",
+        "balón": "el balón",          "mesa": "la mesa",
+        "estante": "el estante",      "cartel": "el cartel",
+        "poster": "el póster",        "telefono": "el teléfono",
+        "lampara": "la lámpara",      "reloj": "el reloj",
+        "cuadro": "el cuadro",        "libro": "el libro",
+        "mapa": "el mapa",            "bolso": "el bolso",
+        "bolsa": "la bolsa",          "maleta": "la maleta",
+        "locker": "el casillero",     "taquilla": "la taquilla",
+        "banca": "la banca",          "banco": "el banco",
+        "caneca": "la caneca",        "papelera": "la papelera",
+    }
+
+    def _friendly_object_name(self, raw_name: str) -> str:
+        """Convierte el nombre de archivo de un objeto en texto legible para la UI."""
+        base = os.path.splitext(raw_name)[0].lower()
+        for key, friendly in self._FRIENDLY_OBJECTS.items():
+            if key in base:
+                return friendly
+        return "algo"
 
     def _move_player_with_walls(self, dx, dy):
         currently_stuck = any(
@@ -1155,6 +1227,19 @@ class GameStateMixin:
                 self.pupitre_rayado_foto_active = False
                 self.pupitre_rayado_foto_timer  = 0
 
+        # ── Temporizadores overlays Misión 3 (Bugs 8, 9) ────────────────────
+        # foto: timer de 1800ms — desaparece automáticamente
+        if getattr(self, "mision3_foto_overlay_active", False):
+            self.mision3_foto_overlay_ms = max(0, self.mision3_foto_overlay_ms - dt_ms)
+            if self.mision3_foto_overlay_ms <= 0:
+                self.mision3_foto_overlay_active = False
+        # llamar_profe: si ms == 0 no hay timer; la escena lo limpia en beat_completar
+        if getattr(self, "mision3_llamar_profe_active", False):
+            if self.mision3_llamar_profe_ms > 0:
+                self.mision3_llamar_profe_ms = max(0, self.mision3_llamar_profe_ms - dt_ms)
+                if self.mision3_llamar_profe_ms <= 0:
+                    self.mision3_llamar_profe_active = False
+
         # ── SceneManager update ───────────────────────────────────────────────
         sm = getattr(self, "scene_manager", None)
         if sm is not None and getattr(self, "escena_activa", None) is not None:
@@ -1196,11 +1281,6 @@ class GameStateMixin:
                     audio = getattr(self, "audio", None)
                     if audio is not None:
                         audio.sfx_animation("npc_walk")
-
-        # ── Fin del Día 1 countdown ───────────────────────────────────────────
-        if getattr(self, "day1_end_timer", 0) > 0:
-            self.day1_end_timer -= dt_ms
-            return
 
         if self.story_is_seated:
             if self.aventura_personaje is not None:
@@ -1485,7 +1565,14 @@ class GameStateMixin:
         cached = self.story_object_image_cache.get(object_name)
         if cached is not None:
             return cached
-        object_path = os.path.join(os.path.dirname(__file__), "Imagenes", "Interactuables", object_name)
+        base = os.path.dirname(__file__)
+        # Ruta 1: Interactuables/<nombre>  (objetos clásicos)
+        object_path = os.path.join(base, "Imagenes", "Interactuables", object_name)
+        if not os.path.isfile(object_path):
+            # Ruta 2: Imagenes/<nombre>  (sprites de personajes con prefijo
+            #  "Personajes/Xxx/archivo.png" puestos desde el hitbox editor)
+            object_path = os.path.join(base, "Imagenes",
+                                        object_name.replace("/", os.sep))
         try:
             image = pygame.image.load(object_path).convert_alpha()
         except (OSError, pygame.error):

@@ -539,8 +539,10 @@ class ScreenHandlersMixin:
                 ):
                     return
 
-        # ── CAMBIO 4: Minijuego borrador (mouse sobre erase_surface) ─────────
-        if getattr(self, "day1_pupitre_zoom_active", False) and getattr(self, "day1_pupitre_step", 0) == 2:
+        # ── Borrador: solo activo si el jugador presionó A primero ───────────
+        if (getattr(self, "day1_pupitre_zoom_active", False)
+                and getattr(self, "day1_pupitre_step", 0) == 2
+                and getattr(self, "day1_pupitre_erase_mode", False)):
             erase_surf = getattr(self, "day1_pupitre_erase_surface", None)
             if erase_surf is not None and pygame.mouse.get_pressed()[0]:
                 mx, my = pygame.mouse.get_pos()
@@ -565,8 +567,10 @@ class ScreenHandlersMixin:
                     pass
                 if total > 0:
                     self.day1_pupitre_erase_progress = erased / total
-                # Si 100% borrado → cerrar y lanzar escena de agradecimiento
+                # Si 100% borrado → cerrar borrador, restaurar cursor y lanzar escena
                 if self.day1_pupitre_erase_progress >= 1.0:
+                    self.day1_pupitre_erase_mode  = False
+                    pygame.mouse.set_visible(True)
                     pname = getattr(self, "player_name", "") or "Protagonista"
                     self.story_thought = f"{pname}: Listo, ya no se ven esos mensajes."
                     self.story_felicidad = max(0, min(100, self.story_felicidad + 1))
@@ -620,17 +624,21 @@ class ScreenHandlersMixin:
             if getattr(self, "day1_pupitre_zoom_active", False) and pupitre_step == 2:
                 pname = getattr(self, "player_name", "") or "Protagonista"
                 if event.key == pygame.K_a:
-                    # Borrar mensajes: iniciar minijuego borrador
-                    self.story_thought = f"{pname}: Tengo que borrar esto."
-                    audio = getattr(self, "audio", None)
-                    if audio is not None:
-                        audio.sfx_borrar()
-                    # El minijuego se activa con el mouse; simplemente mostramos el mensaje
+                    # [A] Activar modo borrador — el cursor cambia a Borradortab.png
+                    if not getattr(self, "day1_pupitre_erase_mode", False):
+                        self.day1_pupitre_erase_mode = True
+                        self.story_thought = f"{pname}: Voy a borrar esto."
+                        pygame.mouse.set_visible(False)   # ocultamos el cursor del sistema
+                        audio = getattr(self, "audio", None)
+                        if audio is not None:
+                            audio.sfx_borrar()
                     return
                 elif event.key == pygame.K_b:
                     # [B] Ignorar — F-3, R+0
                     self.story_thought = f"{pname}: Mejor no meterme en esto."
                     self.story_felicidad = max(0, min(100, self.story_felicidad - 3))
+                    self.day1_pupitre_erase_mode  = False   # restaurar cursor
+                    pygame.mouse.set_visible(True)
                     self.day1_pupitre_zoom_active  = False
                     self.day1_pupitre_step         = 3
                     self.day1_pupitre_result       = "ignorar"
@@ -649,14 +657,19 @@ class ScreenHandlersMixin:
                     return
                 elif event.key == pygame.K_c:
                     # [C] Tomar foto — F-5, R+1
-                    self.story_thought = f"{pname}: Voy a documenter esto."
+                    self.story_thought = f"{pname}: Voy a documentar esto."
                     self.story_felicidad  = max(0, min(100, self.story_felicidad  - 5))
                     self.story_reputacion = max(0, min(100, self.story_reputacion + 1))
+                    self.day1_pupitre_erase_mode  = False   # restaurar cursor
+                    pygame.mouse.set_visible(True)
                     self.day1_pupitre_zoom_active  = False
                     self.day1_pupitre_step         = 3
                     self.day1_pupitre_result       = "foto"
                     self.pupitre_rayado_foto_active = True
-                    self.pupitre_rayado_foto_timer  = 800   # ms de flash
+                    self.pupitre_rayado_foto_timer  = 800   # ms de flash blanco
+                    # Bug-8: mostrar Mision3-TomarFoto.png a pantalla completa (1800ms)
+                    self.mision3_foto_overlay_active = True
+                    self.mision3_foto_overlay_ms     = 1800
                     # 🎵 ASSET_SFX: Audio/SFX/camara_foto.ogg | Sonido de shutter de cámara
                     audio = getattr(self, "audio", None)
                     if audio:
@@ -671,9 +684,15 @@ class ScreenHandlersMixin:
                     self.story_thought = f"{pname}: ¡Profe, venga a ver esto!"
                     self.story_felicidad  = max(0, min(100, self.story_felicidad  + 2))
                     self.story_reputacion = max(0, min(100, self.story_reputacion + 1))
+                    self.day1_pupitre_erase_mode = False    # restaurar cursor
+                    pygame.mouse.set_visible(True)
                     self.day1_pupitre_zoom_active = False
                     self.day1_pupitre_step        = 3
                     self.day1_pupitre_result      = "profesor"
+                    # Bug-9: mostrar Mision3-Llamarprofe.png durante TODA la conversación.
+                    # ms=0 → sin timer automático; la escena lo apaga en beat_completar.
+                    self.mision3_llamar_profe_active = True
+                    self.mision3_llamar_profe_ms     = 0
                     # ── Lanzar escena del profesor ───────────────────────────
                     self.scene_manager = get_scene_pupitre_profesor(pname)
                     self.escena_activa = "pupitre_profesor"
@@ -686,6 +705,8 @@ class ScreenHandlersMixin:
                     # ESC = ignorar (fallback, mismos efectos que [B])
                     self.story_thought = f"{pname}: Mejor no meterme en esto."
                     self.story_felicidad = max(0, min(100, self.story_felicidad - 3))
+                    self.day1_pupitre_erase_mode  = False   # restaurar cursor
+                    pygame.mouse.set_visible(True)
                     self.day1_pupitre_zoom_active  = False
                     self.day1_pupitre_step         = 3
                     self.day1_pupitre_result       = "ignorar"
