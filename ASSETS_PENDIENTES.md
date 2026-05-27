@@ -72,6 +72,21 @@ automáticamente en la próxima ejecución.
 
 ## 🎵 Efectos de sonido (`ASSET_SFX`)
 
+> **Minijuego Penaltis — nuevos SFX**
+
+| Archivo | Descripción |
+|---|---|
+| `Audio/SFX/balon_disparo.ogg` | Sonido de patear el balón al disparar |
+| `Audio/SFX/gol_marcado.ogg` | Fanfare breve al marcar un gol |
+| `Audio/SFX/balon_bloqueado.ogg` | Sonido de disparo bloqueado o fuera |
+
+> **Minijuego Atrapa Emociones — nuevos SFX**
+
+| Archivo | Descripción |
+|---|---|
+| `Audio/SFX/emocion_buena.ogg` | Tono positivo al atrapar emoción buena |
+| `Audio/SFX/emocion_mala.ogg` | Sonido negativo al atrapar emoción mala |
+
 > **Minijuego Undertale — nuevos SFX**
 
 | Archivo | Descripción |
@@ -125,6 +140,8 @@ Ruta base: `Audio/BGM/`
 | `final_negativo.ogg` | Sombrío y melancólico — final negativo |
 | `final_neutral.ogg` | Ambiguo — los dos finales neutrales |
 | `minijuego_batalla.ogg` | Música tensa estilo Undertale durante los 60s del minijuego |
+| `minijuego_penaltis.ogg` | Música arcade rápida y animada para el minijuego de penaltis |
+| `minijuego_emociones.ogg` | Música suave y emotiva para el minijuego de Atrapa Emociones |
 
 ---
 

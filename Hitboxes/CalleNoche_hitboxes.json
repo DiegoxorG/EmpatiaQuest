@@ -14,6 +14,16 @@
       "rh": 0.031201248049921998,
       "action": "puerta",
       "target_image": "CalleNoche.png"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.350,
+      "ry": 0.440,
+      "rw": 0.130,
+      "rh": 0.130,
+      "action": "minijuego",
+      "minijuego_tipo": "atrapa_emociones"
     }
   ],
   "spawn": {

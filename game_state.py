@@ -932,6 +932,17 @@ class GameStateMixin:
             self.story_interaction_text = f"{npc_name} esta ocupado/a."
             self.audio.sfx_npc()
             return
+        if action == "minijuego":
+            # Activar minijuego al interactuar con el objeto disparador
+            tipo = interactable.get("minijuego_tipo", "penaltis")
+            if not getattr(self, "player_can_move", True):
+                # No iniciar durante una cinemática
+                return
+            self.story_thought = ""
+            self.story_interaction_text = ""
+            # _trigger_minijuego está definido en ScreenHandlersMixin (mismo objeto)
+            self._trigger_minijuego(tipo)
+            return
         if action == "objeto":
             raw_name = interactable.get("object_name", "objeto")
             if raw_name == "Pupitre-Salón1.png":

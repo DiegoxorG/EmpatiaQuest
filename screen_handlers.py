@@ -11,6 +11,8 @@ import screens.progreso as progreso_screen
 import screens.tutorial as tutorial_screen
 import screens.creditos as creditos_screen
 from minigame_manager import MinigameManager
+from penaltis_manager import PenaltisManager
+from atrapa_emociones_manager import AtrapaEmocionesManager
 
 
 class ScreenHandlersMixin:
@@ -944,22 +946,43 @@ class ScreenHandlersMixin:
 
     def _trigger_minijuego(self, tipo: str):
         """
-        Inicia el minijuego del tipo dado ("agresivo" o "pacifico").
-        Guarda los deltas de stats para aplicarlos al terminar.
+        Inicia el minijuego del tipo dado.
+        Tipos soportados:
+          "agresivo"        → MinigameManager (Undertale — puñetazos)
+          "pacifico"        → MinigameManager (Undertale — mensajes)
+          "penaltis"        → PenaltisManager (minijuego de penaltis)
+          "atrapa_emociones"→ AtrapaEmocionesManager (minijuego de emociones)
         """
-        self.minijuego_manager = MinigameManager(tipo, self.width, self.height, getattr(self, "audio", None))
-        self.minijuego_pending_tipo = tipo
-        self.minijuego_paused = False
-        self.minijuego_pause_idx = 0
-        self.minijuego_show_hitboxes = False
-        self.current_screen = "minijuego"
-        # 🎶 ASSET_BGM: Audio/BGM/minijuego_batalla.ogg | musica tensa 60s
         audio = getattr(self, "audio", None)
+
+        if tipo == "penaltis":
+            self.minijuego_manager = PenaltisManager(
+                self.width, self.height, audio)
+            bgm = "minijuego_penaltis"
+            sfx = "balon_disparo"
+        elif tipo == "atrapa_emociones":
+            self.minijuego_manager = AtrapaEmocionesManager(
+                self.width, self.height, audio)
+            bgm = "minijuego_emociones"
+            sfx = "decision_tomada"
+        else:
+            # Undertale-style (agresivo / pacifico)
+            self.minijuego_manager = MinigameManager(
+                tipo, self.width, self.height, audio)
+            bgm = "minijuego_batalla"
+            sfx = "oleada"
+
+        self.minijuego_pending_tipo  = tipo
+        self.minijuego_paused        = False
+        self.minijuego_pause_idx     = 0
+        self.minijuego_show_hitboxes = False
+        self.current_screen          = "minijuego"
+
         if audio is not None and hasattr(audio, "play_bgm"):
             try:
-                audio.play_bgm("minijuego_batalla")
+                audio.play_bgm(bgm)
                 audio.stop_ambience()
-                audio.play_sfx("oleada")
+                audio.play_sfx(sfx)
             except Exception:
                 pass
 
@@ -1050,18 +1073,35 @@ class ScreenHandlersMixin:
         gano  = result.get("gano", result.get("ganó", False))
         tipo  = result.get("tipo", getattr(self, "minijuego_pending_tipo", "agresivo"))
 
-        # Deltas de stats (se aplican siempre, gane o pierda)
+        # ── Deltas de stats según tipo de minijuego ──────────────────────────
         if tipo == "agresivo":
             df, dr = +1, -2
-        else:
+            label  = "Defender agresivamente"
+        elif tipo == "pacifico":
             df, dr = +4, -3
+            label  = "Defender pacificamente"
+        elif tipo == "penaltis":
+            # Jugar = siempre +felicidad; ganar = también +reputación
+            goles = result.get("goles", 0)
+            df    = +3 if gano else +1
+            dr    = +2 if gano else 0
+            label = f"Jugar penaltis (goles: {goles})"
+        elif tipo == "atrapa_emociones":
+            # Entrenar empatía = siempre algo de felicidad
+            puntos = result.get("puntos", 0)
+            df     = +4 if gano else +1
+            dr     = +1 if gano else 0
+            label  = f"Atrapar emociones (puntos: {puntos})"
+        else:
+            df, dr = +1, 0
+            label  = f"Minijuego: {tipo}"
 
         self.story_felicidad   = max(0, min(100, self.story_felicidad   + df))
         self.story_reputacion  = max(0, min(100, self.story_reputacion  + dr))
 
         self.decision_history.append({
             "event_id":    f"minijuego_{tipo}",
-            "option_label": f"Defender {'agresivamente' if tipo == 'agresivo' else 'pacificamente'}",
+            "option_label": label,
             "gano":        gano,
             "dF":          df,
             "dR":          dr,
@@ -1072,7 +1112,7 @@ class ScreenHandlersMixin:
         if lista is not None and gano:
             if tipo == "agresivo":
                 lista.desbloquear("rey_de_los_bullies")
-            else:
+            elif tipo == "pacifico":
                 lista.desbloquear("irrefutable")
             # Mostrar popup si hay logro recién desbloqueado
             if getattr(self, "popup_logro_timer", 0) <= 0:
