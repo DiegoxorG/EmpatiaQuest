@@ -19,6 +19,7 @@ from config import (
     CUSTOM_PARTS, PART_STYLES, PROLOGO_RAZON_CHOICES,
 )
 from achievements import Lista_Logros, LOGRO_TRIGGERS
+from scene_manager import get_scene_dia1_salon
 
 
 # ─── Habilidades disponibles y sus triggers ────────────────────────────────────
@@ -124,6 +125,7 @@ class GameStateMixin:
             "controls": self._serialize_controls(),
             "skills_inventory": self.skills_inventory,
             "logros": self.lista_logros.to_list(),
+            "escena_dia1_completada": getattr(self, "escena_dia1_completada", False),
         }
 
     def _migrate_save_data(self, data):
@@ -150,7 +152,8 @@ class GameStateMixin:
     def _apply_loaded_save_data(self, data):
         data = self._migrate_save_data(data)
         self._start_adventure()
-        self.day1_intro_step = 2  # No mostrar intro al cargar partida
+        self.day1_intro_step        = 2   # No mostrar intro al cargar partida
+        self.escena_dia1_completada = bool(data.get("escena_dia1_completada", False))
         self.player_name = str(data.get("player_name", ""))
         self.current_day = int(data.get("current_day", 1))
         self.story_felicidad = int(data.get("story_felicidad", 50))
@@ -357,10 +360,22 @@ class GameStateMixin:
             self.player_rect.clamp_ip(self.story_map_rect)
 
     def _update_story_camera(self):
-        target_x = self.player_rect.centerx - (self.width // 2)
-        target_y = self.player_rect.centery - (self.height // 2)
-        max_x = max(0, self.story_world_width - self.width)
+        max_x = max(0, self.story_world_width  - self.width)
         max_y = max(0, self.story_world_height - self.height)
+        if getattr(self, "camera_mode", "follow_player") == "cinematic":
+            target = getattr(self, "camera_target", None)
+            if target is not None:
+                lerp = getattr(self, "camera_lerp", 0.05)
+                tx = max(0, min(target[0] - self.width  // 2, max_x))
+                ty = max(0, min(target[1] - self.height // 2, max_y))
+                self.story_camera_x = int(
+                    self.story_camera_x + (tx - self.story_camera_x) * lerp)
+                self.story_camera_y = int(
+                    self.story_camera_y + (ty - self.story_camera_y) * lerp)
+            return
+        # follow_player (comportamiento por defecto)
+        target_x = self.player_rect.centerx - (self.width  // 2)
+        target_y = self.player_rect.centery - (self.height // 2)
         self.story_camera_x = max(0, min(target_x, max_x))
         self.story_camera_y = max(0, min(target_y, max_y))
 
@@ -414,6 +429,20 @@ class GameStateMixin:
         # Mejora 2: set de posiciones (rx, ry) de pupitres actualmente ocupados por NPCs
         self.pupitres_ocupados: set = set()
         self.popup_logro_timer = 0
+        # ── SceneManager ─────────────────────────────────────────────────────
+        self.escena_dia1_completada:  bool  = False
+        self.escena_activa:           object = None   # str | None
+        self.scene_manager:           object = None
+        self.eligiendo_asiento:       bool  = False
+        self.jugador_sentado:         bool  = False
+        self.decision_dia1_asiento:   str   = ""
+        self._sm_dia1_result:         str   = ""
+        self.player_can_move:         bool  = True
+        # ── Cámara cinemática ─────────────────────────────────────────────────
+        self.camera_mode:             str   = "follow_player"
+        self.camera_target:           tuple = (0, 0)
+        self.camera_lerp:             float = 0.05
+        self.camera_return_after_ms:  int   = 0
         self.popup_logro_actual = None
         self.player_rect = pygame.Rect(0, 0, 28, 28)
         self._rebuild_story_world(keep_player=False)
@@ -798,9 +827,17 @@ class GameStateMixin:
         if base == "salondía.png" or base == "salondia.png":
             if not getattr(self, "day1_salon_entered", False):
                 self.day1_salon_entered = True
-                self.day1_seq_step = 1  # Mostrar pensamiento del protagonista
-                self.day1_guide_active = False
-                self.current_mission = "Elegir donde sentarse"
+                self.day1_guide_active  = False
+                self.current_mission    = "Elegir donde sentarse"
+                if not getattr(self, "escena_dia1_completada", False):
+                    # Activar escena cinemática del Día 1
+                    pname = getattr(self, "player_name", "") or "Protagonista"
+                    self.scene_manager   = get_scene_dia1_salon(pname)
+                    self.escena_activa   = "dia1_salon"
+                    self.jugador_sentado = False
+                    self.eligiendo_asiento = False
+                    self.player_can_move = True   # beat 1 lo bloqueará al procesar
+                # Si escena_dia1_completada=True → day1_seq_step queda en 0 (sin diálogos)
         elif base in ("salontarde.png",):
             self.day1_in_tarde = True
             # NPC AI: fase saliendo cuando empieza SalonTarde
@@ -874,6 +911,16 @@ class GameStateMixin:
                 if npc_owner:
                     self.story_interaction_text = f"El pupitre de {npc_owner} está reservado."
                     self.audio.sfx_interactuar()
+                    return
+                # ── SceneManager: eligiendo asiento ──────────────────────────
+                if (getattr(self, "eligiendo_asiento", False)
+                        and not getattr(self, "jugador_sentado", False)):
+                    self.story_is_seated      = True
+                    self.story_seated_hitbox  = interactable
+                    self.story_seated_pupitre = interactable
+                    self.story_thought        = "Este es mi lugar."
+                    self.jugador_sentado      = True
+                    self.audio.sfx_sentarse()
                     return
                 if self.story_is_seated and self.story_seated_pupitre is interactable:
                     self.story_is_seated = False
@@ -980,6 +1027,22 @@ class GameStateMixin:
         if npc_mgr is not None:
             npc_mgr.update(dt_ms, self)
 
+        # ── SceneManager update ───────────────────────────────────────────────
+        sm = getattr(self, "scene_manager", None)
+        if sm is not None and getattr(self, "escena_activa", None) is not None:
+            sm.update(dt_ms, self)
+            if sm.done and getattr(self, "escena_activa", None) is not None:
+                # Edge case: escena terminó sin que beat8 limpiara el flag
+                self.escena_activa    = None
+                self.player_can_move  = True
+
+        # ── Temporizador retorno de cámara ────────────────────────────────────
+        if getattr(self, "camera_return_after_ms", 0) > 0:
+            self.camera_return_after_ms -= dt_ms
+            if self.camera_return_after_ms <= 0:
+                self.camera_return_after_ms = 0
+                self.camera_mode = "follow_player"
+
         if self._is_first_day_classroom_context():
             self.story_clock_accumulator_ms += dt_ms
             while self.story_clock_accumulator_ms >= 4000:
@@ -1002,6 +1065,15 @@ class GameStateMixin:
             return
 
         if self.story_is_seated:
+            if self.aventura_personaje is not None:
+                self.aventura_personaje.moviendose = False
+                self.aventura_personaje.frame_actual = 0
+                self.aventura_personaje.contador_animacion = 0
+            self._update_story_camera()
+            return
+
+        # ── Bloqueo de movimiento durante cinemáticas ─────────────────────────
+        if not getattr(self, "player_can_move", True):
             if self.aventura_personaje is not None:
                 self.aventura_personaje.moviendose = False
                 self.aventura_personaje.frame_actual = 0

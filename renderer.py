@@ -1227,6 +1227,16 @@ class RendererMixin:
         if not getattr(self, "day1_salon_entered", True):
             return
 
+        # ── SceneManager overlay ──────────────────────────────────────────────
+        # Reemplaza la caja del Día 1 cuando hay una escena cinemática activa.
+        # La cámara ya se actualiza en _update_story_camera con lerp; aquí solo
+        # dibujamos el overlay de diálogo encima de todo lo ya renderizado.
+        if getattr(self, "escena_activa", None) is not None:
+            sm = getattr(self, "scene_manager", None)
+            if sm is not None:
+                sm.draw(self.screen, self.base_fonts, self.width, self.height)
+            return
+
         # CAMBIO 3: caja de diálogo Día 1 (reemplaza event box mientras está en secuencia)
         seq_step = getattr(self, "day1_seq_step", 0)
         if seq_step in (1, 2, 3):
