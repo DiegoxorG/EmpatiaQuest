@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\Pasillo2Tarde.png",
+  "image": "Imagenes\\Fondos\\Pasillo2Tarde.png",
   "image_size": [
     1922,
     1282
@@ -392,5 +392,6 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": []
 }

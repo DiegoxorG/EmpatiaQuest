@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\PatioDia.png",
+  "image": "Imagenes\\Fondos\\PatioDia.png",
   "image_size": [
     1599,
     1282
@@ -505,10 +505,11 @@
       "type": "rect",
       "rx": 0.216,
       "ry": 0.488,
-      "rw": 0.080,
+      "rw": 0.08,
       "rh": 0.118,
       "action": "minijuego",
-      "minijuego_tipo": "penaltis"
+      "minijuego_tipo": "penaltis",
+      "target_image": ""
     }
   ],
   "spawn": {
@@ -529,11 +530,6 @@
     }
   },
   "npc_positions": {},
-  "npc_waypoints": [
-    {"rx": 0.50, "ry": 0.62},
-    {"rx": 0.50, "ry": 0.40},
-    {"rx": 0.48, "ry": 0.22}
-  ],
   "decoracion": [
     {
       "name": "Bal\u00f3n-minigame.png",

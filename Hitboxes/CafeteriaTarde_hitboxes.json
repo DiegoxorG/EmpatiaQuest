@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\CafeteriaTarde.png",
+  "image": "Imagenes\\Fondos\\CafeteriaTarde.png",
   "image_size": [
     1709,
     1282
@@ -516,21 +516,21 @@
       "role": "interactable",
       "type": "rect",
       "rx": 0.8431831480397893,
-      "ry": 0.23478939157566303,
-      "rw": 0.07899356348741954,
-      "rh": 0.04914196567862714,
+      "ry": 0.24414976599063962,
+      "rw": 0.07489760093622001,
+      "rh": 0.046801872074883,
       "action": "puerta",
-      "target_image": "Pasillo1_tarde.png"
+      "target_image": "Pasillo2Tarde.png"
     }
   ],
   "spawn": {
     "default": null,
     "by_origin": {
-      "Pasillo1_tarde.png": {
-        "rx": 0.8917495611468695,
-        "ry": 0.2574102964118565,
-        "rw": 0.010532475131655939,
-        "rh": 0.0124804992199688
+      "Pasillo2Tarde.png": {
+        "rx": 0.890579286132241,
+        "ry": 0.26053042121684866,
+        "rw": 0.022235225277940317,
+        "rh": 0.014040561622464899
       }
     }
   },

@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\Ba\u00f1oFemtarde.png",
+  "image": "Imagenes\\Fondos\\Ba\u00f1oFemtarde.png",
   "image_size": [
     1709,
     1282
@@ -235,6 +235,15 @@
       "rh": 0.0873634945397816,
       "action": "puerta",
       "target_image": "Pasillo1_tarde.png"
+    },
+    {
+      "role": "wall",
+      "type": "line",
+      "x1": 0.1585722644821533,
+      "y1": 0.5577223088923557,
+      "x2": 0.15272088940901113,
+      "y2": 0.5226209048361935,
+      "thickness": 0.0023405500292568754
     }
   ],
   "spawn": {
@@ -248,5 +257,6 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": []
 }

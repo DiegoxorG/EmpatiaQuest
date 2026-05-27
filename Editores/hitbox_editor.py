@@ -2207,6 +2207,17 @@ def main():
             f"HBs: {len(hitboxes)} + {len(decoracion)} obj",
             f"Grid: {'ON' if grid_snap else 'off'}  Labels: {'ON' if show_labels else 'off'}",
         ]
+        if current_role == "interactable" and current_interactable_action == "puerta" and available_backgrounds:
+            dest = available_backgrounds[current_target_bg_idx]
+            overlay = font.render(f"DESTINO PUERTA: {dest}", True, (255, 255, 0))
+            bg_surf = pygame.Surface((overlay.get_width() + 16, overlay.get_height() + 8))
+            bg_surf.fill((20, 20, 20))
+            bg_surf.set_alpha(200)
+            ox = viewport_rect.x + 10
+            oy = viewport_rect.y + 10
+            screen.blit(bg_surf, (ox, oy))
+            screen.blit(overlay, (ox + 8, oy + 4))
+            
         sx_pos = 8
         sy_pos = status_rect_layout.y + (STATUS_H - small.get_height()) // 2
         for part in status_parts:

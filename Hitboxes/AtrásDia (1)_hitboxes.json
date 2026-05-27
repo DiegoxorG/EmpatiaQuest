@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\Atr\u00e1sDia (1).png",
+  "image": "Imagenes\\Fondos\\Atr\u00e1sDia (1).png",
   "image_size": [
     1923,
     1282
@@ -647,5 +647,6 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": []
 }

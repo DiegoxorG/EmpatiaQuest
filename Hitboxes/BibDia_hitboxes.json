@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\BibDia.png",
+  "image": "Imagenes\\Fondos\\BibDia.png",
   "image_size": [
     1923,
     1282
@@ -324,6 +324,14 @@
       "rh": 0.0421216848673947,
       "action": "puerta",
       "target_image": "Pasillo2Dia.png"
+    },
+    {
+      "role": "wall",
+      "type": "rect",
+      "rx": 0.9006760270410816,
+      "ry": 0.7067082683307332,
+      "rw": 0.02080083203328133,
+      "rh": 0.036661466458658344
     }
   ],
   "spawn": {

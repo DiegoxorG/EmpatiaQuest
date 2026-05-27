@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\AtrasTarde (1).png",
+  "image": "Imagenes\\Fondos\\AtrasTarde (1).png",
   "image_size": [
     1923,
     1282
@@ -553,16 +553,6 @@
       "thickness": 0.004160166406656267
     },
     {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.3967758710348414,
-      "ry": 0.3049921996879875,
-      "rw": 0.07384295371814872,
-      "rh": 0.15366614664586584,
-      "action": "puerta",
-      "target_image": "AtrasTarde (1).png"
-    },
-    {
       "role": "wall",
       "type": "line",
       "x1": 0.7763910556422257,
@@ -674,5 +664,6 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": []
 }

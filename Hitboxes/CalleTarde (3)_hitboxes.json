@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\CalleTarde (3).png",
+  "image": "Imagenes\\Fondos\\CalleTarde (3).png",
   "image_size": [
     1923,
     1282
@@ -344,5 +344,6 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": []
 }

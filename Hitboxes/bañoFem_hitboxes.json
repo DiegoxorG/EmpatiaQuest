@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\ba\u00f1oFem.png",
+  "image": "Imagenes\\Fondos\\ba\u00f1oFem.png",
   "image_size": [
     1709,
     1282
@@ -280,5 +280,6 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": []
 }

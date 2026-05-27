@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\Sal\u00f3n2dia.png",
+  "image": "Imagenes\\Fondos\\Sal\u00f3n2dia.png",
   "image_size": [
     1709,
     1282
@@ -331,5 +331,6 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": []
 }

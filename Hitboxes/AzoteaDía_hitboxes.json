@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\AzoteaD\u00eda.png",
+  "image": "Imagenes\\Fondos\\AzoteaD\u00eda.png",
   "image_size": [
     1923,
     1282
@@ -654,5 +654,6 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": []
 }

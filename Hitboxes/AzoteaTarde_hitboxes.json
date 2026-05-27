@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\AzoteaTarde.png",
+  "image": "Imagenes\\Fondos\\AzoteaTarde.png",
   "image_size": [
     1923,
     1282
@@ -494,5 +494,6 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": []
 }

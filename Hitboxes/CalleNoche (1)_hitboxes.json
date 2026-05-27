@@ -1,5 +1,5 @@
 {
-  "image": "Imagenes\\CalleNoche (1).png",
+  "image": "Imagenes\\Fondos\\CalleNoche (1).png",
   "image_size": [
     1923,
     1282
@@ -328,5 +328,6 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": []
 }
