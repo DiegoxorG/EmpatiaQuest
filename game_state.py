@@ -19,7 +19,13 @@ from config import (
     CUSTOM_PARTS, PART_STYLES, PROLOGO_RAZON_CHOICES,
 )
 from achievements import Lista_Logros, LOGRO_TRIGGERS
-from scene_manager import get_scene_dia1_salon
+from scene_manager import (
+    get_scene_dia1_salon,
+    get_scene_pupitre_rayado_intro,
+    get_scene_pupitre_borrar_gracias,
+    get_scene_pupitre_foto,
+    get_scene_pupitre_profesor,
+)
 
 
 # ─── Habilidades disponibles y sus triggers ────────────────────────────────────
@@ -125,7 +131,8 @@ class GameStateMixin:
             "controls": self._serialize_controls(),
             "skills_inventory": self.skills_inventory,
             "logros": self.lista_logros.to_list(),
-            "escena_dia1_completada": getattr(self, "escena_dia1_completada", False),
+            "escena_dia1_completada":   getattr(self, "escena_dia1_completada",   False),
+            "pupitre_rayado_completado": getattr(self, "pupitre_rayado_completado", False),
         }
 
     def _migrate_save_data(self, data):
@@ -153,7 +160,8 @@ class GameStateMixin:
         data = self._migrate_save_data(data)
         self._start_adventure()
         self.day1_intro_step        = 2   # No mostrar intro al cargar partida
-        self.escena_dia1_completada = bool(data.get("escena_dia1_completada", False))
+        self.escena_dia1_completada    = bool(data.get("escena_dia1_completada",   False))
+        self.pupitre_rayado_completado = bool(data.get("pupitre_rayado_completado", False))
         self.player_name = str(data.get("player_name", ""))
         self.current_day = int(data.get("current_day", 1))
         self.story_felicidad = int(data.get("story_felicidad", 50))
@@ -417,6 +425,12 @@ class GameStateMixin:
         self.day1_pupitre_erase_surface = None
         self.day1_pupitre_erase_progress = 0.0
         self.day1_pupitre_result = ""
+        # ── Evento pupitre rayado ─────────────────────────────────────────────
+        self.pupitre_rayado_completado  = False
+        self.pupitre_rayado_foto_active = False
+        self.pupitre_rayado_foto_timer  = 0
+        self.pupitre_rayado_fondo       = ""    # "" | "sara"
+        self.tarde_player_seated        = False  # jugador auto-sentado en SalonTarde
         self.day1_completed = False
         self.day1_end_timer = 0
         self.day1_sara_npc_warned = False
@@ -784,12 +798,39 @@ class GameStateMixin:
 
     def _toggle_seat_state(self, interactable):
         if self.story_is_seated:
-            self.story_is_seated = False
-            self.story_seated_hitbox = None
+            # Guardar referencia al pupitre antes de limpiarla, para posicionar
+            # al jugador fuera de su hitbox al levantarse.
+            _prev_desk = self.story_seated_pupitre or self.story_seated_hitbox
+
+            self.story_is_seated      = False
+            self.story_seated_hitbox  = None
             self.story_seated_pupitre = None
-            self.story_thought = "Te levantaste de la silla."
+            self.story_thought          = "Te levantaste de la silla."
             self.story_interaction_text = "Ya no estas sentado."
             self.audio.sfx_sentarse()
+
+            # Mover al jugador justo debajo del pupitre para que no quede encima
+            if _prev_desk is not None and _prev_desk.get("type") == "rect":
+                _desk_cx = int(self.story_world_width  * (_prev_desk["rx"] + _prev_desk["rw"] / 2))
+                _desk_by = int(self.story_world_height * (_prev_desk["ry"] + _prev_desk["rh"]))
+                _stand_y = _desk_by + self.player_rect.height // 2 + 6
+                self._set_player_center((_desk_cx, _stand_y))
+            # ── Tarde: el jugador se levanta → iniciar evento pupitre rayado ─
+            if (getattr(self, "tarde_player_seated", False)
+                    and getattr(self, "day1_in_tarde", False)
+                    and getattr(self, "escena_dia1_completada", False)
+                    and not getattr(self, "pupitre_rayado_completado", False)):
+                self.tarde_player_seated    = False
+                self.pupitre_rayado_fondo   = "sara"
+                self.player_can_move        = False
+                self.story_thought          = ""
+                self.story_interaction_text = ""
+                audio = getattr(self, "audio", None)
+                if audio:
+                    audio.play_decision_bgm()
+                pname = getattr(self, "player_name", "") or "Protagonista"
+                self.scene_manager  = get_scene_pupitre_rayado_intro(pname)
+                self.escena_activa  = "pupitre_rayado_intro"
             return
         center = self._interactable_center(interactable)
         self._set_player_center(center)
@@ -798,6 +839,32 @@ class GameStateMixin:
         self.story_thought = "Te sentaste."
         self.story_interaction_text = "Estas sentado. Presiona E para levantarte."
         self.audio.sfx_sentarse()
+
+    def _auto_seat_player_tarde(self):
+        """Sienta automáticamente al jugador en SalonTarde en el 2.º pupitre de la fila 2.
+        El jugador permanece sentado hasta que presione E para levantarse y
+        activar el evento del pupitre rayado de Sara.
+        """
+        # 2.º pupitre de la fila inferior (rx≈0.3201, ry≈0.6911)
+        TARGET_RX, TARGET_RY = 0.3201, 0.6911
+        desk = None
+        best = float("inf")
+        for h in self.story_walls:
+            if h.get("action") != "objeto":
+                continue
+            d = (h.get("rx", 0) - TARGET_RX) ** 2 + (h.get("ry", 0) - TARGET_RY) ** 2
+            if d < best:
+                best, desk = d, h
+        if desk is None or best > 0.015:
+            return
+        # Sentar al jugador
+        self.story_is_seated      = True
+        self.story_seated_hitbox  = desk
+        self.story_seated_pupitre = desk
+        self.tarde_player_seated  = True
+        self._set_player_center(self._interactable_center(desk))
+        self.story_thought          = "Ya es tarde... todos se han ido."
+        self.story_interaction_text = "Presiona E para levantarte."
 
     def _change_adventure_background(self, target_image_name):
         if not target_image_name:
@@ -872,6 +939,12 @@ class GameStateMixin:
             npc_mgr = getattr(self, "npc_ai_manager", None)
             if npc_mgr is not None:
                 npc_mgr.notify_phase("saliendo")
+            # ── Tarde: reloj → 14:30 y sentar al jugador para esperar ───────
+            if (getattr(self, "escena_dia1_completada", False)
+                    and not getattr(self, "pupitre_rayado_completado", False)):
+                self.story_clock_hour   = 14
+                self.story_clock_minute = 30
+                self._auto_seat_player_tarde()
         elif base == "habtarde.png":
             if not getattr(self, "day1_completed", False) and getattr(self, "day1_in_tarde", False):
                 self.day1_end_timer = 2500  # 2.5 segundos para "Fin del Día 1"
@@ -1075,6 +1148,13 @@ class GameStateMixin:
             npc_mgr.update(dt_ms, self)
         self._sync_scene_audio()
 
+        # ── Temporizador foto pupitre rayado ────────────────────────────────────
+        if getattr(self, "pupitre_rayado_foto_active", False):
+            self.pupitre_rayado_foto_timer -= dt_ms
+            if self.pupitre_rayado_foto_timer <= 0:
+                self.pupitre_rayado_foto_active = False
+                self.pupitre_rayado_foto_timer  = 0
+
         # ── SceneManager update ───────────────────────────────────────────────
         sm = getattr(self, "scene_manager", None)
         if sm is not None and getattr(self, "escena_activa", None) is not None:
@@ -1164,7 +1244,11 @@ class GameStateMixin:
                 map_name=self.aventura_fondo.ruta_imagen,
             )
         # ── CAMBIO 4: Detección de proximidad al pupitre rayado ──────────────
-        if getattr(self, "day1_in_tarde", False) and getattr(self, "day1_pupitre_step", 0) == 0:
+        # (sólo activo si no hay escena automática ni evento ya completado)
+        if (getattr(self, "day1_in_tarde", False)
+                and getattr(self, "day1_pupitre_step", 0) == 0
+                and not getattr(self, "pupitre_rayado_completado", False)
+                and getattr(self, "escena_activa", None) is None):
             for h in self.story_walls:
                 if h.get("zone_tag") == "pupitre_rayado":
                     dist = self._dist_to_hitbox(h)

@@ -13,6 +13,11 @@ import screens.creditos as creditos_screen
 from minigame_manager import MinigameManager
 from penaltis_manager import PenaltisManager
 from atrapa_emociones_manager import AtrapaEmocionesManager
+from scene_manager import (
+    get_scene_pupitre_borrar_gracias,
+    get_scene_pupitre_foto,
+    get_scene_pupitre_profesor,
+)
 
 
 class ScreenHandlersMixin:
@@ -560,8 +565,8 @@ class ScreenHandlersMixin:
                     pass
                 if total > 0:
                     self.day1_pupitre_erase_progress = erased / total
-                # Si 80% borrado → cerrar automáticamente
-                if self.day1_pupitre_erase_progress >= 0.8:
+                # Si 100% borrado → cerrar y lanzar escena de agradecimiento
+                if self.day1_pupitre_erase_progress >= 1.0:
                     pname = getattr(self, "player_name", "") or "Protagonista"
                     self.story_thought = f"{pname}: Listo, ya no se ven esos mensajes."
                     self.story_felicidad = max(0, min(100, self.story_felicidad + 1))
@@ -571,6 +576,10 @@ class ScreenHandlersMixin:
                     audio = getattr(self, "audio", None)
                     if audio is not None:
                         audio.sfx_decision()
+                    # ── Lanzar escena de agradecimiento de Sara ──────────────
+                    self.scene_manager = get_scene_pupitre_borrar_gracias(pname)
+                    self.escena_activa = "pupitre_borrar_gracias"
+                    self.player_can_move = True
 
         if event.type == pygame.KEYDOWN:
             # ── CAMBIO 3: Avance de diálogos Día 1 ───────────────────────────
@@ -619,45 +628,76 @@ class ScreenHandlersMixin:
                     # El minijuego se activa con el mouse; simplemente mostramos el mensaje
                     return
                 elif event.key == pygame.K_b:
-                    self.story_thought = f"{pname}: Bah, no me importa."
+                    # [B] Ignorar — F-3, R+0
+                    self.story_thought = f"{pname}: Mejor no meterme en esto."
                     self.story_felicidad = max(0, min(100, self.story_felicidad - 3))
-                    self.day1_pupitre_zoom_active = False
-                    self.day1_pupitre_step = 3
-                    self.day1_pupitre_result = "ignorar"
+                    self.day1_pupitre_zoom_active  = False
+                    self.day1_pupitre_step         = 3
+                    self.day1_pupitre_result       = "ignorar"
+                    self.pupitre_rayado_completado = True
+                    self.current_mission           = "Volver a casa"
+                    self.decision_history.append({
+                        "event_id":     "dia1_pupitre_rayado",
+                        "option_label": "ignorar",
+                        "dF": -3, "dR": 0,
+                        "thought": "Ignoré los insultos en el pupitre de Sara.",
+                    })
+                    self.player_can_move = True
                     audio = getattr(self, "audio", None)
                     if audio is not None:
                         audio.sfx_error()
                     return
                 elif event.key == pygame.K_c:
-                    self.story_thought = f"{pname}: ¡Esto es genial!"
-                    self.story_felicidad = max(0, min(100, self.story_felicidad - 5))
+                    # [C] Tomar foto — F-5, R+1
+                    self.story_thought = f"{pname}: Voy a documenter esto."
+                    self.story_felicidad  = max(0, min(100, self.story_felicidad  - 5))
                     self.story_reputacion = max(0, min(100, self.story_reputacion + 1))
-                    self.day1_pupitre_zoom_active = False
-                    self.day1_pupitre_step = 3
-                    self.day1_pupitre_result = "foto"
+                    self.day1_pupitre_zoom_active  = False
+                    self.day1_pupitre_step         = 3
+                    self.day1_pupitre_result       = "foto"
+                    self.pupitre_rayado_foto_active = True
+                    self.pupitre_rayado_foto_timer  = 800   # ms de flash
                     # 🎵 ASSET_SFX: Audio/SFX/camara_foto.ogg | Sonido de shutter de cámara
                     audio = getattr(self, "audio", None)
                     if audio:
                         audio.sfx_camara()
+                    # ── Lanzar escena de reacción de Sara ────────────────────
+                    self.scene_manager = get_scene_pupitre_foto(pname)
+                    self.escena_activa = "pupitre_foto"
+                    self.player_can_move = True
                     return
                 elif event.key == pygame.K_d:
+                    # [D] Llamar a la profesora — F+2, R+1
                     self.story_thought = f"{pname}: ¡Profe, venga a ver esto!"
-                    self.story_felicidad = max(0, min(100, self.story_felicidad + 2))
+                    self.story_felicidad  = max(0, min(100, self.story_felicidad  + 2))
                     self.story_reputacion = max(0, min(100, self.story_reputacion + 1))
                     self.day1_pupitre_zoom_active = False
-                    self.day1_pupitre_step = 3
-                    self.day1_pupitre_result = "profesor"
-                    transitions = getattr(self, "transitions", None)
-                    if transitions and transitions.is_idle():
-                        transitions.request(self, "aventura")
+                    self.day1_pupitre_step        = 3
+                    self.day1_pupitre_result      = "profesor"
+                    # ── Lanzar escena del profesor ───────────────────────────
+                    self.scene_manager = get_scene_pupitre_profesor(pname)
+                    self.escena_activa = "pupitre_profesor"
+                    self.player_can_move = True
                     audio = getattr(self, "audio", None)
                     if audio is not None:
                         audio.sfx_decision()
                     return
                 elif event.key == pygame.K_ESCAPE:
-                    self.day1_pupitre_zoom_active = False
-                    self.day1_pupitre_step = 3
-                    self.day1_pupitre_result = "ignorar"
+                    # ESC = ignorar (fallback, mismos efectos que [B])
+                    self.story_thought = f"{pname}: Mejor no meterme en esto."
+                    self.story_felicidad = max(0, min(100, self.story_felicidad - 3))
+                    self.day1_pupitre_zoom_active  = False
+                    self.day1_pupitre_step         = 3
+                    self.day1_pupitre_result       = "ignorar"
+                    self.pupitre_rayado_completado = True
+                    self.current_mission           = "Volver a casa"
+                    self.decision_history.append({
+                        "event_id":     "dia1_pupitre_rayado",
+                        "option_label": "ignorar",
+                        "dF": -3, "dR": 0,
+                        "thought": "Ignoré los insultos en el pupitre de Sara.",
+                    })
+                    self.player_can_move = True
                     audio = getattr(self, "audio", None)
                     if audio is not None:
                         audio.sfx_error()
