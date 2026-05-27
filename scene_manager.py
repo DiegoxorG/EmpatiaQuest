@@ -411,6 +411,15 @@ def get_scene_dia1_salon(player_name: str) -> SceneManager:
         npc_mgr = getattr(game, "npc_ai_manager", None)
         if npc_mgr is not None:
             npc_mgr.notify_phase("en_clase")
+        # Transición automática a SalonTarde → activa el evento del pupitre rayado
+        transitions = getattr(game, "transitions", None)
+        if transitions is not None and transitions.is_idle():
+            transitions.request(
+                game, "aventura",
+                callback=lambda: game._change_adventure_background("SalonTarde.png"),
+            )
+        else:
+            game._change_adventure_background("SalonTarde.png")
 
     # Diego está en decoracion index 8: x≈0.610, y≈0.716
     _DIEGO_RX, _DIEGO_RY = 0.610, 0.716
@@ -451,6 +460,178 @@ def get_scene_dia1_salon(player_name: str) -> SceneManager:
             condition=lambda g: getattr(g, "_sm_dia1_result", "") == "sara",
         ),
 
-        # 8 — marcar escena completada
+        # 8 — marcar escena completada + transición a SalonTarde
         ActionBeat(beat8_completar),
+    ])
+
+
+# ── Pupitre Rayado — escenas post-asiento ────────────────────────────────────
+
+def get_scene_pupitre_rayado_intro(player_name: str) -> SceneManager:
+    """
+    Intro del evento del pupitre rayado.
+    El jugador se levanta en SalonTarde → fondo cambia a sara_pupitre_rayado_256x256.png
+    → conversación → fondo cambia a Pupitre.png + letras.png para decidir.
+    """
+    import os as _os
+    import pygame as _pg
+
+    pname = player_name or "Protagonista"
+
+    def beat_activar_zoom(game):
+        """Cierra el fondo cinemático y activa la vista de decisión (Pupitre.png + letras.png)."""
+        game.pupitre_rayado_fondo     = ""         # ya no mostramos la imagen de Sara
+        game.escena_activa            = None        # cerrar overlay de la escena
+        game.day1_pupitre_step        = 2           # mostrar panel A/B/C/D
+        game.day1_pupitre_zoom_active = True
+
+        # Crear superficie borradora con letras.png (los insultos que se pueden borrar)
+        erase_surf = _pg.Surface((game.width, game.height), _pg.SRCALPHA)
+        letras_path = _os.path.join(
+            _os.path.dirname(__file__),
+            "Imagenes", "Interactuables", "letras.png",
+        )
+        try:
+            raw = _pg.image.load(letras_path).convert_alpha()
+            erase_surf.blit(_pg.transform.scale(raw, (game.width, game.height)), (0, 0))
+        except (OSError, _pg.error):
+            erase_surf.fill((80, 40, 40, 200))
+        game.day1_pupitre_erase_surface  = erase_surf
+        game.day1_pupitre_erase_progress = 0.0
+
+    return SceneManager([
+        # 1 — protagonista nota el pupitre (fondo ya es sara_pupitre_rayado, activado al levantarse)
+        DialogBeat(
+            pname, "¿Qué es eso...? El pupitre de Sara tiene algo escrito.",
+            avanza_con="tiempo", tiempo_ms=2800,
+        ),
+        # 2 — Sara parece triste (pausa dramática)
+        DialogBeat(
+            "Sara", "...",
+            avanza_con="tiempo", tiempo_ms=1800,
+        ),
+        # 3 — protagonista lee los insultos en voz alta
+        DialogBeat(
+            pname,
+            '"Nadie te quiere.", "Rara.", "Mejor no vengas." — ¿Quién hizo esto?',
+            avanza_con="tiempo", tiempo_ms=3200,
+        ),
+        # 4 — cambiar al zoom del pupitre con letras.png para la decisión
+        ActionBeat(beat_activar_zoom),
+    ])
+
+
+def get_scene_pupitre_borrar_gracias(player_name: str) -> SceneManager:
+    """
+    Post-decisión A: el jugador borra los insultos.
+    Sara agradece; se actualiza la misión y la habilidad.
+    """
+    pname = player_name or "Protagonista"
+
+    def beat_completar(game):
+        game.escena_activa             = None
+        game.player_can_move           = True
+        game.pupitre_rayado_completado = True
+        game.current_mission           = "Volver a casa"
+        game.decision_history.append({
+            "event_id":     "dia1_pupitre_rayado",
+            "option_label": "borrar",
+            "dF": +1, "dR": 0,
+            "thought": "Borré los mensajes del pupitre de Sara.",
+        })
+        skills = getattr(game, "skills_inventory", {})
+        if "Intervencion Pacifica" in skills:
+            s = skills["Intervencion Pacifica"]
+            s["nivel"] = min(s.get("max_nivel", 3), s.get("nivel", 0) + 1)
+
+    return SceneManager([
+        DialogBeat(
+            "Sara", "Gracias... no esperaba que nadie lo notara.",
+            avanza_con="click",
+        ),
+        DialogBeat(
+            pname, "Nadie merece ver eso.",
+            avanza_con="click",
+        ),
+        ActionBeat(beat_completar),
+    ])
+
+
+def get_scene_pupitre_foto(player_name: str) -> SceneManager:
+    """
+    Post-decisión C: el jugador toma foto del pupitre.
+    Sara reacciona con tristeza.
+    """
+    pname = player_name or "Protagonista"
+
+    def beat_completar(game):
+        game.escena_activa             = None
+        game.player_can_move           = True
+        game.pupitre_rayado_completado = True
+        game.current_mission           = "Volver a casa"
+        game.decision_history.append({
+            "event_id":     "dia1_pupitre_rayado",
+            "option_label": "foto",
+            "dF": -5, "dR": +1,
+            "thought": "Tomé foto del pupitre de Sara para documentarlo.",
+        })
+
+    return SceneManager([
+        DialogBeat(
+            pname, "*¡Clic!* Documentado. Que quede constancia.",
+            avanza_con="tiempo", tiempo_ms=2000,
+        ),
+        DialogBeat(
+            "Sara", "¿Por qué...? Ahora todo el mundo lo verá.",
+            avanza_con="click",
+        ),
+        DialogBeat(
+            pname, "...",
+            avanza_con="tiempo", tiempo_ms=1500,
+        ),
+        ActionBeat(beat_completar),
+    ])
+
+
+def get_scene_pupitre_profesor(player_name: str) -> SceneManager:
+    """
+    Post-decisión D: el jugador llama al profesor.
+    El profesor consolida y anima a Sara.
+    """
+    pname = player_name or "Protagonista"
+
+    def beat_completar(game):
+        game.escena_activa             = None
+        game.player_can_move           = True
+        game.pupitre_rayado_completado = True
+        game.current_mission           = "Volver a casa"
+        game.decision_history.append({
+            "event_id":     "dia1_pupitre_rayado",
+            "option_label": "profesor",
+            "dF": +2, "dR": +1,
+            "thought": "Llamé al profesor para que vea lo del pupitre de Sara.",
+        })
+        skills = getattr(game, "skills_inventory", {})
+        if "Valentia Social" in skills:
+            s = skills["Valentia Social"]
+            s["nivel"] = min(s.get("max_nivel", 3), s.get("nivel", 0) + 1)
+
+    return SceneManager([
+        DialogBeat(
+            pname, "¡Profe! Venga, necesito que vea algo.",
+            avanza_con="tiempo", tiempo_ms=1800,
+        ),
+        DialogBeat(
+            "Profesora", "Dios mío... ¿quién hizo esto?",
+            avanza_con="click",
+        ),
+        DialogBeat(
+            "Profesora", "Sara, esto no puede quedar así. Vamos a hablar con el director.",
+            avanza_con="click",
+        ),
+        DialogBeat(
+            "Sara", "Gracias...",
+            avanza_con="tiempo", tiempo_ms=2000,
+        ),
+        ActionBeat(beat_completar),
     ])

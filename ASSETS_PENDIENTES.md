@@ -19,6 +19,7 @@ automáticamente en la próxima ejecución.
 | `Imagenes/Interactuables/PupitreRayones.png` | 1280×720 | Capa transparente PNG con los insultos encima del pupitre (para borrar progresivamente) |
 | `Imagenes/UI/borrador_cursor.png` | 48×48 | Borrador de tablero pixel-art (cursor del minijuego de borrado) |
 | `Imagenes/Personajes/Profesor/parado.png` | mismas dims que otros NPCs | Profesor adulto pixel-art, sprite parado |
+| `Imagenes/Interactuables/sara_pupitre_rayado_256x256.png` | 256×256 | Sara con cara triste sentada junto al pupitre rayado (ya existe en Interactuables — se muestra en esquina superior del zoom) ✅ |
 
 > **Personajes existentes**
 

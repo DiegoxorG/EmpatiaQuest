@@ -737,15 +737,30 @@ class RendererMixin:
 
     # _load_object_interactable_image and _get_cropped_object_image defined in GameStateMixin
 
+    # Coordenadas del pupitre de Sara en SalonTarde (del JSON, para identificación dinámica)
+    _SARA_TARDE_RX = 0.16969
+    _SARA_TARDE_RY = 0.68955
+    _SARA_TARDE_TOL = 0.006   # tolerancia para comparación de posición
+
+    def _is_sara_tarde_desk(self, h):
+        """Devuelve True si este hitbox de decoración es el pupitre de Sara en SalonTarde."""
+        return (
+            abs(h.get("rx", 0) - self._SARA_TARDE_RX) < self._SARA_TARDE_TOL
+            and abs(h.get("ry", 0) - self._SARA_TARDE_RY) < self._SARA_TARDE_TOL
+        )
+
     def _draw_object_interactables_from_hitboxes(self):
         seated_pupitre = getattr(self, "story_seated_pupitre", None)
         pup_ocupados = getattr(self, "pupitres_ocupados", set())
+
+        in_tarde = getattr(self, "day1_in_tarde", False)
+
         for h in self.story_walls:
             if h.get("role") != "interactable" or h.get("action") != "objeto":
                 continue
             if seated_pupitre is not None and h is seated_pupitre:
                 continue  # pupitre hidden while player is seated there
-            # Mejora 2: ocultar pupitre decorativo si un NPC está sentado allí, dibujar su animación
+            # Mejora 2: ocultar pupitre decorativo si un NPC está sentado allí
             if h.get("object_name", "") == "Pupitre-Salón1.png" and pup_ocupados:
                 cx = round(h["rx"] + h["rw"] / 2, 4)
                 cy = round(h["ry"] + h["rh"] / 2, 4)
@@ -754,13 +769,19 @@ class RendererMixin:
                     continue
             if h.get("type") != "rect":
                 continue
-            object_name = h.get("object_name", "")
-            image = self._load_object_interactable_image(object_name)
+
+            # ── Pupitre de Sara en SalonTarde: lo dibuja _draw_sara_tarde_seated ─
+            # Saltamos el sprite del pupitre completamente para que no se vea ni
+            # Pupitre-Salón1.png ni el placeholder de pupitre_rayado.png encima de Sara.
+            if in_tarde and self._is_sara_tarde_desk(h):
+                continue
+
+            image = self._load_object_interactable_image(h.get("object_name", ""))
             if image is None:
-                continue  # No debería ocurrir con el fallback, pero por seguridad
-            x = int(self.story_world_width * h["rx"]) - self.story_camera_x
-            y = int(self.story_world_height * h["ry"]) - self.story_camera_y
-            w = max(8, int(self.story_world_width * h["rw"]))
+                continue
+            x    = int(self.story_world_width  * h["rx"]) - self.story_camera_x
+            y    = int(self.story_world_height * h["ry"]) - self.story_camera_y
+            w    = max(8, int(self.story_world_width  * h["rw"]))
             h_px = max(8, int(self.story_world_height * h["rh"]))
             image = self._get_cropped_object_image(image, h.get("crop"))
             scaled = pygame.transform.smoothscale(image, (w, h_px))
@@ -1011,55 +1032,164 @@ class RendererMixin:
     def _draw_pupitre_zoom(self):
         if not getattr(self, "day1_pupitre_zoom_active", False):
             return
-        # Fondo zoom
-        # 🖼️ ASSET_IMG: Imagenes/Interactuables/PupitreRayado_zoom.png | 1280x720 | Pupitre con insultos escritos, vista de cerca
-        zoom_img = self._load_object_interactable_image("PupitreRayado_zoom.png")
-        if zoom_img is not None:
-            scaled = pygame.transform.scale(zoom_img, (self.width, self.height))
-            self.screen.blit(scaled, (0, 0))
-        else:
-            placeholder = pygame.Surface((self.width, self.height))
-            placeholder.fill((80, 60, 40))
-            self.screen.blit(placeholder, (0, 0))
-            self.draw_pixel_text("Pupitre Rayado", self.width // 2, self.height // 2 - 60, "subtitle", (255, 255, 255), True)
 
-        # Capa de rayones borrables (si no se está borrando, mostrar overlay)
-        # 🖼️ ASSET_IMG: Imagenes/Interactuables/PupitreRayones.png | 1280x720 | Capa PNG con insultos encima del pupitre
+        # ── 1. Fondo del pupitre limpio ───────────────────────────────────────
+        # 🖼️ ASSET_IMG: Imagenes/Interactuables/Pupitre.png | fondo del pupitre sin graffiti
+        zoom_img = self._load_object_interactable_image("Pupitre.png")
+        if zoom_img is not None:
+            self.screen.blit(pygame.transform.scale(zoom_img, (self.width, self.height)), (0, 0))
+        else:
+            # Fallback: fondo de madera marrón con textura simple
+            placeholder = pygame.Surface((self.width, self.height))
+            placeholder.fill((100, 72, 40))
+            for _lx in range(0, self.width, 90):
+                pygame.draw.line(placeholder, (80, 55, 28), (_lx, 0), (_lx, self.height), 2)
+            self.screen.blit(placeholder, (0, 0))
+
+        # ── 2. Capa de letras.png borrables ───────────────────────────────────
+        # 🖼️ ASSET_IMG: Imagenes/Interactuables/letras.png | capa PNG con insultos (se borra con el ratón)
         erase_surf = getattr(self, "day1_pupitre_erase_surface", None)
         if erase_surf is not None:
             self.screen.blit(erase_surf, (0, 0))
 
         pname = getattr(self, "player_name", "") or "Protagonista"
-        step = getattr(self, "day1_pupitre_step", 2)
+        step  = getattr(self, "day1_pupitre_step", 2)
         if step == 2:
-            # Panel de opciones
-            panel_h = 220
+            # ── 3. Panel de decisiones ────────────────────────────────────────
+            panel_h = 230
             panel = pygame.Rect(26, self.height - panel_h - 10, self.width - 52, panel_h)
             overlay = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
-            overlay.fill((242, 242, 242, 220))
+            overlay.fill((242, 242, 242, 225))
             self.screen.blit(overlay, panel.topleft)
             pygame.draw.rect(self.screen, (18, 18, 18), panel, 4)
-            self.draw_pixel_text(f"{pname}: Vaya, cuántos comentarios groseros.", panel.x + 16, panel.y + 24, "body", TEXT_MAIN, False)
+            self.draw_pixel_text(
+                f"{pname}: Vaya... ¿quién le habrá escrito esto a Sara?",
+                panel.x + 16, panel.y + 22, "body", TEXT_MAIN, False,
+            )
             opts = [
-                ("A", "Borrar mensajes"),
+                ("A", "Borrar mensajes (arrastra el ratón)"),
                 ("B", "Ignorar"),
                 ("C", "Tomar foto"),
-                ("D", "Mostrar al profesor"),
+                ("D", "Llamar a la profesora"),
             ]
             col_w = (panel.width - 32) // 2
-            for i, (key, label) in enumerate(opts):
-                col = i % 2
-                row = i // 2
-                x = panel.x + 16 + col * col_w
-                y = panel.y + 70 + row * 52
-                self.draw_pixel_text(f"[{key}] {label}", x, y, "small", TEXT_MAIN, False)
-            self.draw_pixel_text("ESC para volver", panel.right - 16, panel.bottom - 18, "small", TEXT_SOFT, False)
+            for _i, (key, label) in enumerate(opts):
+                _col = _i % 2
+                _row = _i // 2
+                _x   = panel.x + 16 + _col * col_w
+                _y   = panel.y + 68 + _row * 54
+                self.draw_pixel_text(f"[{key}] {label}", _x, _y, "small", TEXT_MAIN, False)
+            # Barra de progreso del borrado
+            prog = getattr(self, "day1_pupitre_erase_progress", 0.0)
+            if prog > 0:
+                _bx = panel.x + 16
+                _by = panel.y + 185
+                _bw = panel.width - 32
+                pygame.draw.rect(self.screen, (180, 180, 180), (_bx, _by, _bw, 16))
+                pygame.draw.rect(self.screen, (60, 180, 80),   (_bx, _by, int(_bw * prog), 16))
+                pygame.draw.rect(self.screen, (18, 18, 18),    (_bx, _by, _bw, 16), 2)
+                self.draw_pixel_text(
+                    f"Borrado: {int(prog * 100)}%",
+                    _bx + _bw // 2, _by + 8, "small", TEXT_MAIN, True,
+                )
+            self.draw_pixel_text("ESC = ignorar", panel.right - 16, panel.bottom - 16, "small", TEXT_SOFT, False)
+
+        # ── 4. Flash de foto ──────────────────────────────────────────────────
+        if getattr(self, "pupitre_rayado_foto_active", False):
+            _timer = getattr(self, "pupitre_rayado_foto_timer", 0)
+            _alpha = max(0, min(255, int(255 * _timer / 800)))
+            _flash = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            _flash.fill((255, 255, 255, _alpha))
+            self.screen.blit(_flash, (0, 0))
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # SalonTarde: fondo sara + Sara sentada
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _draw_pupitre_sara_fondo(self):
+        """Dibuja sara_pupitre_rayado_256x256.png escalado a pantalla completa.
+        Se muestra mientras dure la escena cinemática del pupitre rayado."""
+        # 🖼️ ASSET_IMG: Imagenes/Interactuables/sara_pupitre_rayado_256x256.png | 256x256 | Fondo conversación
+        _path = os.path.join(
+            os.path.dirname(__file__), "Imagenes", "Interactuables",
+            "sara_pupitre_rayado_256x256.png",
+        )
+        cache_surf = getattr(self, "_sara_fondo_surf", None)
+        cache_size = getattr(self, "_sara_fondo_size", None)
+        if cache_surf is None or cache_size != (self.width, self.height):
+            try:
+                raw = pygame.image.load(_path).convert_alpha()
+                cache_surf = pygame.transform.scale(raw, (self.width, self.height))
+            except (OSError, pygame.error):
+                cache_surf = False
+            self._sara_fondo_surf = cache_surf
+            self._sara_fondo_size = (self.width, self.height)
+        if cache_surf:
+            self.screen.blit(cache_surf, (0, 0))
+        else:
+            # Fallback: fondo oscuro con texto
+            self.screen.fill((30, 25, 40))
+            self.draw_pixel_text(
+                "[ pupitre rayado de Sara ]",
+                self.width // 2, self.height // 2 - 30, "subtitle", (180, 160, 200), True,
+            )
+
+    def _draw_sara_tarde_seated(self):
+        """Dibuja a Sara sentada en su pupitre rayado durante SalonTarde.
+        Solo activo cuando day1_in_tarde=True, el fondo actual ES SalonTarde
+        y no hay zoom/sara-fondo activo."""
+        if not getattr(self, "day1_in_tarde", False):
+            return
+        # Verificar que el mapa actual sea SalonTarde; day1_in_tarde no se resetea
+        # al cambiar de mapa, así que sin este check Sara aparecería en otros fondos.
+        _fondo = getattr(self, "aventura_fondo", None)
+        if _fondo is None:
+            return
+        _ruta = str(getattr(_fondo, "ruta_imagen", "")).lower().replace("\\", "/")
+        if "salontarde" not in _ruta:
+            return
+        if getattr(self, "pupitre_rayado_fondo", "") == "sara":
+            return
+        if getattr(self, "day1_pupitre_zoom_active", False):
+            return
+        # Hitbox sintético que apunta a la posición de Sara en SalonTarde
+        _h = {
+            "type":          "rect",
+            "role":          "interactable",
+            "action":        "objeto",
+            "object_name":   "pupitre_rayado.png",
+            "npc_owner":     "Sara",
+            "npc_animation": "Sara_Sentado.png",
+            "rx": 0.16969,
+            "ry": 0.68955,
+            "rw": 0.1023990637799883,
+            "rh": 0.12792511700468018,
+            "crop": {
+                "x": 0.3170572916666667,
+                "y": 0.224609375,
+                "w": 0.3509114583333333,
+                "h": 0.486328125,
+            },
+        }
+        self._draw_seated_npc_at_pupitre(_h)
 
     def _draw_adventure_screen(self):
         self.screen.fill((255, 255, 255))
         self.story_map_rect = pygame.Rect(0, 0, self.story_world_width, self.story_world_height)
         self.player_rect.clamp_ip(self.story_map_rect)
         self._update_story_camera()
+
+        # ── Fondo sara: imagen fullscreen mientras dure la conversación ────────
+        # pupitre_rayado_fondo == "sara" se activa al levantarse del pupitre y
+        # se borra cuando el ActionBeat activa el zoom de decisión.
+        if getattr(self, "pupitre_rayado_fondo", "") == "sara":
+            self._draw_pupitre_sara_fondo()
+            self._draw_story_clock_hud()
+            if getattr(self, "escena_activa", None) is not None:
+                sm = getattr(self, "scene_manager", None)
+                if sm is not None:
+                    sm.draw(self.screen, self.base_fonts, self.width, self.height)
+            return
 
         if self.aventura_fondo is not None:
             source = self.aventura_fondo.ruta_imagen
@@ -1150,6 +1280,10 @@ class RendererMixin:
                 self.story_world_width, self.story_world_height,
                 _cur_map,
             )
+
+        # SalonTarde: Sara sentada en su pupitre rayado (NPCs normales ya se fueron)
+        if getattr(self, "day1_in_tarde", False):
+            self._draw_sara_tarde_seated()
 
         if self.aventura_personaje is not None:
             if self.story_is_seated and self.story_seated_sprite is not None:
