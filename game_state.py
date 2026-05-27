@@ -474,6 +474,7 @@ class GameStateMixin:
         self.decision_dia2_lucas = ""
         self.day2_chat_active = False
         self.day2_chat_choice_menu_active = False
+        self.day2_chat_show_ana_photo = False
         self.day2_chat_choice = ""
         self.day2_chat_pending_choice = ""
         self.day2_chat_pending_choice = ""
@@ -1565,6 +1566,9 @@ class GameStateMixin:
         if os.path.exists(direct):
             return direct
         file_name = os.path.basename(normalized)
+        event_path = os.path.join(images_dir, "Cosas_especificas_eventos", file_name)
+        if os.path.exists(event_path):
+            return event_path
         by_name = os.path.join(images_dir, file_name)
         if os.path.exists(by_name):
             return by_name
@@ -1670,10 +1674,13 @@ class GameStateMixin:
         if cached is not None:
             return cached
         base = os.path.dirname(__file__)
-        # Ruta 1: Interactuables/<nombre>  (objetos cl?sicos)
-        object_path = os.path.join(base, "Imagenes", "Interactuables", object_name)
+        # Ruta 1: Cosas_especificas_eventos/<nombre> (assets de escenas puntuales)
+        object_path = os.path.join(base, "Imagenes", "Cosas_especificas_eventos", object_name)
         if not os.path.isfile(object_path):
-            # Ruta 2: Imagenes/<nombre>  (sprites de personajes con prefijo
+            # Ruta 2: Interactuables/<nombre>  (objetos cl?sicos)
+            object_path = os.path.join(base, "Imagenes", "Interactuables", object_name)
+        if not os.path.isfile(object_path):
+            # Ruta 3: Imagenes/<nombre>  (sprites de personajes con prefijo
             #  "Personajes/Xxx/archivo.png" puestos desde el hitbox editor)
             object_path = os.path.join(base, "Imagenes",
                                         object_name.replace("/", os.sep))

@@ -47,6 +47,38 @@ class RendererMixin:
         self.screen.blit(pixel_text, rect)
         return rect
 
+    def _truncate_pixel_text(self, text, style, max_width):
+        text = str(text)
+        font = self.base_fonts[style]
+        scale = self.pixel_scale[style]
+        if font.size(text)[0] * scale <= max_width:
+            return text
+        suffix = ".."
+        while text and font.size(text + suffix)[0] * scale > max_width:
+            text = text[:-1]
+        return (text + suffix) if text else suffix
+
+    def _draw_wrapped_pixel_text(self, text, x, y, style, color, max_width, line_gap=4):
+        words = str(text).split()
+        lines = []
+        current = ""
+        font = self.base_fonts[style]
+        scale = self.pixel_scale[style]
+        for word in words:
+            candidate = word if not current else f"{current} {word}"
+            if font.size(candidate)[0] * scale <= max_width:
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                current = self._truncate_pixel_text(word, style, max_width)
+        if current:
+            lines.append(current)
+        line_h = font.get_height() * scale + line_gap
+        for i, line in enumerate(lines):
+            self.draw_pixel_text(line, x, y + i * line_h, style, color, False)
+        return len(lines) * line_h
+
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Constructores de botones (dependen del tama?o de pantalla)
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1324,9 +1356,7 @@ class RendererMixin:
         # [IMG]ï¸ ASSET_IMG: Imagenes/Interactuables/Borradortab.png | imagen-cursor del borrador
         cache = getattr(self, "_eraser_cursor_surf", None)
         if cache is None:
-            _path = os.path.join(
-                os.path.dirname(__file__), "Imagenes", "Interactuables", "Borradortab.png"
-            )
+            _path = self._resolve_image_path("BorradorTab.png")
             try:
                 raw   = pygame.image.load(_path).convert_alpha()
                 cache = pygame.transform.scale(raw, (64, 64))
@@ -1349,10 +1379,7 @@ class RendererMixin:
         """Dibuja sara_pupitre_rayado_256x256.png escalado a pantalla completa.
         Se muestra mientras dure la escena cinem?tica del pupitre rayado."""
         # [IMG]️ ASSET_IMG: Imagenes/Interactuables/sara_pupitre_rayado_256x256.png | 256x256 | Fondo conversaci?n
-        _path = os.path.join(
-            os.path.dirname(__file__), "Imagenes", "Interactuables",
-            "sara_pupitre_rayado_256x256.png",
-        )
+        _path = self._resolve_image_path("sara_pupitre_rayado_256x256.png")
         cache_surf = getattr(self, "_sara_fondo_surf", None)
         cache_size = getattr(self, "_sara_fondo_size", None)
         if cache_surf is None or cache_size != (self.width, self.height):
@@ -1483,7 +1510,8 @@ class RendererMixin:
         else:
             bg = pygame.transform.smoothscale(bg, (self.width, self.height))
         self.screen.blit(bg, (0, 0))
-        self._draw_ana_photo_in_chat_source()
+        if getattr(self, "day2_chat_show_ana_photo", False):
+            self._draw_ana_photo_in_chat_source()
 
         overlay_path = getattr(self, "day2_chat_overlay_image", None)
         if overlay_path:
@@ -1547,27 +1575,26 @@ class RendererMixin:
         photo = self._load_ana_photo()
         if photo is None:
             return
+        old_clip = self.screen.get_clip()
+        self.screen.set_clip(rect.inflate(14, 14).clip(self.screen.get_rect()))
         pygame.draw.rect(self.screen, (12, 18, 30), rect.inflate(10, 10), border_radius=4)
         pygame.draw.rect(self.screen, border_color, rect.inflate(12, 12), 3, border_radius=4)
         self._blit_cover(photo, rect)
+        self.screen.set_clip(old_clip)
 
     def _draw_ana_photo_in_chat_source(self):
         # The base chat art is 1400x1024; normalized coordinates keep it aligned
         # when the game window is resized.
         rect = pygame.Rect(
-            int(self.width * 0.445),
-            int(self.height * 0.365),
-            int(self.width * 0.245),
-            int(self.height * 0.235),
+            int(self.width * 0.455),
+            int(self.height * 0.370),
+            int(self.width * 0.215),
+            int(self.height * 0.205),
         )
         self._draw_photo_card(rect, (95, 145, 245))
 
     def _draw_ana_photo_in_reenviar_overlay(self):
-        photo_rects = [
-            (0.158, 0.184, 0.175, 0.122),
-            (0.632, 0.205, 0.175, 0.122),
-            (0.762, 0.717, 0.168, 0.130),
-        ]
+        photo_rects = [(0.455, 0.370, 0.215, 0.205)]
         for rx, ry, rw, rh in photo_rects:
             rect = pygame.Rect(
                 int(self.width * rx),
@@ -1962,8 +1989,8 @@ class RendererMixin:
         Panel lateral de habilidades, activado con TAB durante la aventura.
         # [UI] ASSET_UI: Imagenes/UI/habilidades_panel.png | 500x600 | Panel lateral de habilidades (fallback procedural)
         """
-        pw = 420
-        ph = min(self.height - 40, 520)
+        pw = min(560, self.width - 48)
+        ph = min(self.height - 40, 620)
         px = self.width // 2 - pw // 2
         py = self.height // 2 - ph // 2
 
@@ -1972,16 +1999,28 @@ class RendererMixin:
         self.screen.blit(panel_surf, (px, py))
         pygame.draw.rect(self.screen, PIXEL_CYAN, (px, py, pw, ph), 4)
 
-        self.draw_pixel_text("HABILIDADES", self.width // 2, py + 32, "subtitle", PIXEL_CYAN, True)
+        self.draw_pixel_text("HABILIDADES", self.width // 2, py + 30, "subtitle", PIXEL_CYAN, True)
         pygame.draw.line(self.screen, CARD_BORDER, (px + 20, py + 54), (px + pw - 20, py + 54), 2)
+        self.draw_pixel_text(
+            "TAB abre/cierra. Los niveles dan ventajas en decisiones.",
+            self.width // 2, py + 74, "small", (180, 230, 245), True,
+        )
 
         skills = getattr(self, "skills_inventory", {})
-        item_h = 72
-        item_y = py + 68
+        effects = {
+            "Escucha Activa": "Reduce penalizaciones al ignorar o minimizar el dolor de alguien.",
+            "Intervencion Pacifica": "Marca que sabes detener dano directo sin escalarlo.",
+            "Empatia Digital": "Reduce penalizaciones en ciberbullying y sube al defender/reportar.",
+            "Valentia Social": "Reconoce pedir ayuda a tiempo ante una situacion injusta.",
+            "Mediacion de Conflictos": "Reservada para resolver conflictos dialogando.",
+        }
+        item_h = 88
+        item_y = py + 98
+        text_w = pw - 102
         for skill_name, skill_data in skills.items():
             nivel = skill_data.get("nivel", 0)
             max_nivel = skill_data.get("max_nivel", 3)
-            desc = skill_data.get("descripcion", "")
+            desc = effects.get(skill_name, skill_data.get("descripcion", ""))
 
             color_icon = PIXEL_CYAN if nivel > 0 else (80, 85, 100)
             icon_rect = pygame.Rect(px + 18, item_y + 8, 44, 44)
@@ -1989,21 +2028,23 @@ class RendererMixin:
             pygame.draw.rect(self.screen, CARD_BORDER, icon_rect, 2, 6)
             self.draw_pixel_text(str(nivel), icon_rect.centerx, icon_rect.centery, "subtitle", (245, 248, 255), True)
 
-            self.draw_pixel_text(skill_name, px + 74, item_y + 14, "small", TEXT_MAIN, False)
-            short_desc = desc[:44] + ".." if len(desc) > 46 else desc
-            self.draw_pixel_text(short_desc, px + 74, item_y + 36, "small", TEXT_SOFT, False)
+            self.draw_pixel_text(
+                self._truncate_pixel_text(skill_name, "small", text_w),
+                px + 74, item_y + 10, "small", TEXT_MAIN, False,
+            )
+            self._draw_wrapped_pixel_text(desc, px + 74, item_y + 32, "small", TEXT_SOFT, text_w, 2)
 
             dot_x = px + 74
             for lvl in range(max_nivel):
-                dot_rect = pygame.Rect(dot_x + lvl * 20, item_y + 54, 14, 8)
+                dot_rect = pygame.Rect(dot_x + lvl * 20, item_y + 72, 14, 8)
                 dot_color = PIXEL_CYAN if lvl < nivel else (60, 65, 80)
                 pygame.draw.rect(self.screen, dot_color, dot_rect, 0, 3)
 
             item_y += item_h
-            if item_y + item_h > py + ph - 40:
+            if item_y + item_h > py + ph - 34:
                 break
 
-        self.draw_pixel_text("TAB para cerrar", self.width // 2, py + ph - 20, "small", (62, 74, 98), True)
+        self.draw_pixel_text("TAB para cerrar", self.width // 2, py + ph - 18, "small", (150, 170, 190), True)
 
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Dispatcher principal

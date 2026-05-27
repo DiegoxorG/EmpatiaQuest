@@ -643,7 +643,7 @@ class ScreenHandlersMixin:
                     self.day1_pupitre_zoom_active = True
                     # Crear superficie borradora con los rayones
                     erase_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-                    scratch_img_path = os.path.join(os.path.dirname(__file__), "Imagenes", "Interactuables", "PupitreRayones.png")
+                    scratch_img_path = self._resolve_image_path("letras.png")
                     # 🖼️ ASSET_IMG: Imagenes/Interactuables/PupitreRayones.png | 1280x720 | Capa PNG con insultos encima del pupitre
                     try:
                         raw = pygame.image.load(scratch_img_path).convert_alpha()
