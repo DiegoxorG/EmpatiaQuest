@@ -518,10 +518,13 @@ def get_scene_pupitre_rayado_intro(player_name: str) -> SceneManager:
 
         # Crear superficie borradora con letras.png (los insultos que se pueden borrar)
         erase_surf = _pg.Surface((game.width, game.height), _pg.SRCALPHA)
-        letras_path = _os.path.join(
-            _os.path.dirname(__file__),
-            "Imagenes", "Interactuables", "letras.png",
-        )
+        if hasattr(game, "_resolve_image_path"):
+            letras_path = game._resolve_image_path("letras.png")
+        else:
+            letras_path = _os.path.join(
+                _os.path.dirname(__file__),
+                "Imagenes", "Cosas_especificas_eventos", "letras.png",
+            )
         try:
             raw = _pg.image.load(letras_path).convert_alpha()
             erase_surf.blit(_pg.transform.scale(raw, (game.width, game.height)), (0, 0))
@@ -846,6 +849,7 @@ def get_scene_dia2_chat(player_name: str) -> SceneManager:
         game.player_can_move = False
         game.day2_chat_active = True
         game.day2_chat_choice_menu_active = False
+        game.day2_chat_show_ana_photo = False
         game.day2_chat_overlay_image = None
         game.day2_chat_overlay_until_ms = 0
         game.day2_chat_choice = ""
@@ -856,6 +860,7 @@ def get_scene_dia2_chat(player_name: str) -> SceneManager:
             audio.play_sfx("notificaciones", cooldown_ms=150)
 
     def beat6_show_choices(game):
+        game.day2_chat_show_ana_photo = True
         game.day2_chat_choice_menu_active = True
         game.day2_chat_choice = ""
         game.day2_chat_pending_choice = ""
@@ -870,12 +875,20 @@ def get_scene_dia2_chat(player_name: str) -> SceneManager:
         }
         choice = getattr(game, "day2_chat_choice", "") or "ignorar"
         df, dr = deltas.get(choice, (-4, 0))
+        skills = getattr(game, "skills_inventory", {})
+        digital = skills.get("Empatia Digital", {}).get("nivel", 0)
+        if df < 0 and digital > 0:
+            df = min(0, df + digital)
+        if choice in ("defender", "reportar") and "Empatia Digital" in skills:
+            s = skills["Empatia Digital"]
+            s["nivel"] = min(s.get("max_nivel", 3), s.get("nivel", 0) + 1)
         game.story_felicidad = max(0, min(100, game.story_felicidad + df))
         game.story_reputacion = max(0, min(100, game.story_reputacion + dr))
         game.decision_dia2_chat = choice
         game.escena_dia2_chat_completada = True
         game.day2_chat_choice_menu_active = False
         game.day2_chat_active = False
+        game.day2_chat_show_ana_photo = False
         game.player_can_move = True
         game.escena_activa = None
         game._change_adventure_background("HabDía.png")
@@ -887,6 +900,7 @@ def get_scene_dia2_chat(player_name: str) -> SceneManager:
         ActionBeat(beat1_setup),
         DialogBeat("Chat escolar", "JAJAJA.", avanza_con="tiempo", tiempo_ms=800),
         DialogBeat("Chat escolar", "Miren esto.", avanza_con="tiempo", tiempo_ms=800),
+        ActionBeat(lambda g: setattr(g, "day2_chat_show_ana_photo", True)),
         DialogBeat("Chat escolar", "Pásenlo.", avanza_con="tiempo", tiempo_ms=1000),
         DialogBeat(pname, "Esto no está bien... están compartiendo imágenes editadas de Ana por todo el grupo.", avanza_con="click"),
         ActionBeat(beat6_show_choices),
@@ -985,6 +999,13 @@ def get_scene_dia2_lucas_bano(player_name: str) -> SceneManager:
         }
         choice = getattr(game, "day2_lucas_choice", "") or "ignorar"
         df, dr = deltas.get(choice, (-5, 0))
+        skills = getattr(game, "skills_inventory", {})
+        escucha = skills.get("Escucha Activa", {}).get("nivel", 0)
+        if df < 0 and escucha > 0:
+            df = min(0, df + escucha)
+        if choice in ("consolar", "preguntar") and "Escucha Activa" in skills:
+            s = skills["Escucha Activa"]
+            s["nivel"] = min(s.get("max_nivel", 3), s.get("nivel", 0) + 1)
         game.story_felicidad = max(0, min(100, game.story_felicidad + df))
         game.story_reputacion = max(0, min(100, game.story_reputacion + dr))
         game.decision_dia2_lucas = choice
