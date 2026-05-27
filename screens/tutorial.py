@@ -1,9 +1,9 @@
 ﻿"""
-Pantalla de Tutorial â€” explica las mecÃ¡nicas del juego en 3 pÃ¡ginas.
+Pantalla de Tutorial - explica las mec?nicas del juego en 3 p?ginas.
 
-# ðŸŽ¨ ASSET_UI: Imagenes/UI/tutorial_controles.png  | 800x400 | Diagrama de controles del teclado
-# ðŸŽ¨ ASSET_UI: Imagenes/UI/tutorial_stats.png      | 800x400 | Diagrama de barras F y R
-# ðŸŽ¨ ASSET_UI: Imagenes/UI/tutorial_decisiones.png | 800x400 | Diagrama del sistema de decisiones
+# [UI] ASSET_UI: Imagenes/UI/tutorial_controles.png  | 800x400 | Diagrama de controles del teclado
+# [UI] ASSET_UI: Imagenes/UI/tutorial_stats.png      | 800x400 | Diagrama de barras F y R
+# [UI] ASSET_UI: Imagenes/UI/tutorial_decisiones.png | 800x400 | Diagrama del sistema de decisiones
 """
 
 import pygame
@@ -12,7 +12,7 @@ from config import (
     PIXEL_CYAN, PIXEL_PINK,
 )
 
-_PAGE = 0   # PÃ¡gina actual del tutorial (persistente en sesiÃ³n)
+_PAGE = 0   # P?gina actual del tutorial (persistente en sesi?n)
 _TOTAL_PAGES = 3
 
 
@@ -26,8 +26,8 @@ def _draw_key(game, label, x, y, w=64, h=40):
 
 
 def _draw_page_0(game, panel):
-    """PÃ¡gina 1: Controles."""
-    # ðŸŽ¨ ASSET_UI: Imagenes/UI/tutorial_controles.png | 800x400 | Diagrama WASD y acciones
+    """P?gina 1: Controles."""
+    # [UI] ASSET_UI: Imagenes/UI/tutorial_controles.png | 800x400 | Diagrama WASD y acciones
     game.draw_pixel_text(
         "CONTROLES", panel.centerx, panel.y + 100, "subtitle", TEXT_MAIN, True
     )
@@ -67,8 +67,8 @@ def _draw_page_0(game, panel):
 
 
 def _draw_page_1(game, panel):
-    """PÃ¡gina 2: Sistema de estadÃ­sticas."""
-    # ðŸŽ¨ ASSET_UI: Imagenes/UI/tutorial_stats.png | 800x400 | Diagrama de F y R
+    """P?gina 2: Sistema de estad?sticas."""
+    # [UI] ASSET_UI: Imagenes/UI/tutorial_stats.png | 800x400 | Diagrama de F y R
     game.draw_pixel_text(
         "ESTADISTICAS", panel.centerx, panel.y + 100, "subtitle", TEXT_MAIN, True
     )
@@ -93,7 +93,7 @@ def _draw_page_1(game, panel):
     )
 
     content_y += 90
-    # ReputaciÃ³n
+    # Reputaci?n
     pygame.draw.rect(game.screen, (200, 208, 192), (bx, content_y, bar_w, bar_h))
     pygame.draw.rect(game.screen, CARD_BORDER, (bx, content_y, bar_w, bar_h), 2)
     pygame.draw.rect(game.screen, (90, 190, 255), (bx, content_y, int(bar_w * 0.7), bar_h))
@@ -126,8 +126,8 @@ def _draw_page_1(game, panel):
 
 
 def _draw_page_2(game, panel):
-    """PÃ¡gina 3: Sistema de decisiones y habilidades."""
-    # ðŸŽ¨ ASSET_UI: Imagenes/UI/tutorial_decisiones.png | 800x400 | Diagrama del flujo de decisiones
+    """P?gina 3: Sistema de decisiones y habilidades."""
+    # [UI] ASSET_UI: Imagenes/UI/tutorial_decisiones.png | 800x400 | Diagrama del flujo de decisiones
     game.draw_pixel_text(
         "DECISIONES Y HABILIDADES", panel.centerx, panel.y + 100, "subtitle", TEXT_MAIN, True
     )
@@ -178,7 +178,7 @@ def draw(game):
         w // 2, panel.y + 76, "small", TEXT_SOFT, True
     )
 
-    # LÃ­nea separadora
+    # L?nea separadora
     pygame.draw.line(
         game.screen, CARD_BORDER,
         (panel.x + 40, panel.y + 90), (panel.right - 40, panel.y + 90), 2
@@ -191,7 +191,7 @@ def draw(game):
     else:
         _draw_page_2(game, panel)
 
-    # NavegaciÃ³n
+    # Navegaci?n
     nav_y = panel.bottom - 48
     mouse_pos = pygame.mouse.get_pos()
 

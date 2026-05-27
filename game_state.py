@@ -1,12 +1,13 @@
 ﻿"""
 Mixin de estado del juego para EmpatiaQuestUI.
-Contiene toda la lÃ³gica de datos: guardado, carga, exploraciÃ³n, historia,
+Contiene toda la l?gica de datos: guardado, carga, exploraci?n, historia,
 habilidades, logros y eventos.
 """
 
 import os
 import json
 import random
+import unicodedata
 
 import pygame
 from Movimiento.Personaje import Personaje
@@ -62,7 +63,7 @@ DEFAULT_SKILLS = {
 
 class GameStateMixin:
     """
-    Mixin que contiene toda la lÃ³gica de estado, guardado/carga,
+    Mixin que contiene toda la l?gica de estado, guardado/carga,
     aventura, historia y habilidades de EmpatiaQuestUI.
     """
 
@@ -451,7 +452,7 @@ class GameStateMixin:
         self.pupitre_rayado_foto_timer  = 0
         self.pupitre_rayado_fondo       = ""    # "" | "sara"
         self.tarde_player_seated        = False  # jugador auto-sentado en SalonTarde
-        # â”€â”€ Overlays MisiÃ³n 3 (Bugs 8 y 9) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Overlays Misi?n 3 (Bugs 8 y 9) ───────────────────────────────────
         self.mision3_foto_overlay_active    = False  # muestra Mision3-TomarFoto.png
         self.mision3_foto_overlay_ms        = 0
         self.mision3_llamar_profe_active    = False  # muestra Mision3-Llamarprofe.png
@@ -500,7 +501,7 @@ class GameStateMixin:
         self.decision_dia1_asiento:   str   = ""
         self._sm_dia1_result:         str   = ""
         self.player_can_move:         bool  = True
-        # â”€â”€ CÃ¡mara cinemÃ¡tica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── C?mara cinem?tica ─────────────────────────────────────────────────
         self.camera_mode:             str   = "follow_player"
         self.camera_target:           tuple = (0, 0)
         self.camera_lerp:             float = 0.05
@@ -513,11 +514,11 @@ class GameStateMixin:
         self.aventura_fondo = None
         self.aventura_personaje = None
         ruta_imagenes = os.path.join(os.path.dirname(__file__), "Imagenes", "Personajes", "personaje_main")
-        hab_path = self._resolve_image_path("HabDÃ­a.png")
+        hab_path = self._resolve_image_path("HabDía.png")
         try:
             self.aventura_fondo = Fondo(hab_path, 0, 0)
         except (OSError, pygame.error):
-            placeholder = self._make_placeholder_surface(1280, 720, "HabDÃ­a.png")
+            placeholder = self._make_placeholder_surface(1280, 720, "HabDía.png")
             self.aventura_fondo = self._make_fondo_placeholder(hab_path, placeholder)
         audio = getattr(self, "audio", None)
         self.story_walls = self._build_story_wall_hitboxes(
@@ -543,8 +544,8 @@ class GameStateMixin:
         self.cached_background_scaled = None
         self.cached_background_size = None
         self.cached_background_source = None
-        # â”€â”€ Item-4: intro cinemÃ¡tica del dormitorio (solo partidas nuevas) â”€â”€â”€â”€
-        # _loading_save=True cuando llamado desde _apply_loaded_save_data â†’ no lanzar intro
+        # ── Item-4: intro cinem?tica del dormitorio (solo partidas nuevas) ────
+        # _loading_save=True cuando llamado desde _apply_loaded_save_data -> no lanzar intro
         if not getattr(self, "_loading_save", False):
             pname = getattr(self, "player_name", "") or "Protagonista"
             self.scene_manager   = get_scene_bedroom_intro(pname)
@@ -560,7 +561,7 @@ class GameStateMixin:
             {"speaker": "Narrador", "text": "Otros estudiantes observan sin intervenir. Algunos se rien."},
             {"speaker": "Narrador", "text": "Un adulto pasa cerca, pero no nota la situacion."},
             {"speaker": "Narrador", "text": f"Esta vez las burlas empezaron por: {self.prologo_razon}."},
-            {"speaker": "NPC 1", "text": "Â¿Por quÃ© eres tan raro?"},
+            {"speaker": "NPC 1", "text": "¿Por qué eres tan raro?"},
             {"speaker": "NPC 2", "text": "Ni siquiera sabe responder."},
             {"speaker": "NPC 3", "text": "Dejalo, siempre es asi."},
             {"speaker": self.player_name or "Protagonista", "text": "Recuerdo pensar que alguien debia hacer algo... aunque fuera una sola persona."},
@@ -577,17 +578,17 @@ class GameStateMixin:
         self.story_pending_end = True
 
         if f >= 50 and r >= 50:
-            self.story_final_key = "FINAL POSITIVO â€” ALGUIEN HIZO ALGO"
+            self.story_final_key = "FINAL POSITIVO - ALGUIEN HIZO ALGO"
             self.story_final_text = "Tal vez cambiar todo era imposible, pero alguien tenia que empezar."
             self.lista_logros.desbloquear_final_positivo()
         elif f < 50 and r < 50:
-            self.story_final_key = "FINAL NEGATIVO â€” TODOS MIRARON"
+            self.story_final_key = "FINAL NEGATIVO - TODOS MIRARON"
             self.story_final_text = "Lo peor nunca fue el ruido, fue acostumbrarse a el."
         elif f < 50:
-            self.story_final_key = "FINAL NEUTRAL â€” FELICIDAD BAJA"
+            self.story_final_key = "FINAL NEUTRAL - FELICIDAD BAJA"
             self.story_final_text = "Ser conocido no alcanzo para que todos se sintieran seguros."
         else:
-            self.story_final_key = "FINAL NEUTRAL â€” REPUTACION BAJA"
+            self.story_final_key = "FINAL NEUTRAL - REPUTACION BAJA"
             self.story_final_text = "Ayudar importo, aunque no siempre fuera comprendido."
 
         self.lista_logros.verificar_nunca_ignoraste(self.decision_history)
@@ -876,7 +877,7 @@ class GameStateMixin:
                 _desk_by = int(self.story_world_height * (_prev_desk["ry"] + _prev_desk["rh"]))
                 _stand_y = _desk_by + self.player_rect.height // 2 + 6
                 self._set_player_center((_desk_cx, _stand_y))
-            # â”€â”€ Tarde: el jugador se levanta â†’ iniciar evento pupitre rayado â”€
+            # â”€â”€ Tarde: el jugador se levanta -> iniciar evento pupitre rayado â”€
             if (getattr(self, "tarde_player_seated", False)
                     and getattr(self, "day1_in_tarde", False)
                     and getattr(self, "escena_dia1_completada", False)
@@ -908,16 +909,16 @@ class GameStateMixin:
         self.audio.sfx_sentarse()
 
     def _auto_seat_player_tarde(self):
-        """Sienta automÃ¡ticamente al jugador en SalonTarde segÃºn su decisiÃ³n de asiento.
-        - 'diego' â†’ 3.er pupitre fila inferior (rxâ‰ˆ0.4775, ryâ‰ˆ0.6864)
-        - sara / ninguno â†’ 2.Âº pupitre fila inferior (rxâ‰ˆ0.3201, ryâ‰ˆ0.6911), junto a Sara
-        El jugador permanece sentado hasta presionar E â†’ activa el evento del pupitre rayado.
+        """Sienta autom?ticamente al jugador en SalonTarde seg?n su decisi?n de asiento.
+        - 'diego' -> 3.er pupitre fila inferior (rxâ‰ˆ0.4775, ryâ‰ˆ0.6864)
+        - sara / ninguno -> 2.? pupitre fila inferior (rx≈0.3201, ry≈0.6911), junto a Sara
+        El jugador permanece sentado hasta presionar E -> activa el evento del pupitre rayado.
         """
         choice = getattr(self, "decision_dia1_asiento", "ninguno")
         if choice == "diego":
             TARGET_RX, TARGET_RY = 0.4775, 0.6864   # 3.er pupitre fila inferior
         else:
-            TARGET_RX, TARGET_RY = 0.3201, 0.6911   # 2.Âº pupitre fila inferior (cerca Sara)
+            TARGET_RX, TARGET_RY = 0.3201, 0.6911   # 2.? pupitre fila inferior (cerca Sara)
         desk = None
         best = float("inf")
         for h in self.story_walls:
@@ -973,7 +974,7 @@ class GameStateMixin:
             self.aventura_personaje.hitbox.y = self.player_rect.y
             self.aventura_personaje.sync_sprite_from_hitbox()
         self._update_story_camera()
-        self.story_interaction_text = ""   # el cambio de mapa habla por sÃ­ solo
+        self.story_interaction_text = ""   # el cambio de mapa habla por s? solo
         self.audio.sfx_puerta()
         self._sync_scene_audio()
         # â”€â”€ NPC AI: notificar cambio de mapa â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -981,7 +982,7 @@ class GameStateMixin:
         if npc_mgr is not None:
             npc_mgr.on_map_change(os.path.basename(target_image_name), self)
 
-        # â”€â”€ DetecciÃ³n de mapas especiales DÃ­a 1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Detecci?n de mapas especiales D?a 1 ───────────────────────────────
         base = os.path.basename(target_image_name).lower()
         base_norm = (
             base.replace("á", "a").replace("é", "e").replace("í", "i")
@@ -994,27 +995,27 @@ class GameStateMixin:
             if npc_mgr is not None:
                 npc_mgr.init_event1_routine(self.story_world_width, self.story_world_height,
                                              getattr(self, "story_walls", []))
-        if base == "salondÃ­a.png" or base == "salondia.png":
+        if base == "salondia.png":
             if not getattr(self, "day1_salon_entered", False):
                 self.day1_salon_entered = True
                 self.day1_guide_active  = False
                 self.current_mission    = "Elegir donde sentarse"
                 if not getattr(self, "escena_dia1_completada", False):
-                    # Activar escena cinemÃ¡tica del DÃ­a 1
+                    # Activar escena cinem?tica del D?a 1
                     pname = getattr(self, "player_name", "") or "Protagonista"
                     self.scene_manager   = get_scene_dia1_salon(pname)
                     self.escena_activa   = "dia1_salon"
                     self.jugador_sentado = False
                     self.eligiendo_asiento = False
-                    self.player_can_move = True   # beat 1 lo bloquearÃ¡ al procesar
-                # Si escena_dia1_completada=True â†’ day1_seq_step queda en 0 (sin diÃ¡logos)
+                    self.player_can_move = True   # beat 1 lo bloquear? al procesar
+                # Si escena_dia1_completada=True -> day1_seq_step queda en 0 (sin di?logos)
         elif base in ("salontarde.png",):
             self.day1_in_tarde = True
             # NPC AI: fase saliendo cuando empieza SalonTarde
             npc_mgr = getattr(self, "npc_ai_manager", None)
             if npc_mgr is not None:
                 npc_mgr.notify_phase("saliendo")
-            # â”€â”€ Tarde: reloj â†’ 14:30 y sentar al jugador para esperar â”€â”€â”€â”€â”€â”€â”€
+            # â”€â”€ Tarde: reloj -> 14:30 y sentar al jugador para esperar â”€â”€â”€â”€â”€â”€â”€
             if (getattr(self, "escena_dia1_completada", False)
                     and not getattr(self, "pupitre_rayado_completado", False)):
                 self.story_clock_hour   = 14
@@ -1071,17 +1072,17 @@ class GameStateMixin:
             self._change_adventure_background(interactable.get("target_image", ""))
             return
         if action == "silla":
-            # CAMBIO 3: si estamos en la secuencia DÃ­a 1 esperando silla
-            if getattr(self, "day1_seq_step", 0) == 3:
+            # CAMBIO 3: si estamos en la secuencia del D?a 1 esperando silla
+            if getattr(self, "eligiendo_asiento", False) or getattr(self, "day1_seq_step", 0) == 3:
                 zone_tag = interactable.get("zone_tag", "")
                 if zone_tag == "sara_zone":
-                    result = "sentÃ³_con_sara"
+                    result = "sentado_con_sara"
                     df, dr = 2, -1
                 elif zone_tag == "diego_zone":
-                    result = "sentÃ³_con_diego"
+                    result = "sentado_con_diego"
                     df, dr = -3, 2
                 else:
-                    result = "sentÃ³_solo"
+                    result = "sentado_solo"
                     df, dr = -2, 0
                 self.day1_seating_result = result
                 self.story_felicidad = max(0, min(100, self.story_felicidad + df))
@@ -1090,10 +1091,11 @@ class GameStateMixin:
                     "event_id": "primer_dia_espacial",
                     "option_label": result,
                     "dF": df, "dR": dr,
-                    "thought": f"Me sentÃ©: {result}",
+                    "thought": f"Me senté: {result}",
                 })
                 self.story_completed += 1
                 self.day1_seq_step = 4
+                self.eligiendo_asiento = False
                 self.audio.sfx_decision()
                 npc_mgr = getattr(self, "npc_ai_manager", None)
                 if npc_mgr is not None:
@@ -1101,7 +1103,7 @@ class GameStateMixin:
                 if self.story_completed >= self.story_goal:
                     self._resolve_ending()
                 self.audio.sfx_sentarse()
-                # Fade y transiciÃ³n a SalonTarde
+                # Fade y transici?n a SalonTarde
                 transitions = getattr(self, "transitions", None)
                 if transitions is not None and transitions.is_idle():
                     transitions.request(self, "aventura", callback=lambda: self._change_adventure_background("SalonTarde.png"))
@@ -1119,11 +1121,11 @@ class GameStateMixin:
             # Activar minijuego al interactuar con el objeto disparador
             tipo = interactable.get("minijuego_tipo", "penaltis")
             if not getattr(self, "player_can_move", True):
-                # No iniciar durante una cinemÃ¡tica
+                # No iniciar durante una cinem?tica
                 return
             self.story_thought = ""
             self.story_interaction_text = ""
-            # Mostrar diÃ¡logo previo del NPC segÃºn el tipo de minijuego
+            # Mostrar di?logo previo del NPC seg?n el tipo de minijuego
             pname = getattr(self, "player_name", "") or "Protagonista"
             if tipo == "atrapa_emociones":
                 self.scene_manager = get_scene_callejon_emociones(pname, tipo)
@@ -1139,27 +1141,26 @@ class GameStateMixin:
                 self.escena_activa = "cama_dormir"
             return
         if action == "escritorio":
-            self.story_thought          = "AquÃ­ habrÃ¡ minijuegos mÃ¡s adelante."
-            self.story_interaction_text = "[ Escritorio â€” contenido prÃ³ximamente ]"
+            self.story_thought          = "Aquí habrá minijuegos más adelante."
+            self.story_interaction_text = "[ Escritorio - contenido próximamente ]"
             self.audio.sfx_interactuar()
             return
         if action == "objeto":
             raw_name = interactable.get("object_name", "objeto")
-            if raw_name == "Pupitre-SalÃ³n1.png":
+            raw_name_norm = str(raw_name).lower().replace("ó", "o").replace("Ó", "o")
+            if "pupitre-salon1.png" in raw_name_norm or "pupitre-saln1.png" in raw_name_norm or "pupitre-sal" in raw_name_norm:
                 npc_owner = interactable.get("npc_owner", "")
                 if npc_owner:
-                    self.story_interaction_text = f"El pupitre de {npc_owner} estÃ¡ reservado."
+                    self.story_interaction_text = f"El pupitre de {npc_owner} está reservado."
                     self.audio.sfx_interactuar()
                     return
-                # â”€â”€ SceneManager: eligiendo asiento â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                if (getattr(self, "eligiendo_asiento", False)
-                        and not getattr(self, "jugador_sentado", False)):
-                    # Bloquear si ya hay un NPC sentado ahÃ­
+                # SceneManager: eligiendo asiento
+                if getattr(self, "eligiendo_asiento", False) and not getattr(self, "jugador_sentado", False):
                     cx = round(float(interactable.get("rx", 0)), 4)
                     cy = round(float(interactable.get("ry", 0)), 4)
                     pup_set = getattr(self, "pupitres_ocupados", set())
                     if (cx, cy) in pup_set:
-                        self.story_interaction_text = "Este pupitre ya estÃ¡ ocupado."
+                        self.story_interaction_text = "Este pupitre ya está ocupado."
                         self.audio.sfx_interactuar()
                         return
                     self.story_is_seated      = True
@@ -1189,7 +1190,7 @@ class GameStateMixin:
             self.story_thought = "Hay algo interesante aqui."
             self.audio.sfx_object(raw_name)
             return
-        # AcciÃ³n desconocida: no mostrar texto tÃ©cnico al jugador
+        # Acci?n desconocida: no mostrar texto t?cnico al jugador
         self.story_interaction_text = ""
 
     # â”€â”€ Nombres amigables para la UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1198,11 +1199,11 @@ class GameStateMixin:
         "escritorio": "el escritorio","pupitre": "el pupitre",
         "silla": "la silla",          "mochila": "la mochila",
         "ventana": "la ventana",      "pizarra": "la pizarra",
-        "puerta": "la puerta",        "balon": "el balÃ³n",
-        "balÃ³n": "el balÃ³n",          "mesa": "la mesa",
+        "puerta": "la puerta",        "balon": "el balón",
+        "balón": "el balón",          "mesa": "la mesa",
         "estante": "el estante",      "cartel": "el cartel",
-        "poster": "el pÃ³ster",        "telefono": "el telÃ©fono",
-        "lampara": "la lÃ¡mpara",      "reloj": "el reloj",
+        "poster": "el póster",        "telefono": "el teléfono",
+        "lampara": "la lámpara",      "reloj": "el reloj",
         "cuadro": "el cuadro",        "libro": "el libro",
         "mapa": "el mapa",            "bolso": "el bolso",
         "bolsa": "la bolsa",          "maleta": "la maleta",
@@ -1244,7 +1245,7 @@ class GameStateMixin:
     # â”€â”€ Culling de objetos (Tarea 9) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _get_visible_hitboxes(self):
-        """Retorna solo hitboxes dentro de 2Ã— el tamaÃ±o de pantalla del jugador."""
+        """Retorna solo hitboxes dentro de 2x el tamano de pantalla del jugador."""
         player_cx = self.player_rect.centerx
         player_cy = self.player_rect.centery
         threshold_x = self.width * 2
@@ -1281,7 +1282,7 @@ class GameStateMixin:
         dy = self.player_rect.centery - cy
         return (dx * dx + dy * dy) ** 0.5
 
-    # â”€â”€ ActualizaciÃ³n de aventura â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Actualizaci?n de aventura ─────────────────────────────────────────────
 
     def _update_adventure(self):
         if self.current_screen != "aventura" or self.story_pending_end:
@@ -1310,8 +1311,8 @@ class GameStateMixin:
                 self.pupitre_rayado_foto_active = False
                 self.pupitre_rayado_foto_timer  = 0
 
-        # â”€â”€ Temporizadores overlays MisiÃ³n 3 (Bugs 8, 9) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        # foto: timer de 1800ms â€” desaparece automÃ¡ticamente
+        # ── Temporizadores overlays Misi?n 3 (Bugs 8, 9) ────────────────────
+        # foto: timer de 1800ms - desaparece autom?ticamente
         if getattr(self, "mision3_foto_overlay_active", False):
             self.mision3_foto_overlay_ms = max(0, self.mision3_foto_overlay_ms - dt_ms)
             if self.mision3_foto_overlay_ms <= 0:
@@ -1328,7 +1329,7 @@ class GameStateMixin:
         if sm is not None and getattr(self, "escena_activa", None) is not None:
             sm.update(dt_ms, self)
             if sm.done and getattr(self, "escena_activa", None) is not None:
-                # Edge case: escena terminÃ³ sin que beat8 limpiara el flag
+                # Edge case: escena termin? sin que beat8 limpiara el flag
                 self.escena_activa    = None
                 self.player_can_move  = True
 
@@ -1347,7 +1348,7 @@ class GameStateMixin:
                 self.current_day = 3
                 self.player_can_move = True
 
-        # â”€â”€ Temporizador retorno de cÃ¡mara â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Temporizador retorno de c?mara ────────────────────────────────────
         if getattr(self, "camera_return_after_ms", 0) > 0:
             self.camera_return_after_ms -= dt_ms
             if self.camera_return_after_ms <= 0:
@@ -1388,7 +1389,7 @@ class GameStateMixin:
             self._update_story_camera()
             return
 
-        # â”€â”€ Bloqueo de movimiento durante cinemÃ¡ticas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Bloqueo de movimiento durante cinem?ticas ─────────────────────────
         if not getattr(self, "player_can_move", True):
             if self.aventura_personaje is not None:
                 self.aventura_personaje.moviendose = False
@@ -1421,8 +1422,8 @@ class GameStateMixin:
                 sprint=sprint,
                 map_name=self.aventura_fondo.ruta_imagen,
             )
-        # â”€â”€ CAMBIO 4: DetecciÃ³n de proximidad al pupitre rayado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        # (sÃ³lo activo si no hay escena automÃ¡tica ni evento ya completado)
+        # ── CAMBIO 4: Detecci?n de proximidad al pupitre rayado ──────────────
+        # (s?lo activo si no hay escena autom?tica ni evento ya completado)
         if (getattr(self, "day1_in_tarde", False)
                 and getattr(self, "day1_pupitre_step", 0) == 0
                 and not getattr(self, "pupitre_rayado_completado", False)
@@ -1433,7 +1434,7 @@ class GameStateMixin:
                     if dist < 150:
                         self.day1_pupitre_step = 1
                         pname = getattr(self, "player_name", "") or "Protagonista"
-                        self.story_thought = f"{pname}: Â¿QuÃ© dice este pupitre todo rayado?"
+                        self.story_thought = f"{pname}: ¿Qué dice este pupitre todo rayado?"
                         if audio is not None:
                             audio.play_sfx("pupitre_alerta")
                         break
@@ -1472,14 +1473,14 @@ class GameStateMixin:
                 self.aventura_personaje.frame_actual = 0
                 self.aventura_personaje.contador_animacion = 0
 
-    # â”€â”€ SimulaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Simulaci?n ────────────────────────────────────────────────────────────
 
     def _init_simulacion(self):
         if self.simulacion_activa:
             return
         base_path = os.path.dirname(__file__)
         ruta_imagenes = os.path.join(base_path, "Imagenes", "Personajes", "personaje_main")
-        self.simulacion_fondo = Fondo(self._resolve_image_path("HabDÃ­a.png"), 0, 0)
+        self.simulacion_fondo = Fondo(self._resolve_image_path("HabDía.png"), 0, 0)
         self.simulacion_personaje = Personaje(
             600, 280, ruta_imagenes, velocidad=4, fps_animacion=8,
             color=self.character_colors["Piel"]
@@ -1529,7 +1530,7 @@ class GameStateMixin:
     # â”€â”€ Utilidades de imagen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _make_placeholder_surface(self, w, h, path_str=""):
-        """CAMBIO 7: Crea Surface de placeholder para imÃ¡genes faltantes."""
+        """CAMBIO 7: Crea Surface de placeholder para im?genes faltantes."""
         surf = pygame.Surface((w, h))
         surf.fill((42, 42, 42))
         pygame.draw.rect(surf, (255, 68, 68), (0, 0, w, h), 3)
@@ -1558,7 +1559,7 @@ class GameStateMixin:
     def _resolve_image_path(self, image_ref):
         images_dir = os.path.join(os.path.dirname(__file__), "Imagenes")
         if not image_ref:
-            image_ref = "HabDÃ­a.png"
+            image_ref = "HabDía.png"
         normalized = os.path.normpath(str(image_ref).strip())
         direct = normalized if os.path.isabs(normalized) else os.path.join(os.path.dirname(__file__), normalized)
         if os.path.exists(direct):
@@ -1567,11 +1568,16 @@ class GameStateMixin:
         by_name = os.path.join(images_dir, file_name)
         if os.path.exists(by_name):
             return by_name
-        file_name_lower = file_name.lower()
+        def _norm_key(name: str) -> str:
+            lowered = name.lower()
+            decomposed = unicodedata.normalize("NFD", lowered)
+            return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
+
+        file_name_key = _norm_key(file_name)
         try:
             for root, _, files in os.walk(images_dir):
                 for name in files:
-                    if name.lower() == file_name_lower:
+                    if _norm_key(name) == file_name_key:
                         return os.path.join(root, name)
         except OSError:
             pass
@@ -1580,7 +1586,7 @@ class GameStateMixin:
     def _is_first_day_classroom_context(self):
         if not getattr(self, "day1_salon_entered", False):
             return False
-        # Solo activa cuando el fondo tiene NPCs definidos (estamos en el salÃ³n).
+        # Solo activa cuando el fondo tiene NPCs definidos (estamos en el sal?n).
         return any(
             h.get("role") == "interactable" and h.get("action") == "npc"
             for h in self.story_walls
@@ -1614,9 +1620,9 @@ class GameStateMixin:
         # Tarea 8: Cargar sprite del NPC por nombre desde Imagenes/Personajes/<Nombre>/
         npc_dir = os.path.join(os.path.dirname(__file__), "Imagenes", "Personajes", str(character_name))
         # Fallback para NPC2 incompleto: usar NPC1
-        # ðŸ–¼ï¸ ASSET_IMG: Imagenes/Personajes/NPC2/parado.png   | mismas dims que NPC1 | NPC2 sprite parado
-        # ðŸ–¼ï¸ ASSET_IMG: Imagenes/Personajes/NPC2/sentado.png  | mismas dims que NPC1 | NPC2 sprite sentado
-        # ðŸ–¼ï¸ ASSET_IMG: Imagenes/Personajes/NPC2/hablando.png | mismas dims que NPC1 | NPC2 sprite hablando
+        # [IMG]ï¸ ASSET_IMG: Imagenes/Personajes/NPC2/parado.png   | mismas dims que NPC1 | NPC2 sprite parado
+        # [IMG]ï¸ ASSET_IMG: Imagenes/Personajes/NPC2/sentado.png  | mismas dims que NPC1 | NPC2 sprite sentado
+        # [IMG]ï¸ ASSET_IMG: Imagenes/Personajes/NPC2/hablando.png | mismas dims que NPC1 | NPC2 sprite hablando
         if not os.path.isdir(npc_dir):
             fallback_dir = os.path.join(os.path.dirname(__file__), "Imagenes", "Personajes", "NPC1")
             if os.path.isdir(fallback_dir):
@@ -1664,7 +1670,7 @@ class GameStateMixin:
         if cached is not None:
             return cached
         base = os.path.dirname(__file__)
-        # Ruta 1: Interactuables/<nombre>  (objetos clÃ¡sicos)
+        # Ruta 1: Interactuables/<nombre>  (objetos cl?sicos)
         object_path = os.path.join(base, "Imagenes", "Interactuables", object_name)
         if not os.path.isfile(object_path):
             # Ruta 2: Imagenes/<nombre>  (sprites de personajes con prefijo
