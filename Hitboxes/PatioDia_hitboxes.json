@@ -499,6 +499,16 @@
       "rh": 0.05070202808112324,
       "action": "puerta",
       "target_image": "CalleDia (1).png"
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.216,
+      "ry": 0.488,
+      "rw": 0.080,
+      "rh": 0.118,
+      "action": "minijuego",
+      "minijuego_tipo": "penaltis"
     }
   ],
   "spawn": {
