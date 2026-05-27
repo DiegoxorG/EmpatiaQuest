@@ -1,9 +1,9 @@
 ﻿"""
-Pantalla de Historia â€” muestra los capÃ­tulos/dÃ­as del juego y las decisiones tomadas.
+Pantalla de Historia - muestra los cap?tulos/d?as del juego y las decisiones tomadas.
 
-# ðŸŽ¨ ASSET_UI: Imagenes/UI/capitulo_completado.png | 300x80 | Banner de capÃ­tulo completado estilo pixel
-# ðŸŽ¨ ASSET_UI: Imagenes/UI/capitulo_bloqueado.png  | 300x80 | Banner de capÃ­tulo bloqueado con candado
-# ðŸŽ¨ ASSET_UI: Imagenes/UI/icono_dia.png           | 40x40  | Icono de dÃ­a del calendario escolar
+# [UI] ASSET_UI: Imagenes/UI/capitulo_completado.png | 300x80 | Banner de cap?tulo completado estilo pixel
+# [UI] ASSET_UI: Imagenes/UI/capitulo_bloqueado.png  | 300x80 | Banner de cap?tulo bloqueado con candado
+# [UI] ASSET_UI: Imagenes/UI/icono_dia.png           | 40x40  | Icono de d?a del calendario escolar
 """
 
 import pygame
@@ -12,7 +12,7 @@ from config import (
     TEXT_MAIN, TEXT_SOFT, PIXEL_CYAN, PIXEL_PINK,
 )
 
-# DefiniciÃ³n de los 5 dÃ­as / capÃ­tulos de la historia
+# Definici?n de los 5 d?as / cap?tulos de la historia
 CAPITULOS = [
     {
         "dia": 1,
@@ -87,7 +87,7 @@ def draw(game):
         cx = start_x + i * (cap_w + 16)
         cap_rect = pygame.Rect(cx, cap_y, cap_w, cap_h)
 
-        # Determinar estado del capÃ­tulo
+        # Determinar estado del cap?tulo
         completados_en_cap = sum(
             1 for eid in cap["eventos"] if _event_completed(decision_history, eid)
         )
@@ -95,7 +95,7 @@ def draw(game):
         cap_en_progreso = 0 < completados_en_cap < len(cap["eventos"])
         cap_bloqueado = completados_en_cap == 0
 
-        # Fondo del capÃ­tulo
+        # Fondo del cap?tulo
         if cap_completado:
             bg_color = (220, 240, 210)
             border_color = (60, 160, 60)
@@ -107,7 +107,7 @@ def draw(game):
             estado_text = "EN PROGRESO"
             estado_color = (30, 140, 200)
         else:
-            # ðŸŽ¨ ASSET_UI: Imagenes/UI/capitulo_bloqueado.png | 300x80 | CapÃ­tulo bloqueado con candado
+            # [UI] ASSET_UI: Imagenes/UI/capitulo_bloqueado.png | 300x80 | Cap?tulo bloqueado con candado
             bg_color = (190, 195, 200)
             border_color = (130, 130, 150)
             estado_text = "BLOQUEADO"
@@ -118,7 +118,7 @@ def draw(game):
         pygame.draw.rect(game.screen, bg_color, cap_rect)
         pygame.draw.rect(game.screen, border_color, cap_rect, 4)
 
-        # TÃ­tulo del capÃ­tulo
+        # T?tulo del cap?tulo
         game.draw_pixel_text(
             cap["titulo"], cap_rect.centerx, cap_rect.y + 28,
             "small", TEXT_MAIN, True
@@ -130,14 +130,14 @@ def draw(game):
             "small", estado_color, True
         )
 
-        # LÃ­nea separadora
+        # L?nea separadora
         pygame.draw.line(
             game.screen, border_color,
             (cap_rect.x + 16, cap_rect.y + 72),
             (cap_rect.right - 16, cap_rect.y + 72), 2
         )
 
-        # Eventos del capÃ­tulo
+        # Eventos del cap?tulo
         ey = cap_rect.y + 86
         for eid in cap["eventos"]:
             dec = _get_event_decision(decision_history, eid)
@@ -171,7 +171,7 @@ def draw(game):
                 )
                 ey += 30
 
-        # DescripciÃ³n del dÃ­a
+        # Descripci?n del d?a
         desc = cap["descripcion"]
         if len(desc) > 36:
             desc = desc[:34] + ".."
@@ -179,7 +179,7 @@ def draw(game):
             desc, cap_rect.centerx, cap_rect.bottom - 26, "small", TEXT_SOFT, True
         )
 
-    # EstadÃ­sticas rÃ¡pidas al fondo
+    # Estad?sticas r?pidas al fondo
     story_completed = getattr(game, "story_completed", 0)
     story_goal = getattr(game, "story_goal", 12)
     pct = int((story_completed / max(1, story_goal)) * 100)
@@ -193,10 +193,10 @@ def draw(game):
 
 
 def handle_event(game, event):
-    """Maneja eventos de teclado/ratÃ³n en la pantalla Historia."""
+    """Maneja eventos de teclado/rat?n en la pantalla Historia."""
     if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_ESCAPE:
             game.transitions.request(game, "menu")
     if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-        pass  # Reservado para futuras interacciones con capÃ­tulos
+        pass  # Reservado para futuras interacciones con cap?tulos
 

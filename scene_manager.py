@@ -83,7 +83,7 @@ class DialogBeat:
 
 @dataclass
 class WaitBeat:
-    condicion:  object = None  # callable(game) ??? bool
+    condicion:  object = None  # callable(game) ?? bool
     timeout_ms: int    = 0
     prompt: str = "Elige dónde sentarte y presiona  E"
     hint: str = "E para interactuar con un pupitre libre"

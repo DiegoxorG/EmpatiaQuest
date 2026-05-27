@@ -1,7 +1,7 @@
 ﻿"""
-Pantalla de CrÃ©ditos â€” scroll automÃ¡tico con el equipo, herramientas y licencias.
+Pantalla de Cr?ditos - scroll autom?tico con el equipo, herramientas y licencias.
 
-# ðŸŽ¨ ASSET_UI: Imagenes/UI/logo_empatia_quest.png | 600x200 | Logo del juego en estilo pixel-art
+# [UI] ASSET_UI: Imagenes/UI/logo_empatia_quest.png | 600x200 | Logo del juego en estilo pixel-art
 """
 
 import pygame
@@ -10,9 +10,9 @@ from config import (
     PIXEL_CYAN, PIXEL_PINK, BG_DARK,
 )
 
-# Velocidad de scroll automÃ¡tico en pÃ­xeles por segundo
+# Velocidad de scroll autom?tico en p?xeles por segundo
 _SCROLL_SPEED = 42
-_scroll_y = 0      # posiciÃ³n actual del scroll (mÃ³dulo-level)
+_scroll_y = 0      # posici?n actual del scroll (m?dulo-level)
 _paused = False    # el usuario puede pausar el scroll con ESPACIO
 
 _CREDITOS = [
@@ -108,7 +108,7 @@ def _reset():
 
 
 def draw(game):
-    """Renderiza la pantalla de CrÃ©ditos con scroll automÃ¡tico."""
+    """Renderiza la pantalla de Cr?ditos con scroll autom?tico."""
     global _scroll_y, _paused
 
     screen = game.screen
@@ -119,11 +119,11 @@ def draw(game):
     if not _paused:
         _scroll_y += (_SCROLL_SPEED * dt_ms) / 1000.0
 
-    # Reiniciar si terminÃ³ el scroll
+    # Reiniciar si termin? el scroll
     if _scroll_y > _total_height + h:
         _scroll_y = -h * 0.5
 
-    # ðŸŽ¨ ASSET_UI: Imagenes/UI/logo_empatia_quest.png | 600x200 | Logo estilo pixel-art
+    # [UI] ASSET_UI: Imagenes/UI/logo_empatia_quest.png | 600x200 | Logo estilo pixel-art
     # (procedural fallback: renderizado con texto)
 
     current_y = h // 2 - int(_scroll_y)
@@ -162,7 +162,7 @@ def draw(game):
 
 
 def handle_event(game, event):
-    """Maneja eventos en la pantalla de CrÃ©ditos."""
+    """Maneja eventos en la pantalla de Cr?ditos."""
     global _scroll_y, _paused
     if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_ESCAPE:
