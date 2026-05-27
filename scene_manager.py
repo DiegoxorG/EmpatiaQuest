@@ -685,6 +685,41 @@ def get_scene_pupitre_profesor(player_name: str) -> SceneManager:
     ])
 
 
+# ── Minijuego Callejón — diálogo previo ──────────────────────────────────────
+
+def get_scene_callejon_emociones(player_name: str, tipo: str = "atrapa_emociones") -> SceneManager:
+    """
+    Diálogo breve con el NPC del callejón antes de lanzar Atrapa Emociones.
+
+    Beats:
+        1. DialogBeat  — NPC invita al jugador (click)
+        2. DialogBeat  — respuesta del jugador (auto 1200 ms)
+        3. ActionBeat  — lanza el minijuego y limpia la escena
+    """
+    pname = player_name or "Protagonista"
+    _tipo = tipo
+
+    def beat_lanzar(game):
+        game.escena_activa   = None
+        game.player_can_move = True
+        _trigger = getattr(game, "_trigger_minijuego", None)
+        if _trigger is not None:
+            _trigger(_tipo)
+
+    return SceneManager([
+        DialogBeat(
+            "Extraño",
+            "Aquí las emociones andan sueltas... ¿Ves las que flotan? Atrapa solo las buenas.",
+            avanza_con="click",
+        ),
+        DialogBeat(
+            pname, "Entendido. ¡Voy a intentarlo!",
+            avanza_con="tiempo", tiempo_ms=1200,
+        ),
+        ActionBeat(beat_lanzar),
+    ])
+
+
 # ── Minijuego Penaltis — diálogo previo ──────────────────────────────────────
 
 def get_scene_patio_penaltis(player_name: str, tipo: str = "penaltis") -> SceneManager:
@@ -769,15 +804,7 @@ def get_scene_bedroom_intro(player_name: str) -> SceneManager:
 def get_scene_cama_dormir(player_name: str) -> SceneManager:
     """
     Cinemática al interactuar con la cama en HabTarde.
-    El jugador se duerme, se muestra un mensaje de fin del día,
-    y se devuelve el control (Día 2 pendiente de implementar).
-
-    Beats:
-        1. ActionBeat  — activa overlay de dormir, bloquea movimiento
-        2. DialogBeat  — "Zzzzz..." 2 s automático
-        3. ActionBeat  — desactiva overlay
-        4. DialogBeat  — mensaje placeholder Día 2
-        5. ActionBeat  — restaura control, limpia escena
+    Termina el Día 1 y hace transición a HabNoche para iniciar el Día 2.
     """
     pname = player_name or "Protagonista"
 
@@ -785,23 +812,159 @@ def get_scene_cama_dormir(player_name: str) -> SceneManager:
         game.bedroom_sleeping_active = True
         game.player_can_move = False
 
-    def beat_despertar(game):
-        game.bedroom_sleeping_active = False
+    def beat_ir_hab_noche(game):
+        game.bedroom_sleeping_active = False   # apagar overlay justo antes del fade
+        transitions = getattr(game, "transitions", None)
+        if transitions is not None and transitions.is_idle():
+            transitions.request(
+                game, "aventura",
+                callback=lambda: game._change_adventure_background("HabNoche (2).png"),
+                duration_ms=400,
+            )
+        else:
+            game._change_adventure_background("HabNoche (2).png")
+        game.current_day = 2
 
     def beat_completar(game):
-        game.escena_activa   = None
+        game.escena_activa = None
         game.player_can_move = True
 
     return SceneManager([
         ActionBeat(beat_dormir),
-        DialogBeat(
-            "", "Zzzzz...",
-            avanza_con="tiempo", tiempo_ms=2000,
-        ),
-        ActionBeat(beat_despertar),
-        DialogBeat(
-            pname, "Mañana será otro día... El Día 2 llegará pronto.",
-            avanza_con="tiempo", tiempo_ms=3000,
-        ),
+        DialogBeat("", "Zzzzz...", avanza_con="tiempo", tiempo_ms=2000),
+        DialogBeat(pname, "Mañana será otro día...", avanza_con="tiempo", tiempo_ms=1600),
+        ActionBeat(beat_ir_hab_noche),
         ActionBeat(beat_completar),
     ])
+
+
+def get_scene_dia2_chat(player_name: str) -> SceneManager:
+    pname = player_name or "Protagonista"
+
+    def beat1_setup(game):
+        game.player_can_move = False
+        game.day2_chat_active = True
+        game.day2_chat_choice_menu_active = False
+        game.day2_chat_overlay_image = None
+        game.day2_chat_overlay_until_ms = 0
+        game.day2_chat_choice = ""
+        game.day2_chat_pending_choice = ""
+        audio = getattr(game, "audio", None)
+        if audio is not None:
+            audio.play_sfx("notificaciones", cooldown_ms=150)
+
+    def beat6_show_choices(game):
+        game.day2_chat_choice_menu_active = True
+        game.day2_chat_choice = ""
+        game.day2_chat_pending_choice = ""
+
+    def beat8_finalize(game):
+        deltas = {
+            "defender": (+3, +1),
+            "reportar": (+2, +1),
+            "ignorar": (-4, 0),
+            "reenviar": (-7, +2),
+            "psicologo": (-3, 0),
+        }
+        choice = getattr(game, "day2_chat_choice", "") or "ignorar"
+        df, dr = deltas.get(choice, (-4, 0))
+        game.story_felicidad = max(0, min(100, game.story_felicidad + df))
+        game.story_reputacion = max(0, min(100, game.story_reputacion + dr))
+        game.decision_dia2_chat = choice
+        game.escena_dia2_chat_completada = True
+        game.day2_chat_choice_menu_active = False
+        game.day2_chat_active = False
+        game.player_can_move = True
+        game.escena_activa = None
+        game._change_adventure_background("HabDía.png")
+        game.current_mission = "Ir al baño"
+        game.day2_guide_target = "bano"
+
+    return SceneManager([
+        ActionBeat(beat1_setup),
+        DialogBeat("Chat escolar", "JAJAJA.", avanza_con="tiempo", tiempo_ms=800),
+        DialogBeat("Chat escolar", "Miren esto.", avanza_con="tiempo", tiempo_ms=800),
+        DialogBeat("Chat escolar", "Pásenlo.", avanza_con="tiempo", tiempo_ms=1000),
+        DialogBeat(pname, "Esto no está bien... están compartiendo imágenes editadas de Ana por todo el grupo.", avanza_con="click"),
+        ActionBeat(beat6_show_choices),
+        WaitBeat(condicion=lambda g: bool(getattr(g, "day2_chat_choice", ""))),
+        DialogBeat("Chat escolar", "No la traten así. Bórrenlo. Eso no da risa.", avanza_con="click", condition=lambda g: getattr(g, "day2_chat_choice", "") == "defender"),
+        DialogBeat("Chat escolar", "Uy, qué intenso.", avanza_con="tiempo", tiempo_ms=1200, condition=lambda g: getattr(g, "day2_chat_choice", "") == "defender"),
+        DialogBeat(pname, "Al menos por un momento dejaron de reenviar.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day2_chat_choice", "") == "defender"),
+        DialogBeat(pname, "Salí del grupo y reporté el contenido.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day2_chat_choice", "") == "reportar"),
+        DialogBeat(pname, "Nadie lo sabrá, pero era lo correcto.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day2_chat_choice", "") == "reportar"),
+        DialogBeat(pname, "Cerré el chat... como si no fuera conmigo.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day2_chat_choice", "") == "ignorar"),
+        DialogBeat(pname, "Pero esa sensación incómoda no se fue.", avanza_con="tiempo", tiempo_ms=1500, condition=lambda g: getattr(g, "day2_chat_choice", "") == "ignorar"),
+        DialogBeat("Chat escolar", "¡Durísimo! Pásalo más.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day2_chat_choice", "") == "reenviar"),
+        DialogBeat("Chat escolar", "Así se habla.", avanza_con="tiempo", tiempo_ms=1100, condition=lambda g: getattr(g, "day2_chat_choice", "") == "reenviar"),
+        DialogBeat(pname, "Quise encajar... y me arrepentí al instante.", avanza_con="tiempo", tiempo_ms=1500, condition=lambda g: getattr(g, "day2_chat_choice", "") == "reenviar"),
+        DialogBeat("Chat escolar", "Ana, ve al psicólogo.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day2_chat_choice", "") == "psicologo"),
+        DialogBeat("Chat escolar", "JAJAJA, qué comentario.", avanza_con="tiempo", tiempo_ms=1200, condition=lambda g: getattr(g, "day2_chat_choice", "") == "psicologo"),
+        DialogBeat(pname, "No entendí por qué sonó tan mal.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day2_chat_choice", "") == "psicologo"),
+        ActionBeat(beat8_finalize),
+    ])
+
+
+def get_scene_dia2_lucas_bano(player_name: str) -> SceneManager:
+    pname = player_name or "Protagonista"
+
+    def beat1_setup(game):
+        game.player_can_move = False
+        game.day2_lucas_event_active = True
+        game.day2_lucas_choice_menu_active = False
+        game.day2_lucas_choice = ""
+        game.day2_lucas_sprite = "llorando"
+        audio = getattr(game, "audio", None)
+        if audio is not None:
+            audio.play_sfx("llanto_suave", cooldown_ms=150)
+
+    def beat4_change_sprite(game):
+        game.day2_lucas_sprite = "mirando"
+
+    def beat5_choices(game):
+        game.player_can_move = True
+        game.day2_lucas_choice_menu_active = True
+        game.day2_lucas_choice = ""
+
+    def beat7_finalize(game):
+        deltas = {
+            "consolar": (+3, +1),
+            "preguntar": (+2, 0),
+            "ignorar": (-5, 0),
+            "minimizar": (-7, -1),
+        }
+        choice = getattr(game, "day2_lucas_choice", "") or "ignorar"
+        df, dr = deltas.get(choice, (-5, 0))
+        game.story_felicidad = max(0, min(100, game.story_felicidad + df))
+        game.story_reputacion = max(0, min(100, game.story_reputacion + dr))
+        game.decision_dia2_lucas = choice
+        game.escena_dia2_lucas_completada = True
+        game.day2_lucas_choice_menu_active = False
+        game.day2_lucas_event_active = False
+        game.day2_lucas_sprite = ""
+        game.current_mission = "Volver a casa"
+        game.day2_guide_target = "habtarde"
+        game.player_can_move = True
+        game.escena_activa = None
+
+    return SceneManager([
+        ActionBeat(beat1_setup),
+        ActionBeat(lambda g: None),
+        DialogBeat(pname, "¿Ese es... Lucas? Está llorando.", avanza_con="tiempo", tiempo_ms=2000),
+        DialogBeat("Lucas", "...", avanza_con="tiempo", tiempo_ms=1500),
+        ActionBeat(beat4_change_sprite),
+        ActionBeat(beat5_choices),
+        WaitBeat(condicion=lambda g: bool(getattr(g, "day2_lucas_choice", ""))),
+        DialogBeat(pname, "Me senté a su lado sin decir nada al principio.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "consolar"),
+        DialogBeat("Lucas", "Gracias... de verdad.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "consolar"),
+        DialogBeat(pname, "No tienes que pasarlo solo.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "consolar"),
+        DialogBeat(pname, "¿Quieres contarme qué pasó?", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "preguntar"),
+        DialogBeat("Lucas", "No es nada... en serio.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "preguntar"),
+        DialogBeat(pname, "Me quedé un momento, por si cambiaba de idea.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "preguntar"),
+        DialogBeat(pname, "Seguí de largo... pero el sonido del llanto se quedó conmigo.", avanza_con="tiempo", tiempo_ms=1700, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "ignorar"),
+        DialogBeat(pname, "No es para tanto.", avanza_con="tiempo", tiempo_ms=1100, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "minimizar"),
+        DialogBeat("Lucas", "...", avanza_con="tiempo", tiempo_ms=1200, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "minimizar"),
+        DialogBeat(pname, "Creo que lo empeoré.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day2_lucas_choice", "") == "minimizar"),
+        ActionBeat(beat7_finalize),
+    ])
+

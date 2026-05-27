@@ -26,8 +26,11 @@ from scene_manager import (
     get_scene_pupitre_foto,
     get_scene_pupitre_profesor,
     get_scene_patio_penaltis,
+    get_scene_callejon_emociones,
     get_scene_bedroom_intro,
     get_scene_cama_dormir,
+    get_scene_dia2_chat,
+    get_scene_dia2_lucas_bano,
 )
 
 
@@ -136,6 +139,10 @@ class GameStateMixin:
             "logros": self.lista_logros.to_list(),
             "escena_dia1_completada":   getattr(self, "escena_dia1_completada",   False),
             "pupitre_rayado_completado": getattr(self, "pupitre_rayado_completado", False),
+            "escena_dia2_chat_completada": getattr(self, "escena_dia2_chat_completada", False),
+            "escena_dia2_lucas_completada": getattr(self, "escena_dia2_lucas_completada", False),
+            "decision_dia2_chat": getattr(self, "decision_dia2_chat", ""),
+            "decision_dia2_lucas": getattr(self, "decision_dia2_lucas", ""),
         }
 
     def _migrate_save_data(self, data):
@@ -168,6 +175,10 @@ class GameStateMixin:
         self.day1_intro_step        = 2   # No mostrar intro al cargar partida
         self.escena_dia1_completada    = bool(data.get("escena_dia1_completada",   False))
         self.pupitre_rayado_completado = bool(data.get("pupitre_rayado_completado", False))
+        self.escena_dia2_chat_completada = bool(data.get("escena_dia2_chat_completada", False))
+        self.escena_dia2_lucas_completada = bool(data.get("escena_dia2_lucas_completada", False))
+        self.decision_dia2_chat = str(data.get("decision_dia2_chat", ""))
+        self.decision_dia2_lucas = str(data.get("decision_dia2_lucas", ""))
         self.player_name = str(data.get("player_name", ""))
         self.current_day = int(data.get("current_day", 1))
         self.story_felicidad = int(data.get("story_felicidad", 50))
@@ -453,6 +464,25 @@ class GameStateMixin:
         self.bedroom_sleeping_active = False  # Item-4: True = mostrar overlay A_Sleeping.png
         self.day1_patio_entered = False
         self.current_mission = "Ir a la escuela"
+        # Day 2 state
+        self.escena_dia2_chat_completada = False
+        self.escena_dia2_lucas_completada = False
+        self.decision_dia2_chat = ""
+        self.decision_dia2_lucas = ""
+        self.day2_chat_active = False
+        self.day2_chat_choice_menu_active = False
+        self.day2_chat_choice = ""
+        self.day2_chat_pending_choice = ""
+        self.day2_chat_pending_choice = ""
+        self.day2_chat_overlay_image = None
+        self.day2_chat_overlay_until_ms = 0
+        self.day2_lucas_event_active = False
+        self.day2_lucas_choice_menu_active = False
+        self.day2_lucas_choice = ""
+        self.day2_lucas_sprite = ""
+        self.day2_guide_target = ""
+        self.day2_fin_active = False
+        self.day2_fin_timer_ms = 0
         # NPC AI Manager (Evento 1)
         self.npc_ai_manager = NPCAIManager(os.path.dirname(__file__))
         # Mejora 2: set de posiciones (rx, ry) de pupitres actualmente ocupados por NPCs
@@ -527,7 +557,7 @@ class GameStateMixin:
             {"speaker": "Narrador", "text": "Otros estudiantes observan sin intervenir. Algunos se rien."},
             {"speaker": "Narrador", "text": "Un adulto pasa cerca, pero no nota la situacion."},
             {"speaker": "Narrador", "text": f"Esta vez las burlas empezaron por: {self.prologo_razon}."},
-            {"speaker": "NPC 1", "text": "Por que eres tan raro?"},
+            {"speaker": "NPC 1", "text": "¿Por qué eres tan raro?"},
             {"speaker": "NPC 2", "text": "Ni siquiera sabe responder."},
             {"speaker": "NPC 3", "text": "Dejalo, siempre es asi."},
             {"speaker": self.player_name or "Protagonista", "text": "Recuerdo pensar que alguien debia hacer algo... aunque fuera una sola persona."},
@@ -681,6 +711,8 @@ class GameStateMixin:
                     hitbox["npc_owner"] = str(obj["npc_owner"])
                 if obj.get("npc_animation"):
                     hitbox["npc_animation"] = str(obj["npc_animation"])
+                if obj.get("frames"):
+                    hitbox["frames"] = int(obj["frames"])
                 # Cachear nombre del sprite de la profesora para usarlo en _draw_profe_en_sara
                 if "profesor" in hitbox["object_name"].lower() and not self._profe_deco_name:
                     self._profe_deco_name = hitbox["object_name"]
@@ -851,6 +883,12 @@ class GameStateMixin:
                 self.player_can_move        = False
                 self.story_thought          = ""
                 self.story_interaction_text = ""
+                # Reposicionar al jugador junto al pupitre de Sara, no al suyo
+                # (pupitre de Sara: rx=0.16969, ry=0.68955, rw=0.10240, rh=0.12793)
+                _sara_cx = int(self.story_world_width  * (0.16969 + 0.10240 / 2))
+                _sara_by = int(self.story_world_height * (0.68955 + 0.12793))
+                if self.player_rect is not None:
+                    self._set_player_center((_sara_cx, _sara_by + self.player_rect.height // 2 + 6))
                 audio = getattr(self, "audio", None)
                 if audio:
                     audio.play_decision_bgm()
@@ -979,6 +1017,28 @@ class GameStateMixin:
             if not getattr(self, "day1_completed", False) and getattr(self, "day1_in_tarde", False):
                 self.day1_completed = True
 
+        if getattr(self, "current_day", 1) == 2 and ("habnoche" in base):
+            if not getattr(self, "escena_dia2_chat_completada", False):
+                pname = getattr(self, "player_name", "") or "Protagonista"
+                self.scene_manager = get_scene_dia2_chat(pname)
+                self.escena_activa = "dia2_chat"
+                self.player_can_move = False
+
+        is_bano = ("baño" in base) or ("bano" in base)
+        if getattr(self, "current_day", 1) == 2 and is_bano:
+            if not getattr(self, "escena_dia2_lucas_completada", False):
+                self.day2_guide_target = ""
+                pname = getattr(self, "player_name", "") or "Protagonista"
+                self.scene_manager = get_scene_dia2_lucas_bano(pname)
+                self.escena_activa = "dia2_lucas"
+                self.player_can_move = False
+
+        if (getattr(self, "current_day", 1) == 2 and base == "habtarde.png"
+                and getattr(self, "escena_dia2_lucas_completada", False)):
+            self.day2_fin_active = True
+            self.day2_fin_timer_ms = 2000
+            self.player_can_move = False
+
     def _execute_interactable_action(self, interactable):
         action = interactable.get("action", "puerta")
         if action == "puerta":
@@ -1042,11 +1102,13 @@ class GameStateMixin:
                 return
             self.story_thought = ""
             self.story_interaction_text = ""
-            # Bug-3 fix: mostrar diálogo previo del NPC antes de lanzar el minijuego
-            # El ActionBeat final de la escena llama a _trigger_minijuego(tipo).
+            # Mostrar diálogo previo del NPC según el tipo de minijuego
             pname = getattr(self, "player_name", "") or "Protagonista"
-            self.scene_manager   = get_scene_patio_penaltis(pname, tipo)
-            self.escena_activa   = "patio_minijuego_intro"
+            if tipo == "atrapa_emociones":
+                self.scene_manager = get_scene_callejon_emociones(pname, tipo)
+            else:
+                self.scene_manager = get_scene_patio_penaltis(pname, tipo)
+            self.escena_activa   = "minijuego_intro"
             self.player_can_move = False
             return
         if action == "cama":
@@ -1248,6 +1310,21 @@ class GameStateMixin:
                 # Edge case: escena terminó sin que beat8 limpiara el flag
                 self.escena_activa    = None
                 self.player_can_move  = True
+
+        if getattr(self, "day2_chat_overlay_until_ms", 0) > 0:
+            self.day2_chat_overlay_until_ms = max(0, self.day2_chat_overlay_until_ms - dt_ms)
+            if self.day2_chat_overlay_until_ms <= 0:
+                self.day2_chat_overlay_image = None
+                if getattr(self, "day2_chat_pending_choice", ""):
+                    self.day2_chat_choice = self.day2_chat_pending_choice
+                    self.day2_chat_pending_choice = ""
+
+        if getattr(self, "day2_fin_active", False):
+            self.day2_fin_timer_ms = max(0, self.day2_fin_timer_ms - dt_ms)
+            if self.day2_fin_timer_ms <= 0:
+                self.day2_fin_active = False
+                self.current_day = 3
+                self.player_can_move = True
 
         # ── Temporizador retorno de cámara ────────────────────────────────────
         if getattr(self, "camera_return_after_ms", 0) > 0:

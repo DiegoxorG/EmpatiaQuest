@@ -627,6 +627,17 @@
       "target_image": "CalleDia (1).png"
     },
     {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.5839833593343734,
+      "ry": 0.7730109204368175,
+      "rw": 0.0748829953198128,
+      "rh": 0.1497659906396256,
+      "action": "minijuego",
+      "minijuego_tipo": "atrapa_emociones",
+      "target_image": ""
+    },
+    {
       "role": "wall",
       "type": "line",
       "x1": 0.34373374934997397,
@@ -648,5 +659,14 @@
     }
   },
   "npc_positions": {},
-  "decoracion": []
+  "decoracion": [
+    {
+      "name": "Personajes/NPC_Callejon/NPC4_Parado(1).png",
+      "x": 0.6203848153926157,
+      "y": 0.7737909516380655,
+      "w": 0.07280291211648465,
+      "h": 0.14898595943837753,
+      "frames": 8
+    }
+  ]
 }

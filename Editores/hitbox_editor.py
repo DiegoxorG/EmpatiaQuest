@@ -842,6 +842,7 @@ def main():
                     available_objects.append(
                         os.path.join("Personajes", char_folder, fn).replace("\\", "/"))
     current_object_idx = 0
+    pending_placement_frames = 1   # frames que se asignarán al próximo objeto colocado
     object_cache = {}
     placement_sizes = {}
     decoracion = []
@@ -892,10 +893,23 @@ def main():
         return (max(0, min(x, world_rect.width - w)),
                 max(0, min(y, world_rect.height - h)))
 
+    def detect_sprite_frames(obj_img):
+        """Detecta cuántos frames tiene un spritesheet horizontal por ratio de aspecto."""
+        iw, ih = obj_img.get_size()
+        if ih == 0:
+            return 1
+        ratio   = iw / ih
+        rounded = round(ratio)
+        if rounded >= 2 and abs(ratio - rounded) < 0.15:
+            return rounded
+        return 1
+
     def get_initial_deco_size(obj_img):
-        w, h = obj_img.get_size()
-        s = min(96 / max(w, h), 1.0)
-        return max(MIN_DECO, int(w * s)), max(MIN_DECO, int(h * s))
+        frames = detect_sprite_frames(obj_img)
+        iw, ih = obj_img.get_size()
+        fw = iw // frames          # ancho de un solo frame
+        s  = min(96 / max(fw, ih), 1.0)
+        return max(MIN_DECO, int(fw * s)), max(MIN_DECO, int(ih * s))
 
     def get_placement_size(obj_name, obj_img):
         if obj_name not in placement_sizes:
@@ -1459,6 +1473,8 @@ def main():
                                     oy = max(0, min(oy, world_rect.height - oh))
                                     new_obj = {"name": obj_name,
                                                **normalize_deco(ox, oy, ow, oh)}
+                                    if pending_placement_frames > 1:
+                                        new_obj["frames"] = pending_placement_frames
                                     decoracion.append(new_obj)
                                     selected_deco_idx = len(decoracion) - 1
                                     push_deco_history()
@@ -1778,12 +1794,14 @@ def main():
                 elif event.key == pygame.K_j:
                     if editor_mode == "object":
                         current_object_idx = (current_object_idx + 1) % max(1, len(available_objects))
+                        pending_placement_frames = 1
                     else:
                         current_target_bg_idx = (current_target_bg_idx + 1) % len(available_backgrounds)
 
                 elif event.key == pygame.K_h:
                     if editor_mode == "object":
                         current_object_idx = (current_object_idx - 1) % max(1, len(available_objects))
+                        pending_placement_frames = 1
                     else:
                         current_target_bg_idx = (current_target_bg_idx - 1) % len(available_backgrounds)
 
@@ -1872,6 +1890,27 @@ def main():
                     else:
                         current_line_thickness_px = max(1, current_line_thickness_px - 1)
 
+                # ── Frames del spritesheet: [ baja, ] sube ────────────────────
+                elif event.key == pygame.K_LEFTBRACKET and editor_mode == "object":
+                    if selected_deco_idx is not None:
+                        obj = decoracion[selected_deco_idx]
+                        f = max(1, int(obj.get("frames", 1)) - 1)
+                        if f == 1:
+                            obj.pop("frames", None)
+                        else:
+                            obj["frames"] = f
+                        push_deco_history()
+                    else:
+                        pending_placement_frames = max(1, pending_placement_frames - 1)
+
+                elif event.key == pygame.K_RIGHTBRACKET and editor_mode == "object":
+                    if selected_deco_idx is not None:
+                        obj = decoracion[selected_deco_idx]
+                        obj["frames"] = int(obj.get("frames", 1)) + 1
+                        push_deco_history()
+                    else:
+                        pending_placement_frames += 1
+
                 elif event.key == pygame.K_1 and shift:
                     _set_npc_at_mouse("sara", mouse_pos_screen)
                 elif event.key == pygame.K_2 and shift:
@@ -1952,16 +1991,27 @@ def main():
                 if obj_img:
                     r = get_deco_world_rect(obj)
                     sx, sy = world_to_screen((r.x, r.y))
-                    source_img = get_cropped_deco_image(obj, obj_img)
-                    scaled = pygame.transform.smoothscale(source_img, (r.width, r.height))
+                    frames = int(obj.get("frames", 1))
+                    if frames > 1:
+                        # Spritesheet animado: w ya es 1 frame → subsurface + escalar a r.width×r.height
+                        frame_idx  = (pygame.time.get_ticks() // 120) % frames
+                        iw = obj_img.get_width()
+                        ih = obj_img.get_height()
+                        fw = max(1, iw // frames)
+                        frame_surf = obj_img.subsurface(pygame.Rect(frame_idx * fw, 0, fw, ih))
+                        scaled = pygame.transform.smoothscale(frame_surf, (r.width, r.height))
+                    else:
+                        source_img = get_cropped_deco_image(obj, obj_img)
+                        scaled = pygame.transform.smoothscale(source_img, (r.width, r.height))
                     screen.blit(scaled, (sx, sy))
                     sr = pygame.Rect(sx, sy, r.width, r.height)
                     border_col = (255, 235, 80) if selected_deco_idx == j else (80, 220, 100)
                     pygame.draw.rect(screen, border_col, sr, 2 if selected_deco_idx != j else 3)
                     if show_labels:
-                        crop_tag = " [C]" if "crop" in obj else ""
+                        crop_tag  = " [C]" if "crop" in obj else ""
+                        anim_tag  = f" [{frames}f]" if frames > 1 else ""
                         owner_tag = f" [{obj['npc_owner']}]" if obj.get("npc_owner") else ""
-                        lbl = tiny.render(f"D{j+1} {obj['name'][:12]}{crop_tag}{owner_tag}", True, (130, 240, 130))
+                        lbl = tiny.render(f"D{j+1} {obj['name'][:12]}{crop_tag}{anim_tag}{owner_tag}", True, (130, 240, 130))
                         screen.blit(lbl, (sr.x + 2, sr.y + 2))
 
         # Crop drag preview
@@ -1986,7 +2036,16 @@ def main():
                 px = int(mouse_world[0] - ow / 2)
                 py = int(mouse_world[1] - oh / 2)
                 sx, sy = world_to_screen((px, py))
-                prev = pygame.transform.smoothscale(obj_img, (ow, oh)).copy()
+                cur_frames = pending_placement_frames
+                if cur_frames > 1:
+                    fidx   = (pygame.time.get_ticks() // 120) % cur_frames
+                    iw     = obj_img.get_width()
+                    ih     = obj_img.get_height()
+                    fwp    = max(1, iw // cur_frames)
+                    source = obj_img.subsurface(pygame.Rect(fidx * fwp, 0, fwp, ih))
+                else:
+                    source = obj_img
+                prev = pygame.transform.smoothscale(source, (ow, oh)).copy()
                 prev.set_alpha(100)
                 screen.blit(prev, (sx, sy))
 
@@ -2230,6 +2289,25 @@ def main():
             f"HBs: {len(hitboxes)} + {len(decoracion)} obj",
             f"Grid: {'ON' if grid_snap else 'off'}  Labels: {'ON' if show_labels else 'off'}",
         ]
+        # ── Frames indicator (modo objeto) ────────────────────────────────────
+        if editor_mode == "object":
+            if selected_deco_idx is not None and 0 <= selected_deco_idx < len(decoracion):
+                _fi = int(decoracion[selected_deco_idx].get("frames", 1))
+                _fi_label = f"[ Frames: {_fi} ]   [  baja  /  ]  sube"
+                _fi_color = (255, 220, 80) if _fi > 1 else (170, 170, 200)
+            else:
+                _fi = pending_placement_frames
+                _fi_label = f"[ Frames: {_fi} ]   [  baja  /  ]  sube  (próximo objeto)"
+                _fi_color = (130, 220, 255) if _fi > 1 else (140, 160, 180)
+            _fi_surf = small.render(_fi_label, True, _fi_color)
+            _fi_bg   = pygame.Surface((_fi_surf.get_width() + 16, _fi_surf.get_height() + 8))
+            _fi_bg.fill((18, 18, 28))
+            _fi_bg.set_alpha(210)
+            _fi_ox = viewport_rect.x + 10
+            _fi_oy = viewport_rect.y + 10
+            screen.blit(_fi_bg,   (_fi_ox, _fi_oy))
+            screen.blit(_fi_surf, (_fi_ox + 8, _fi_oy + 4))
+
         if current_role == "interactable" and current_interactable_action == "puerta" and available_backgrounds:
             dest = available_backgrounds[current_target_bg_idx]
             overlay = font.render(f"DESTINO PUERTA: {dest}", True, (255, 255, 0))
@@ -2262,7 +2340,7 @@ def main():
 
         lines = [
             ("HITBOX: arrastra=crear | WASD=camara | F=forma | I=wall/inter | K=accion | M=mover | T=test | P/Shift+P=spawn | click-der=borrar | C=limpiar | ENTER=guardar | Ctrl+L=cargar | ESC=salir", (235, 235, 235)),
-            ("O=modo objeto | J/H=obj/fondo | N=selector NPC | B=selector anim | G=grid | L=etiquetas | +/-=grosor/escala | Ctrl+D=dup | Ctrl+A=sel-todo | Ctrl+C/V=copiar/pegar todos | Ctrl+Shift+C/V=sel individual | R=recortar obj | Shift+R=quitar recorte", (210, 210, 160)),
+            ("O=modo objeto | J/H=obj/fondo | N=selector NPC | B=selector anim | G=grid | L=etiquetas | +/-=grosor/escala | [/]=frames- / frames+ | Ctrl+D=dup | Ctrl+A=sel-todo | Ctrl+C/V=copiar/pegar todos | Ctrl+Shift+C/V=sel individual | R=recortar obj | Shift+R=quitar recorte", (210, 210, 160)),
         ]
         for line_txt, line_col in lines:
             ui_y = draw_wrapped_text(screen, line_txt, tiny, line_col,

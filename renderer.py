@@ -793,8 +793,19 @@ class RendererMixin:
             y    = int(self.story_world_height * h["ry"]) - self.story_camera_y
             w    = max(8, int(self.story_world_width  * h["rw"]))
             h_px = max(8, int(self.story_world_height * h["rh"]))
-            image = self._get_cropped_object_image(image, h.get("crop"))
-            scaled = pygame.transform.smoothscale(image, (w, h_px))
+
+            frames = int(h.get("frames", 1))
+            if frames > 1:
+                # Spritesheet horizontal: rw ya es el ancho de UN frame; recortar y animar
+                frame_idx  = (pygame.time.get_ticks() // 120) % frames
+                img_w      = image.get_width()
+                img_h      = image.get_height()
+                fw         = max(1, img_w // frames)
+                frame_surf = image.subsurface(pygame.Rect(frame_idx * fw, 0, fw, img_h))
+                scaled     = pygame.transform.smoothscale(frame_surf, (w, h_px))
+            else:
+                image  = self._get_cropped_object_image(image, h.get("crop"))
+                scaled = pygame.transform.smoothscale(image, (w, h_px))
             self.screen.blit(scaled, (x, y))
 
     def _load_alineacion_offsets(self):
@@ -902,6 +913,12 @@ class RendererMixin:
         # 🎨 ASSET_UI: Imagenes/flecha_guia.png | 64x64 | Flecha pixel-art amarilla, se rota por código
         guide_active = getattr(self, "day1_guide_active", False)
         going_home   = (getattr(self, "current_mission", "") == "Volver a casa")
+
+        if getattr(self, "current_day", 1) == 2:
+            guide_active = True
+            target = getattr(self, "day2_guide_target", "")
+            if not target:
+                return
 
         # Bug-6 fix: mostrar flecha tanto en el camino a la escuela como en el
         # camino de vuelta a casa cuando current_mission == "Volver a casa".
@@ -1049,8 +1066,8 @@ class RendererMixin:
             if img is None:
                 setattr(self, cache_key, None)
             else:
-                target_h = max(72, int(self.story_world_height * 0.14))
-                target_w = max(40, int(img.get_width() * target_h / max(1, img.get_height())))
+                target_h = max(100, int(self.story_world_height * 0.22))
+                target_w = max(56, int(img.get_width() * target_h / max(1, img.get_height())))
                 setattr(self, cache_key, pygame.transform.smoothscale(img, (target_w, target_h)))
             setattr(self, cache_h_key, self.story_world_height)
             setattr(self, "_profe_sara_name_used", sprite_name)
@@ -1419,11 +1436,86 @@ class RendererMixin:
         }
         self._draw_seated_npc_at_pupitre(_h)
 
+
+    def _draw_day2_chat_overlay(self):
+        bg_path = self._resolve_image_path("sms8.png")
+        try:
+            bg = pygame.image.load(bg_path).convert_alpha() if os.path.exists(bg_path) else None
+        except (OSError, pygame.error):
+            bg = None
+        if bg is None:
+            bg = self._make_placeholder_surface(self.width, self.height, "sms8.png")
+        else:
+            bg = pygame.transform.smoothscale(bg, (self.width, self.height))
+        self.screen.blit(bg, (0, 0))
+
+        overlay_path = getattr(self, "day2_chat_overlay_image", None)
+        if overlay_path:
+            try:
+                ov = pygame.image.load(overlay_path).convert_alpha()
+                ov = pygame.transform.smoothscale(ov, (self.width, self.height))
+                self.screen.blit(ov, (0, 0))
+            except (OSError, pygame.error):
+                pass
+
+        if getattr(self, "day2_chat_choice_menu_active", False):
+            panel = pygame.Rect(self.width // 2 - 450, self.height // 2 - 170, 900, 340)
+            s = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
+            s.fill((10, 14, 22, 190))
+            self.screen.blit(s, panel.topleft)
+            pygame.draw.rect(self.screen, (245, 245, 245), panel, 2)
+            options = [
+                "1. Defender respetuosamente",
+                "2. Reportar grupo",
+                "3. Ignorar",
+                "4. Reenviar contenido",
+                "5. Decirle que vaya al psicólogo",
+            ]
+            y = panel.y + 36
+            for line in options:
+                self.draw_pixel_text(line, panel.x + 28, y, "small", (245, 248, 255), False)
+                y += 52
+
+    def _draw_day2_lucas_choice_overlay(self):
+        if not getattr(self, "day2_lucas_choice_menu_active", False):
+            return
+        panel = pygame.Rect(self.width // 2 - 410, self.height - 260, 820, 210)
+        s = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
+        s.fill((10, 14, 22, 200))
+        self.screen.blit(s, panel.topleft)
+        pygame.draw.rect(self.screen, (245, 245, 245), panel, 2)
+        lines = [
+            "A) Consolar",
+            "B) Preguntar qué ocurre",
+            "C) Ignorar",
+            "D) Decir: 'no es para tanto'",
+        ]
+        y = panel.y + 26
+        for line in lines:
+            self.draw_pixel_text(line, panel.x + 26, y, "small", (245, 248, 255), False)
+            y += 42
+
+    def _draw_day2_fin_overlay(self):
+        if not getattr(self, "day2_fin_active", False):
+            return
+        s = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        s.fill((0, 0, 0, 220))
+        self.screen.blit(s, (0, 0))
+        self.draw_pixel_text("Fin del Día 2", self.width // 2, self.height // 2, "title", (245, 248, 255), True)
+
     def _draw_adventure_screen(self):
         self.screen.fill((255, 255, 255))
         self.story_map_rect = pygame.Rect(0, 0, self.story_world_width, self.story_world_height)
         self.player_rect.clamp_ip(self.story_map_rect)
         self._update_story_camera()
+
+        if getattr(self, "escena_activa", "") == "dia2_chat":
+            self._draw_day2_chat_overlay()
+            self._draw_story_clock_hud()
+            sm = getattr(self, "scene_manager", None)
+            if sm is not None:
+                sm.draw(self.screen, self.base_fonts, self.width, self.height)
+            return
 
         # ── Fondo sara: imagen fullscreen mientras dure la conversación ────────
         # pupitre_rayado_fondo == "sara" se activa al levantarse del pupitre y

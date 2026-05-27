@@ -586,6 +586,44 @@ class ScreenHandlersMixin:
                     self.player_can_move = True
 
         if event.type == pygame.KEYDOWN:
+            if getattr(self, "day2_chat_choice_menu_active", False):
+                mapping = {
+                    pygame.K_1: ("defender", "ME.Defender.png"),
+                    pygame.K_2: ("reportar", "M3-Reportar.png"),
+                    pygame.K_3: ("ignorar", "Me-CerrarChat.png"),
+                    pygame.K_4: ("reenviar", "M3-reenviar.png"),
+                    pygame.K_5: ("psicologo", "M3-Psicologo.png"),
+                }
+                choice_data = mapping.get(event.key)
+                if choice_data is not None:
+                    choice, overlay_name = choice_data
+                    self.day2_chat_pending_choice = choice
+                    self.day2_chat_choice = ""
+                    overlay_path = self._resolve_image_path(overlay_name)
+                    self.day2_chat_overlay_image = overlay_path if os.path.exists(overlay_path) else None
+                    self.day2_chat_overlay_until_ms = 1500
+                    self.day2_chat_choice_menu_active = False
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_decision()
+                    return
+
+            if getattr(self, "day2_lucas_choice_menu_active", False):
+                mapping = {
+                    pygame.K_a: "consolar",
+                    pygame.K_b: "preguntar",
+                    pygame.K_c: "ignorar",
+                    pygame.K_d: "minimizar",
+                }
+                choice = mapping.get(event.key)
+                if choice is not None:
+                    self.day2_lucas_choice = choice
+                    self.day2_lucas_choice_menu_active = False
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_decision()
+                    return
+
             # ── CAMBIO 3: Avance de diálogos Día 1 ───────────────────────────
             seq = getattr(self, "day1_seq_step", 0)
             if seq in (1, 2):
@@ -1243,3 +1281,4 @@ class ScreenHandlersMixin:
             # historia, progreso, tutorial, creditos → menu
             transitions = getattr(self, "transitions", None)
             self._transition_to("menu", transitions)
+

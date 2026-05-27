@@ -155,3 +155,15 @@ Ruta base: `Audio/BGM/`
 - Los assets de UI pueden estar en **PNG con canal alfa** (`.convert_alpha()` aplicado automáticamente).
 - Si un asset de BGM o SFX no existe, `AudioManager` falla silenciosamente y el juego
   continúa sin sonido en ese evento.
+
+## Dia 2
+
+- `Audio/SFX/notificaciones.ogg` - rafaga de notificaciones del chat en HabNoche.
+- `Audio/SFX/llanto_suave.ogg` - llanto suave en loop durante escena de Lucas en bano.
+- `Imagenes/Fondos/Jimara/sms8.png` - fondo principal de la escena de chat (fallback: busqueda global por nombre).
+- `Imagenes/Chat/ME.Defender.png` - superposicion opcion defender (fallback: busqueda global por nombre).
+- `Imagenes/Chat/M3-Reportar.png` - superposicion opcion reportar (fallback: busqueda global por nombre).
+- `Imagenes/Chat/Me.CerrarChat.png` - superposicion opcion ignorar (fallback: busqueda global por nombre y variantes de guion).
+- `Imagenes/Chat/M3-reenviar.png` - superposicion opcion reenviar (fallback: busqueda global por nombre).
+- `Imagenes/Chat/M3-Psicologo.png` - superposicion opcion psicologo (fallback: busqueda global por nombre).
+- `Imagenes/Personajes/Lucas/llorando.png` - sprite de Lucas llorando (fallback: `Lucas_llorando.png` existente).

@@ -232,6 +232,9 @@ class NPCAIManager:
             for npc in self.npcs:
                 if not npc.alive():
                     continue
+                # Sara permanece en su pupitre durante el evento de SalonTarde
+                if npc.nombre == "Sara":
+                    continue
                 npc.fase_evento = "saliendo"
                 npc.leave_delay_ms = stagger
                 npc.leave_elapsed_ms = 0.0
