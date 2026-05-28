@@ -34,8 +34,8 @@ class RendererMixin:
         "mateo_llorando.png": 16,
         "sara_llorar.png": 16,
         "npc1_burla.png": 8,
-        "npc1_chisme.png": 4,
-        "npc2_chisme.png": 4,
+        "npc1_chisme.png": 8,
+        "npc2_chisme.png": 8,
         "npc2_grabar_animacion.png": 8,
         "npc1_grabar_animacion.png": 4,
         "samuel_llorando_animacion.png": 4,
@@ -923,12 +923,8 @@ class RendererMixin:
                     _ev_active = getattr(self, "day3_event_active", "") == "cafeteria"
                     _buscar = (getattr(self, "day3_buscar_profesor_context", "") == "cafeteria"
                                and not getattr(self, "escena_dia3_cafeteria_completada", False))
-                    cafeteria_bien = self._day3_cafeteria_resuelta_bien()
-                    if not (_ev_active or _buscar or cafeteria_bien):
+                    if not (_ev_active or _buscar):
                         continue
-                    if cafeteria_bien and not (_ev_active or _buscar):
-                        h = self._cafeteria_resolved_idle_deco(h)
-                        object_name = str(h.get("object_name", ""))
                 elif "piscinadia" in _cur_map:
                     if getattr(self, "current_day", 1) != 3:
                         continue
@@ -2118,14 +2114,14 @@ class RendererMixin:
             draw_ref("Personajes/Diego/Diego_idle_right.png", 0.39, 0.50, 165)
             draw_ref(main_ref, 0.52, 0.49, 200)
             draw_ref("Personajes/NPC1/NPC1_idle_up.png", 0.43, 0.66, 160)
-            draw_ref("Personajes/NPC2/NPC2_Burla.png", 0.61, 0.36, 160)
+            draw_ref("Personajes/NPC2/NPC2_Burla.png", 0.64, 0.40, 160)
             if getattr(self, "day4_choice", "") == "reirse":
                 draw_ref("Personajes/personaje_main/main_reirse.png", 0.34, 0.56, 160)
         elif active == "biblioteca":
             choice = getattr(self, "day4_choice", "")
             centro = (0.39001560062402496, 0.437597503900156, 0.1981279251170047, 0.23088923556942278)
             derecha = (0.7087883515340614, 0.5787831513260531, 0.1502860114404576, 0.15990639625585024)
-            draw_ref("Personajes/Profesor3/Profesor3_idle_down.png", 0.62, 0.31, 165)
+            draw_ref("Personajes/Profesor3/Profesor3_idle_down.png", 0.62, 0.38, 165)
             if choice == "incluir" or phase == "sara_incluida":
                 draw_rect_ref("Mesa1TODOSProta1.png", *centro)
             elif choice == "diego":

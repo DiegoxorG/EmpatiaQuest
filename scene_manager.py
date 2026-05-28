@@ -1836,7 +1836,7 @@ def get_scene_dia4_biblioteca(player_name: str) -> SceneManager:
 
     return SceneManager([
         ActionBeat(setup),
-        DialogBeat("profesor Martin", "Formen equipos para el trabajo. Empiecen de una vez.", avanza_con="click"),
+        DialogBeat("Profesor Joaquín", "Formen equipos para el trabajo. Empiecen de una vez.", avanza_con="click"),
         DialogBeat("", "Diego, Gabriela, Maria y Carlos juntan sus sillas rapidamente.", avanza_con="tiempo", tiempo_ms=1700),
         DialogBeat("", "Sara queda apartada con sus cosas sobre la mesa.", avanza_con="tiempo", tiempo_ms=1500),
         DialogBeat(pname, "Estoy justo entre los dos grupos.", avanza_con="tiempo", tiempo_ms=1500),
