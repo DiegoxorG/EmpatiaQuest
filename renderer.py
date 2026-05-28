@@ -856,16 +856,25 @@ class RendererMixin:
             if "personajes/" in object_name.lower():
                 _cur_map = self._current_adventure_map_norm()
                 if "cafeteriadia" in _cur_map:
-                    if getattr(self, "current_day", 1) != 3 or getattr(self, "day3_event_active", "") != "cafeteria":
+                    if getattr(self, "current_day", 1) != 3:
+                        continue
+                    _ev_active = getattr(self, "day3_event_active", "") == "cafeteria"
+                    _buscar = (getattr(self, "day3_buscar_profesor_context", "") == "cafeteria"
+                               and not getattr(self, "escena_dia3_cafeteria_completada", False))
+                    if not (_ev_active or _buscar):
                         continue
                 elif "piscinadia" in _cur_map:
                     if getattr(self, "current_day", 1) != 3:
                         continue
-                    if (getattr(self, "day3_event_active", "") != "piscina"
-                            and not getattr(self, "escena_dia3_piscina_completada", False)):
+                    if getattr(self, "day3_event_active", "") != "piscina":
                         continue
                 elif "pasillo2dia" in _cur_map:
-                    if getattr(self, "current_day", 1) != 3 or getattr(self, "day3_event_active", "") != "pelea":
+                    if getattr(self, "current_day", 1) != 3:
+                        continue
+                    _ev_active = getattr(self, "day3_event_active", "") == "pelea"
+                    _buscar = (getattr(self, "day3_buscar_profesor_context", "") == "pelea"
+                               and not getattr(self, "escena_dia3_pelea_completada", False))
+                    if not (_ev_active or _buscar):
                         continue
                     if "separar.png" in object_name.lower():
                         if getattr(self, "day3_choice", "") != "separar":

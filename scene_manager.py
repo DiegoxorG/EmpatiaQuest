@@ -1149,7 +1149,8 @@ def _day3_finish_minigame_scene(game, context: str):
     game.day3_minigame_result = None
     trigger = getattr(game, "_trigger_minijuego", None)
     if trigger is not None:
-        trigger("pacifico")
+        tipo = "agresivo" if context == "cafeteria_defender" else "pacifico"
+        trigger(tipo)
 
 
 def _day3_finalize_common(game, attr_done: str, decision_attr: str, choice: str,
@@ -1355,13 +1356,35 @@ def get_scene_dia3_cafeteria(player_name: str) -> SceneManager:
 
 def get_scene_dia3_cafeteria_profesor(player_name: str) -> SceneManager:
     pname = player_name or "Protagonista"
+
+    def setup(game):
+        game.player_can_move = False
+        game.day3_event_active = "cafeteria"
+        mgr = getattr(game, "npc_ai_manager", None)
+        if mgr is not None:
+            prof = mgr.get_profesor1()
+            if prof is not None:
+                prof.waypoints = [(0.60, 0.50)]
+                prof.waypoint_idx = 0
+                prof.destino_rx, prof.destino_ry = 0.60, 0.50
+                prof.fase_evento = "dia3_idle"
+                prof.anim_state = "walk"
+
+    def despawn_profesor(game):
+        mgr = getattr(game, "npc_ai_manager", None)
+        if mgr is not None:
+            prof = mgr.get_profesor1()
+            if prof is not None:
+                prof.estado = "despawned"
+
     return SceneManager([
-        ActionBeat(lambda g: (setattr(g, "player_can_move", False), setattr(g, "day3_event_active", "cafeteria"))),
+        ActionBeat(setup),
         DialogBeat("Profesor1", "¿Que esta pasando aqui?", avanza_con="click"),
         DialogBeat("Carlos", "Carlos se paralizo al verla entrar.", avanza_con="tiempo", tiempo_ms=1300),
         DialogBeat("Profesor1", "Bajen esos celulares. Humillar a alguien no es un juego.", avanza_con="click"),
         DialogBeat("Profesor1", "Carlos, vas a explicar esto en coordinacion.", avanza_con="click"),
         DialogBeat("Mateo", f"Gracias, {pname}.", avanza_con="tiempo", tiempo_ms=1400),
+        ActionBeat(despawn_profesor),
         ActionBeat(lambda g: _day3_finalize_common(g, "escena_dia3_cafeteria_completada", "decision_dia3_cafeteria", "ayuda", +2, 0, "Buscar ayuda institucional", "pasillo2", "dia3_cafeteria")),
     ])
 
@@ -1476,13 +1499,34 @@ def get_scene_dia3_pelea(player_name: str) -> SceneManager:
 
 
 def get_scene_dia3_pelea_profesor(player_name: str) -> SceneManager:
+    def setup(game):
+        game.player_can_move = False
+        game.day3_event_active = "pelea"
+        mgr = getattr(game, "npc_ai_manager", None)
+        if mgr is not None:
+            prof = mgr.get_profesor1()
+            if prof is not None:
+                prof.waypoints = [(0.50, 0.45)]
+                prof.waypoint_idx = 0
+                prof.destino_rx, prof.destino_ry = 0.50, 0.45
+                prof.fase_evento = "dia3_idle"
+                prof.anim_state = "walk"
+
+    def despawn_profesor(game):
+        mgr = getattr(game, "npc_ai_manager", None)
+        if mgr is not None:
+            prof = mgr.get_profesor1()
+            if prof is not None:
+                prof.estado = "despawned"
+
     return SceneManager([
-        ActionBeat(lambda g: (setattr(g, "player_can_move", False), setattr(g, "day3_event_active", "pelea"))),
+        ActionBeat(setup),
         DialogBeat("Profesor1", "¡Paren ahora mismo!", avanza_con="click"),
         DialogBeat("Carlos", "Carlos y Andres se separaron de golpe.", avanza_con="tiempo", tiempo_ms=1300),
         DialogBeat("Profesor1", "Los dos a direccion. Ya.", avanza_con="click"),
         DialogBeat("NPC1", "NPC1 y NPC2 bajaron los celulares.", avanza_con="tiempo", tiempo_ms=1200),
         DialogBeat("Profesor1", "Gracias por avisar a tiempo.", avanza_con="tiempo", tiempo_ms=1400),
+        ActionBeat(despawn_profesor),
         ActionBeat(lambda g: _day3_finalize_common(g, "escena_dia3_pelea_completada", "decision_dia3_pelea", "profesor", +2, 0, "Buscar a un profesor", "habtarde", "dia3_pelea")),
     ])
 

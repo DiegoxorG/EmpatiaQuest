@@ -880,15 +880,22 @@ class GameStateMixin:
         if "personajes/" in obj.lower():
             cur_map = self._current_adventure_map_norm()
             if "cafeteriadia" in cur_map:
-                return (getattr(self, "current_day", 1) == 3
-                        and getattr(self, "day3_event_active", "") == "cafeteria")
+                if getattr(self, "current_day", 1) != 3:
+                    return False
+                _ev_active = getattr(self, "day3_event_active", "") == "cafeteria"
+                _buscar = (getattr(self, "day3_buscar_profesor_context", "") == "cafeteria"
+                           and not getattr(self, "escena_dia3_cafeteria_completada", False))
+                return _ev_active or _buscar
             if "piscinadia" in cur_map:
                 return (getattr(self, "current_day", 1) == 3
-                        and (getattr(self, "day3_event_active", "") == "piscina"
-                             or getattr(self, "escena_dia3_piscina_completada", False)))
+                        and getattr(self, "day3_event_active", "") == "piscina")
             if "pasillo2dia" in cur_map:
-                if (getattr(self, "current_day", 1) != 3
-                        or getattr(self, "day3_event_active", "") != "pelea"):
+                if getattr(self, "current_day", 1) != 3:
+                    return False
+                _ev_active = getattr(self, "day3_event_active", "") == "pelea"
+                _buscar = (getattr(self, "day3_buscar_profesor_context", "") == "pelea"
+                           and not getattr(self, "escena_dia3_pelea_completada", False))
+                if not (_ev_active or _buscar):
                     return False
                 if "separar.png" in obj.lower():
                     return getattr(self, "day3_choice", "") == "separar"

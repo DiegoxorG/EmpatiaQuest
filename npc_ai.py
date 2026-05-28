@@ -341,6 +341,26 @@ class NPCAIManager:
         if ("salondia" in key or "salondía" in key) and getattr(game, "current_day", 1) == 1:
             self._place_npcs_at_chairs(game)
 
+        prof = self.get_profesor1()
+        if prof is not None and prof.fase_evento == "dia3_follow":
+            new_key = _map_key(new_map_basename)
+            if prof.current_map_key() != new_key:
+                prev_map = os.path.basename(prof.fondo_actual)
+                world_w = max(1, getattr(game, "story_world_width", 1280))
+                world_h = max(1, getattr(game, "story_world_height", 720))
+                spawn_by_origin = getattr(game, "story_spawn_by_origin", {})
+                spawn_px = spawn_by_origin.get(prev_map)
+                if spawn_px:
+                    rx = max(0.02, min(0.98, spawn_px[0] / world_w))
+                    ry = max(0.02, min(0.98, spawn_px[1] / world_h))
+                    self._teleport_npc(prof, new_map_basename, rx, ry)
+                else:
+                    player_rect = getattr(game, "player_rect", None)
+                    if player_rect:
+                        rx = max(0.02, min(0.98, player_rect.centerx / world_w))
+                        ry = max(0.02, min(0.98, player_rect.centery / world_h))
+                        self._teleport_npc(prof, new_map_basename, rx, ry)
+
     def update(self, dt_ms: float, game):
         if not self.npc_ai_active or not self.npcs:
             return
@@ -622,7 +642,8 @@ class NPCAIManager:
         player_rect = getattr(game, "player_rect", None)
         if player_rect is None:
             return
-        npc.fondo_actual = current_map
+        if same_map:
+            npc.fondo_actual = current_map
         target_rx = max(0.02, min(0.98, (player_rect.centerx + 64) / max(1, world_w)))
         target_ry = max(0.02, min(0.98, (player_rect.centery + 8) / max(1, world_h)))
         npc.destino_rx, npc.destino_ry = target_rx, target_ry
