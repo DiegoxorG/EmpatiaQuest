@@ -6,6 +6,17 @@
   ],
   "hitboxes": [
     {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.6997503121098627,
+      "ry": 0.044461778471138844,
+      "rw": 0.21161048689138576,
+      "rh": 0.36427457098283933,
+      "action": "objeto",
+      "object_name": "Armario_Cerrado-HabNoche.png",
+      "toggle_object": "Armario_Abierto-HabNoche.png"
+    },
+    {
       "role": "wall",
       "type": "line",
       "x1": 0.3520423975455059,
@@ -320,15 +331,7 @@
   },
   "npc_positions": {},
   "decoracion": [
-    {
-      "name": "Armario-HabNoche.png",
-      "x": 0.6997503121098627,
-      "y": 0.044461778471138844,
-      "w": 0.21161048689138576,
-      "h": 0.36427457098283933,
-      "frames": 2,
-      "interactive_frame": true
-    },
+    
     {
       "name": "Cama-HabNoche.png",
       "x": 0.05867665418227216,

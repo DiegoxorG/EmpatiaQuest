@@ -7,6 +7,7 @@ Contiene todos los m?todos _draw_* y _render_current_screen.
 # [UI] ASSET_UI: Imagenes/UI/logo_menu.png            | 800x200 | Logo EMPATIA QUEST en menu (fallback: draw_pixel_text)
 """
 
+
 import json
 import os
 import pygame
@@ -897,10 +898,19 @@ class RendererMixin:
             # Pupitre-Sal?n1.png ni el placeholder de pupitre_rayado.png encima de Sara.
             if in_tarde and self._is_sara_tarde_desk(h):
                 continue
-
-            image = self._load_object_interactable_image(h.get("object_name", ""))
-            if image is None:
+            image = None
+            if h.get("toggle_object"):
+                key = f"{h.get('object_name','')}_{h.get('rx',0):.4f}"
+                if getattr(self, "story_deco_frame_states", {}).get(key, False):
+                    image = self._load_object_interactable_image(h.get("toggle_object"))
+                else:
+                    image = self._load_object_interactable_image(h.get("object_name", ""))
+            else:
+                image = self._load_object_interactable_image(h.get("object_name", ""))
+            if not image:
                 continue
+            
+            
             x    = int(self.story_world_width  * h["rx"]) - self.story_camera_x
             y    = int(self.story_world_height * h["ry"]) - self.story_camera_y
             w    = max(8, int(self.story_world_width  * h["rw"]))
