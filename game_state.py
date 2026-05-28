@@ -1,4 +1,4 @@
-﻿"""
+"""
 Mixin de estado del juego para EmpatiaQuestUI.
 Contiene toda la l?gica de datos: guardado, carga, exploraci?n, historia,
 habilidades, logros y eventos.
@@ -12,6 +12,7 @@ import unicodedata
 import pygame
 from Movimiento.Personaje import Personaje
 from npc_ai import NPCAIManager
+from ambient_state import AmbientStateManager
 from Movimiento.Fondo import Fondo
 from Movimiento.Animacion import Animacion
 from config import (
@@ -50,7 +51,7 @@ from scene_manager import (
 )
 
 
-# â”€â”€â”€ Habilidades disponibles y sus triggers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€â"€ Habilidades disponibles y sus triggers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 DEFAULT_SKILLS = {
     "Escucha Activa": {
         "nivel": 0, "max_nivel": 3,
@@ -82,7 +83,7 @@ class GameStateMixin:
     aventura, historia y habilidades de EmpatiaQuestUI.
     """
 
-    # â”€â”€ Controles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Controles â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _build_default_controls(self):
         controls = {}
@@ -128,16 +129,64 @@ class GameStateMixin:
         self.controls[action] = new_key
         self.waiting_control_action = None
 
-    # â”€â”€ Guardado y carga â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Guardado y carga â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _save_slot_exists(self, slot):
-        return os.path.exists(self.save_slot_files[slot])
+        return 0 <= int(slot) < len(self.save_slot_files) and os.path.exists(self.save_slot_files[int(slot)])
+
+    def _safe_int(self, value, default=0, minimum=None, maximum=None):
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            value = default
+        if minimum is not None:
+            value = max(minimum, value)
+        if maximum is not None:
+            value = min(maximum, value)
+        return value
+
+    def _safe_bool(self, value, default=False):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered in ("1", "true", "si", "yes", "on"):
+                return True
+            if lowered in ("0", "false", "no", "off", ""):
+                return False
+        if value is None:
+            return default
+        return bool(value)
+
+    def _safe_dict(self, value):
+        return value if isinstance(value, dict) else {}
+
+    def _safe_list(self, value):
+        return value if isinstance(value, list) else []
+
+    def _current_background_name(self):
+        fondo = getattr(self, "aventura_fondo", None)
+        ruta = str(getattr(fondo, "ruta_imagen", "")) if fondo is not None else ""
+        return os.path.basename(ruta) if ruta else "HabDía.png"
 
     def _build_save_data(self):
         return {
             "save_version": SAVE_VERSION,
             "player_name": getattr(self, "player_name", ""),
             "current_day": getattr(self, "current_day", 1),
+            "current_background": self._current_background_name(),
+            "player_rect": [
+                int(getattr(self, "player_rect", pygame.Rect(0, 0, 28, 28)).x),
+                int(getattr(self, "player_rect", pygame.Rect(0, 0, 28, 28)).y),
+                int(getattr(self, "player_rect", pygame.Rect(0, 0, 28, 28)).w),
+                int(getattr(self, "player_rect", pygame.Rect(0, 0, 28, 28)).h),
+            ],
+            "current_mission": getattr(self, "current_mission", ""),
+            "story_clock_day": getattr(self, "story_clock_day", 1),
+            "story_clock_hour": getattr(self, "story_clock_hour", 7),
+            "story_clock_minute": getattr(self, "story_clock_minute", 30),
+            "story_clock_accumulator_ms": getattr(self, "story_clock_accumulator_ms", 0),
+            "story_previous_map_name": getattr(self, "story_previous_map_name", None),
             "story_felicidad": self.story_felicidad,
             "story_reputacion": self.story_reputacion,
             "story_completed": self.story_completed,
@@ -154,7 +203,12 @@ class GameStateMixin:
             "skills_inventory": self.skills_inventory,
             "logros": self.lista_logros.to_list(),
             "escena_dia1_completada":   getattr(self, "escena_dia1_completada",   False),
+            "day1_in_tarde": getattr(self, "day1_in_tarde", False),
+            "day1_completed": getattr(self, "day1_completed", False),
+            "day1_patio_entered": getattr(self, "day1_patio_entered", False),
             "pupitre_rayado_completado": getattr(self, "pupitre_rayado_completado", False),
+            "day1_pupitre_step": getattr(self, "day1_pupitre_step", 0),
+            "day1_pupitre_result": getattr(self, "day1_pupitre_result", ""),
             "escena_dia2_chat_completada": getattr(self, "escena_dia2_chat_completada", False),
             "escena_dia2_lucas_completada": getattr(self, "escena_dia2_lucas_completada", False),
             "decision_dia2_chat": getattr(self, "decision_dia2_chat", ""),
@@ -186,7 +240,7 @@ class GameStateMixin:
         if not isinstance(data, dict):
             return {"save_version": SAVE_VERSION}
         migrated = dict(data)
-        version = int(migrated.get("save_version", 1))
+        version = self._safe_int(migrated.get("save_version", 1), 1, 1)
 
         if version < 2:
             migrated.setdefault("character_colors", self.character_colors.copy())
@@ -200,8 +254,97 @@ class GameStateMixin:
             migrated.setdefault("skills_inventory", {k: dict(v) for k, v in DEFAULT_SKILLS.items()})
             migrated.setdefault("logros", [])
 
+        if version < 4:
+            migrated.setdefault("current_background", "")
+            migrated.setdefault("player_rect", [])
+            migrated.setdefault("current_mission", "")
+            migrated.setdefault("story_clock_day", 1)
+            migrated.setdefault("story_clock_hour", 7)
+            migrated.setdefault("story_clock_minute", 30)
+            migrated.setdefault("story_clock_accumulator_ms", 0)
+            migrated.setdefault("story_previous_map_name", None)
+            migrated.setdefault("day1_in_tarde", False)
+            migrated.setdefault("day1_completed", migrated.get("escena_dia1_completada", False))
+            migrated.setdefault("day1_patio_entered", False)
+            migrated.setdefault("day1_pupitre_step", 0)
+            migrated.setdefault("day1_pupitre_result", "")
+
         migrated["save_version"] = SAVE_VERSION
         return migrated
+
+    def _infer_background_for_legacy_save(self, data):
+        current_day = self._safe_int(data.get("current_day", 1), 1, 1, 5)
+        if current_day == 1:
+            if self._safe_bool(data.get("escena_dia1_completada", False)) or self._safe_int(data.get("story_completed", 0), 0) > 0:
+                return "SalonTarde.png"
+            return "HabDía.png"
+        if current_day == 2:
+            if not self._safe_bool(data.get("escena_dia2_chat_completada", False)):
+                return "HabNoche (2).png"
+            if not self._safe_bool(data.get("escena_dia2_lucas_completada", False)):
+                return "BañoDia.png"
+            return "HabTarde.png"
+        if current_day == 3:
+            if not self._safe_bool(data.get("escena_dia3_piscina_completada", False)):
+                return "piscinaDia.png"
+            if not self._safe_bool(data.get("escena_dia3_cafeteria_completada", False)):
+                return "CafeteriaDía.png"
+            if not self._safe_bool(data.get("escena_dia3_pelea_completada", False)):
+                return "Pasillo2Dia.png"
+            return "HabTarde.png"
+        if current_day == 4:
+            if not self._safe_bool(data.get("escena_dia4_azotea_completada", False)):
+                return "AzoteaDía.png"
+            if not self._safe_bool(data.get("escena_dia4_biblioteca_completada", False)):
+                return "BibDia.png"
+            if not self._safe_bool(data.get("escena_dia4_rumores_completada", False)):
+                return "Pasillo1_dia.png"
+            return "HabTarde.png"
+        if current_day == 5:
+            if not self._safe_bool(data.get("escena_dia5_pasillo_completada", False)):
+                return "Pasillo1_dia.png"
+            if str(data.get("decision_dia5_pasillo", "")) == "sara":
+                return "AzoteaDía.png"
+            if str(data.get("decision_dia5_pasillo", "")) == "diego":
+                return "PatioTarde.png"
+        return "HabDía.png"
+
+    def _restore_background_from_save(self, image_name):
+        if not image_name:
+            return
+        target_path = self._resolve_image_path(str(image_name))
+        if not os.path.exists(target_path):
+            return
+        try:
+            self.aventura_fondo = Fondo(target_path, 0, 0)
+        except (OSError, pygame.error):
+            placeholder = self._make_placeholder_surface(1280, 720, str(image_name))
+            self.aventura_fondo = self._make_fondo_placeholder(target_path, placeholder)
+        self.cached_background_scaled = None
+        self.cached_background_size = None
+        self.cached_background_source = None
+        self.story_walls = self._build_story_wall_hitboxes(self.aventura_fondo.ruta_imagen)
+        self._rebuild_story_world(keep_player=False)
+        npc_mgr = getattr(self, "npc_ai_manager", None)
+        if npc_mgr is not None:
+            npc_mgr.on_map_change(os.path.basename(str(image_name)), self)
+
+    def _restore_player_rect_from_save(self, value):
+        if not isinstance(value, (list, tuple)) or len(value) < 2:
+            return
+        x = self._safe_int(value[0], self.player_rect.x)
+        y = self._safe_int(value[1], self.player_rect.y)
+        w = self._safe_int(value[2], self.player_rect.w, 8) if len(value) > 2 else self.player_rect.w
+        h = self._safe_int(value[3], self.player_rect.h, 8) if len(value) > 3 else self.player_rect.h
+        self.player_rect = pygame.Rect(x, y, w, h)
+        self.player_rect.clamp_ip(self.story_map_rect)
+        if self.aventura_personaje is not None:
+            self.aventura_personaje.hitbox.x = self.player_rect.x
+            self.aventura_personaje.hitbox.y = self.player_rect.y
+            self.aventura_personaje.hitbox.w = self.player_rect.w
+            self.aventura_personaje.hitbox.h = self.player_rect.h
+            self.aventura_personaje.sync_sprite_from_hitbox()
+        self._update_story_camera()
 
     def _apply_loaded_save_data(self, data):
         data = self._migrate_save_data(data)
@@ -210,28 +353,33 @@ class GameStateMixin:
         self._start_adventure()
         self._loading_save = False
         self.day1_intro_step        = 2   # No mostrar intro al cargar partida
-        self.escena_dia1_completada    = bool(data.get("escena_dia1_completada",   False))
-        self.pupitre_rayado_completado = bool(data.get("pupitre_rayado_completado", False))
-        self.escena_dia2_chat_completada = bool(data.get("escena_dia2_chat_completada", False))
-        self.escena_dia2_lucas_completada = bool(data.get("escena_dia2_lucas_completada", False))
+        self.escena_dia1_completada    = self._safe_bool(data.get("escena_dia1_completada", False))
+        self.day1_in_tarde = self._safe_bool(data.get("day1_in_tarde", False))
+        self.day1_completed = self._safe_bool(data.get("day1_completed", self.escena_dia1_completada))
+        self.day1_patio_entered = self._safe_bool(data.get("day1_patio_entered", False))
+        self.day1_pupitre_step = self._safe_int(data.get("day1_pupitre_step", 0), 0, 0, 3)
+        self.day1_pupitre_result = str(data.get("day1_pupitre_result", ""))
+        self.pupitre_rayado_completado = self._safe_bool(data.get("pupitre_rayado_completado", False))
+        self.escena_dia2_chat_completada = self._safe_bool(data.get("escena_dia2_chat_completada", False))
+        self.escena_dia2_lucas_completada = self._safe_bool(data.get("escena_dia2_lucas_completada", False))
         self.decision_dia2_chat = str(data.get("decision_dia2_chat", ""))
         self.decision_dia2_lucas = str(data.get("decision_dia2_lucas", ""))
-        self.day2_pasillo_prompt_done = bool(data.get("day2_pasillo_prompt_done", False))
-        self.escena_dia3_piscina_completada = bool(data.get("escena_dia3_piscina_completada", False))
-        self.escena_dia3_cafeteria_completada = bool(data.get("escena_dia3_cafeteria_completada", False))
-        self.escena_dia3_pelea_completada = bool(data.get("escena_dia3_pelea_completada", False))
+        self.day2_pasillo_prompt_done = self._safe_bool(data.get("day2_pasillo_prompt_done", False))
+        self.escena_dia3_piscina_completada = self._safe_bool(data.get("escena_dia3_piscina_completada", False))
+        self.escena_dia3_cafeteria_completada = self._safe_bool(data.get("escena_dia3_cafeteria_completada", False))
+        self.escena_dia3_pelea_completada = self._safe_bool(data.get("escena_dia3_pelea_completada", False))
         self.decision_dia3_piscina = str(data.get("decision_dia3_piscina", ""))
         self.decision_dia3_cafeteria = str(data.get("decision_dia3_cafeteria", ""))
         self.decision_dia3_pelea = str(data.get("decision_dia3_pelea", ""))
-        self.escena_dia4_azotea_completada = bool(data.get("escena_dia4_azotea_completada", False))
-        self.escena_dia4_biblioteca_completada = bool(data.get("escena_dia4_biblioteca_completada", False))
-        self.escena_dia4_rumores_completada = bool(data.get("escena_dia4_rumores_completada", False))
+        self.escena_dia4_azotea_completada = self._safe_bool(data.get("escena_dia4_azotea_completada", False))
+        self.escena_dia4_biblioteca_completada = self._safe_bool(data.get("escena_dia4_biblioteca_completada", False))
+        self.escena_dia4_rumores_completada = self._safe_bool(data.get("escena_dia4_rumores_completada", False))
         self.decision_dia4_azotea = str(data.get("decision_dia4_azotea", ""))
         self.decision_dia4_biblioteca = str(data.get("decision_dia4_biblioteca", ""))
         self.decision_dia4_rumores = str(data.get("decision_dia4_rumores", ""))
         self.day4_guide_target = str(data.get("day4_guide_target", ""))
-        self.escena_dia5_pasillo_completada = bool(data.get("escena_dia5_pasillo_completada", False))
-        self.escena_dia5_fin_completada = bool(data.get("escena_dia5_fin_completada", False))
+        self.escena_dia5_pasillo_completada = self._safe_bool(data.get("escena_dia5_pasillo_completada", False))
+        self.escena_dia5_fin_completada = self._safe_bool(data.get("escena_dia5_fin_completada", False))
         self.decision_dia5_pasillo = str(data.get("decision_dia5_pasillo", ""))
         self.decision_dia5_final = str(data.get("decision_dia5_final", ""))
         self.day5_guide_target = str(data.get("day5_guide_target", ""))
@@ -243,30 +391,36 @@ class GameStateMixin:
         if isinstance(pos, (list, tuple)) and len(pos) == 2:
             self.profesor1_pos = (float(pos[0]), float(pos[1]))
         self.player_name = str(data.get("player_name", ""))
-        self.current_day = int(data.get("current_day", 1))
-        self.story_felicidad = int(data.get("story_felicidad", 50))
-        self.story_reputacion = int(data.get("story_reputacion", 50))
-        self.story_completed = int(data.get("story_completed", 0))
-        self.story_thought = data.get("story_thought", "")
-        self.story_pending_end = bool(data.get("story_pending_end", False))
-        self.story_final_key = data.get("story_final_key", "")
-        self.story_final_text = data.get("story_final_text", "")
-        self.prologo_razon = data.get("prologo_razon", "")
-        self.decision_history = data.get("decision_history", [])
+        self.current_day = self._safe_int(data.get("current_day", 1), 1, 1, 5)
+        self.story_felicidad = self._safe_int(data.get("story_felicidad", 50), 50, 0, 100)
+        self.story_reputacion = self._safe_int(data.get("story_reputacion", 50), 50, 0, 100)
+        self.story_completed = self._safe_int(data.get("story_completed", 0), 0, 0)
+        self.story_thought = str(data.get("story_thought", ""))
+        self.story_pending_end = self._safe_bool(data.get("story_pending_end", False))
+        self.story_final_key = str(data.get("story_final_key", ""))
+        self.story_final_text = str(data.get("story_final_text", ""))
+        self.prologo_razon = str(data.get("prologo_razon", ""))
+        self.decision_history = self._safe_list(data.get("decision_history", []))
+        loaded_mission = str(data.get("current_mission", getattr(self, "current_mission", "")))
+        self.story_clock_day = self._safe_int(data.get("story_clock_day", self.current_day), self.current_day, 1)
+        self.story_clock_hour = self._safe_int(data.get("story_clock_hour", 7), 7, 0, 23)
+        self.story_clock_minute = self._safe_int(data.get("story_clock_minute", 30), 30, 0, 59)
+        self.story_clock_accumulator_ms = self._safe_int(data.get("story_clock_accumulator_ms", 0), 0, 0)
+        self.story_previous_map_name = data.get("story_previous_map_name", None)
 
-        loaded_colors = data.get("character_colors", {})
+        loaded_colors = self._safe_dict(data.get("character_colors", {}))
         if isinstance(loaded_colors, dict):
             for part, color in loaded_colors.items():
                 if part in self.character_colors and isinstance(color, (list, tuple)) and len(color) == 3:
                     self.character_colors[part] = tuple(max(0, min(255, int(v))) for v in color)
 
-        loaded_style = data.get("current_style", {})
+        loaded_style = self._safe_dict(data.get("current_style", {}))
         if isinstance(loaded_style, dict):
             for part, idx in loaded_style.items():
                 if part in self.current_style:
                     self.current_style[part] = max(0, min(len(self.part_styles[part]) - 1, int(idx)))
 
-        loaded_settings = data.get("settings", {})
+        loaded_settings = self._safe_dict(data.get("settings", {}))
         if isinstance(loaded_settings, dict):
             if "Volumen" in loaded_settings:
                 loaded_settings.setdefault("Musica", loaded_settings["Volumen"])
@@ -280,7 +434,7 @@ class GameStateMixin:
 
         self._apply_loaded_controls(data.get("controls", {}))
 
-        loaded_skills = data.get("skills_inventory", {})
+        loaded_skills = self._safe_dict(data.get("skills_inventory", {}))
         if isinstance(loaded_skills, dict):
             for skill_name, skill_data in loaded_skills.items():
                 if skill_name in self.skills_inventory:
@@ -288,7 +442,11 @@ class GameStateMixin:
                         skill_data.get("nivel", 0)
                     )
 
-        self.lista_logros.load_from_list(data.get("logros", []))
+        self.lista_logros.load_from_list(self._safe_list(data.get("logros", [])))
+
+        if data.get("current_background"):
+            self._restore_background_from_save(data.get("current_background", ""))
+        self._restore_player_rect_from_save(data.get("player_rect", []))
 
         self.audio.apply_music_volume(self.settings.get("Musica", self.settings.get("Volumen", 70)))
         self.audio.apply_sfx_volume(self.settings.get("Efectos de sonido", self.settings.get("Volumen", 70)))
@@ -296,6 +454,18 @@ class GameStateMixin:
             self._prepare_day3_state()
         if getattr(self, "current_day", 1) == 4:
             self._prepare_day4_state()
+        if getattr(self, "current_day", 1) == 5:
+            self._prepare_day5_state()
+        self.escena_activa = None
+        self.scene_manager = None
+        self.player_can_move = not self.story_pending_end
+        self.show_skills_inventory = False
+        self.day3_choice_menu_active = False
+        self.day4_choice_menu_active = False
+        self.day5_choice_menu_active = False
+        self.day2_chat_choice_menu_active = False
+        self.day2_lucas_choice_menu_active = False
+        self._sync_scene_audio()
 
     def _save_to_slot(self, slot):
         data = self._build_save_data()
@@ -356,7 +526,7 @@ class GameStateMixin:
         self.pause_overwrite_pending = False
         self.pause_pending_slot = None
 
-    # â”€â”€ Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Settings â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _change_setting(self, direction):
         key = self.setting_keys[self.selected_setting_index]
@@ -386,7 +556,7 @@ class GameStateMixin:
         if isinstance(value, bool):
             self.settings[key] = not value
 
-    # â”€â”€ Layout helpers (compartidos con renderer y handlers) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Layout helpers (compartidos con renderer y handlers) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _settings_layout(self):
         panel = pygame.Rect(self.width // 2 - 600, self.height // 2 - 370, 1200, 740)
@@ -425,7 +595,7 @@ class GameStateMixin:
             self.controls_scroll = self.selected_control_index - visible_rows + 1
         self._clamp_controls_scroll()
 
-    # â”€â”€ Personaje â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Personaje â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _selected_part(self):
         return self.custom_parts[self.selected_custom_index]
@@ -441,7 +611,7 @@ class GameStateMixin:
         styles = self.part_styles[part]
         self.current_style[part] = (self.current_style[part] + delta) % len(styles)
 
-    # â”€â”€ Mundo y aventura â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Mundo y aventura â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _rebuild_story_world(self, keep_player=True):
         old_w = max(1, getattr(self, "story_world_width", self.width))
@@ -518,7 +688,7 @@ class GameStateMixin:
         self.day1_pupitre_erase_progress = 0.0
         self.day1_pupitre_erase_mode = False  # True cuando el jugador presiona A
         self.day1_pupitre_result = ""
-        # â”€â”€ Evento pupitre rayado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ Evento pupitre rayado â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         self.pupitre_rayado_completado  = False
         self.pupitre_rayado_foto_active = False
         self.pupitre_rayado_foto_timer  = 0
@@ -622,13 +792,15 @@ class GameStateMixin:
         self.day5_minigame_result = None
         self.day5_hide_player = False
         self.day5_animation_phase = ""
+        # Ambient state manager
+        self.ambient_mgr = AmbientStateManager()
         # NPC AI Manager (Evento 1)
         self.npc_ai_manager = NPCAIManager(os.path.dirname(__file__))
         # Mejora 2: set de posiciones (rx, ry) de pupitres actualmente ocupados por NPCs
         self.pupitres_ocupados: set = set()
         self.story_deco_frame_states = {}
         self.popup_logro_timer = 0
-        # â”€â”€ SceneManager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ SceneManager â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         self.escena_dia1_completada:  bool  = False
         self.escena_activa:           object = None   # str | None
         self.scene_manager:           object = None
@@ -702,38 +874,75 @@ class GameStateMixin:
             {"speaker": "Maria", "text": "Ni siquiera sabe responder."},
             {"speaker": "NPC 3", "text": "Dejalo, siempre es asi."},
             {"speaker": self.player_name or "Protagonista", "text": "Recuerdo pensar que alguien debia hacer algo... aunque fuera una sola persona."},
-            {"speaker": "Narrador", "text": "Pantalla negra. Transicion al presente."},
         ]
         self.prologo_paso = 0
         self.prologo_activo = True
+        # Load flashback frames sorted by number
+        import re as _re
+        fb_dir = os.path.join(os.path.dirname(__file__), "Imagenes", "Flashback")
+        numbered = []
+        try:
+            for fn in os.listdir(fb_dir):
+                if fn.lower().endswith(".png"):
+                    m = _re.search(r"(\d+)", fn)
+                    numbered.append((int(m.group(1)) if m else 0,
+                                     os.path.join(fb_dir, fn)))
+        except OSError:
+            pass
+        numbered.sort()
+        self.prologo_frames = []
+        for _, path in numbered:
+            try:
+                self.prologo_frames.append(pygame.image.load(path).convert())
+            except Exception:
+                pass
+        self.prologo_frame_from  = None
+        self.prologo_fade_start_ms = 0
 
-    # â”€â”€ Historia y decisiones â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Historia y decisiones â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+
+    def _compute_empathy_ratio(self):
+        """Returns (empathy_ratio, empathetic_count, harmful_count) from decision_history."""
+        history = getattr(self, "decision_history", [])
+        if not history:
+            return 0.0, 0, 0
+        empathetic = sum(1 for d in history if d.get("dF", 0) > 0)
+        harmful     = sum(1 for d in history if d.get("dF", 0) < 0)
+        return empathetic / len(history), empathetic, harmful
 
     def _resolve_ending(self):
         f = self.story_felicidad
         r = self.story_reputacion
         self.story_pending_end = True
 
-        if f >= 50 and r >= 50:
-            self.story_final_key = "FINAL POSITIVO - ALGUIEN HIZO ALGO"
-            self.story_final_text = "Tal vez cambiar todo era imposible, pero alguien tenia que empezar."
+        ratio, empathetic, harmful = self._compute_empathy_ratio()
+
+        if f >= 55 and r >= 45 and ratio >= 0.4:
+            self.story_final_key  = "POSITIVO"
+            self.story_final_text = (
+                "Tal vez cambiar todo era imposible, "
+                "pero alguien tenia que empezar."
+            )
             self.lista_logros.desbloquear_final_positivo()
-        elif f < 50 and r < 50:
-            self.story_final_key = "FINAL NEGATIVO - TODOS MIRARON"
-            self.story_final_text = "Lo peor nunca fue el ruido, fue acostumbrarse a el."
-        elif f < 50:
-            self.story_final_key = "FINAL NEUTRAL - FELICIDAD BAJA"
-            self.story_final_text = "Ser conocido no alcanzo para que todos se sintieran seguros."
+        elif f < 32 or (f < 42 and harmful > empathetic):
+            self.story_final_key  = "NEGATIVO"
+            self.story_final_text = (
+                "Lo peor nunca fue el ruido, "
+                "fue acostumbrarse a el."
+            )
         else:
-            self.story_final_key = "FINAL NEUTRAL - REPUTACION BAJA"
-            self.story_final_text = "Ayudar importo, aunque no siempre fuera comprendido."
+            self.story_final_key  = "NEUTRAL"
+            self.story_final_text = (
+                "No basta con mirar. "
+                "Alguien tuvo que actuar para que algo cambiara."
+            )
 
         self.lista_logros.verificar_nunca_ignoraste(self.decision_history)
         self.lista_logros.verificar_empatia_pura(self.decision_history)
         self.audio.play_ending_bgm(self.story_final_key)
         self.audio.stop_ambience()
 
-    # â”€â”€ Hitboxes de mundo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Hitboxes de mundo â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _build_story_wall_hitboxes(self, image_path=None):
         if image_path:
@@ -920,7 +1129,7 @@ class GameStateMixin:
         sy = max(0, min(self.story_world_height, (self.story_world_height // 2) + SPAWN_OFFSET_Y))
         return sx, sy
 
-    # â”€â”€ Colisiones â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Colisiones â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _collides_with_hitbox(self, personaje_rect, h):
         mw, mh = self.story_world_width, self.story_world_height
@@ -1097,7 +1306,7 @@ class GameStateMixin:
                 _desk_by = int(self.story_world_height * (_prev_desk["ry"] + _prev_desk["rh"]))
                 _stand_y = _desk_by + self.player_rect.height // 2 + 6
                 self._set_player_center((_desk_cx, _stand_y))
-            # â”€â”€ Tarde: el jugador se levanta -> iniciar evento pupitre rayado â”€
+            # â"€â"€ Tarde: el jugador se levanta -> iniciar evento pupitre rayado â"€
             if (getattr(self, "tarde_player_seated", False)
                     and getattr(self, "day1_in_tarde", False)
                     and getattr(self, "escena_dia1_completada", False)
@@ -1281,7 +1490,7 @@ class GameStateMixin:
         self.story_interaction_text = ""   # el cambio de mapa habla por s? solo
         self._play_transition_sfx(target_image_name)
         self._sync_scene_audio()
-        # â”€â”€ NPC AI: notificar cambio de mapa â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ NPC AI: notificar cambio de mapa â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         npc_mgr = getattr(self, "npc_ai_manager", None)
         if npc_mgr is not None:
             npc_mgr.on_map_change(os.path.basename(target_image_name), self)
@@ -1319,7 +1528,7 @@ class GameStateMixin:
             npc_mgr = getattr(self, "npc_ai_manager", None)
             if npc_mgr is not None:
                 npc_mgr.notify_phase("saliendo")
-            # â”€â”€ Tarde: reloj -> 14:30 y sentar al jugador para esperar â”€â”€â”€â”€â”€â”€â”€
+            # â"€â"€ Tarde: reloj -> 14:30 y sentar al jugador para esperar â"€â"€â"€â"€â"€â"€â"€
             if (getattr(self, "escena_dia1_completada", False)
                     and not getattr(self, "pupitre_rayado_completado", False)):
                 self.story_clock_hour   = 14
@@ -1616,7 +1825,7 @@ class GameStateMixin:
         # Acci?n desconocida: no mostrar texto t?cnico al jugador
         self.story_interaction_text = ""
 
-    # â”€â”€ Nombres amigables para la UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Nombres amigables para la UI â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     _FRIENDLY_OBJECTS: dict = {
         "armario": "el armario",      "cama": "la cama",
         "escritorio": "el escritorio","pupitre": "el pupitre",
@@ -1682,7 +1891,7 @@ class GameStateMixin:
                     self.player_rect.y = prev_y
                     break
 
-    # â”€â”€ Culling de objetos (Tarea 9) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Culling de objetos (Tarea 9) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _get_visible_hitboxes(self):
         """Retorna solo hitboxes dentro de 2x el tamano de pantalla del jugador."""
@@ -1734,6 +1943,20 @@ class GameStateMixin:
             return
         dt_ms = self.clock.get_time()
 
+        ambient = getattr(self, "ambient_mgr", None)
+        if ambient is not None:
+            ambient.update(self.story_felicidad, dt_ms, self.width, self.height)
+
+        _f_now = self.story_felicidad
+        if _f_now != getattr(self, "_last_felicidad_audio", -1):
+            self._last_felicidad_audio = _f_now
+            audio = getattr(self, "audio", None)
+            if audio is not None:
+                try:
+                    audio.set_felicidad_context(_f_now)
+                except Exception:
+                    pass
+
         self.story_npc_anim_timer += dt_ms
         if self.story_npc_anim_timer >= 1000000:
             self.story_npc_anim_timer = 0
@@ -1744,7 +1967,7 @@ class GameStateMixin:
             npc_mgr.update(dt_ms, self)
         self._sync_scene_audio()
 
-        # â”€â”€ Temporizador foto pupitre rayado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ Temporizador foto pupitre rayado â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         if getattr(self, "pupitre_rayado_foto_active", False):
             self.pupitre_rayado_foto_timer -= dt_ms
             if self.pupitre_rayado_foto_timer <= 0:
@@ -1765,25 +1988,28 @@ class GameStateMixin:
                     self.mision3_llamar_profe_active = False
 
         # ── Day 5: dodge minigame update ──────────────────────────────────────
-        if getattr(self, “day5_pelea_active”, False):
-            mgr5 = getattr(self, “day5_pelea_mgr”, None)
+        if getattr(self, "day5_pelea_active", False):
+            mgr5 = getattr(self, "day5_pelea_mgr", None)
             if mgr5 is not None:
                 mgr5.update(dt_ms)
                 if mgr5.result is not None:
                     self.day5_pelea_active = False
                     self.day5_minigame_result = mgr5.result
+                    lista = getattr(self, "lista_logros", None)
+                    if lista is not None and hasattr(lista, "register_minigame_result"):
+                        lista.register_minigame_result(dict(mgr5.result), "dia5_diego")
 
         # ── Day 5: pending teleport (runs after scene clears escena_activa) ───
-        pending_tp5 = getattr(self, “day5_pending_teleport”, “”)
-        if pending_tp5 and not getattr(self, “escena_activa”, None):
-            self.day5_pending_teleport = “”
-            if pending_tp5 == “sara”:
-                self._change_adventure_background(“AzoteaDía.png”)
-            elif pending_tp5 == “diego”:
-                self._change_adventure_background(“PatioTarde.png”)
+        pending_tp5 = getattr(self, "day5_pending_teleport", "")
+        if pending_tp5 and not getattr(self, "escena_activa", None):
+            self.day5_pending_teleport = ""
+            if pending_tp5 == "sara":
+                self._change_adventure_background("AzoteaDía.png")
+            elif pending_tp5 == "diego":
+                self._change_adventure_background("PatioTarde.png")
 
         # ── SceneManager update ────────────────────────────────────────────────
-        sm = getattr(self, “scene_manager”, None)
+        sm = getattr(self, "scene_manager", None)
         if sm is not None and getattr(self, "escena_activa", None) is not None:
             sm.update(dt_ms, self)
             if sm.done and getattr(self, "escena_activa", None) is not None:
@@ -1924,7 +2150,7 @@ class GameStateMixin:
                         if audio is not None:
                             audio.play_sfx("pupitre_alerta")
                         break
-        # â”€â”€ CAMBIO 3: Proximidad a zona Sara durante espera de silla â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ CAMBIO 3: Proximidad a zona Sara durante espera de silla â"€â"€â"€â"€â"€â"€â"€â"€â"€
         if getattr(self, "day1_seq_step", 0) == 3 and not getattr(self, "day1_sara_npc_warned", False):
             for h in self.story_walls:
                 if h.get("zone_tag") == "sara_zone":
@@ -2013,7 +2239,7 @@ class GameStateMixin:
             color=self.character_colors["Piel"]
         )
 
-    # â”€â”€ Utilidades de imagen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Utilidades de imagen â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _make_placeholder_surface(self, w, h, path_str=""):
         """CAMBIO 7: Crea Surface de placeholder para im?genes faltantes."""
@@ -2096,7 +2322,7 @@ class GameStateMixin:
             for h in self.story_walls
         )
 
-    # â”€â”€ Carga de sprites NPC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Carga de sprites NPC â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     _SPRITE_SHEET_FRAME_COUNTS: dict = {
         "npc2_burla.png": 16,
@@ -2232,7 +2458,7 @@ class GameStateMixin:
             return image
         return image.subsurface(rect)
 
-    # â”€â”€ Fuentes y display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Fuentes y display â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _find_custom_font_path(self):
         base_dir = os.path.dirname(__file__)
@@ -2358,6 +2584,34 @@ class GameStateMixin:
             self.current_screen = "aventura"
             self._change_adventure_background("HabDía.png")
             self._prepare_day4_state()
+
+        elif day == 5:
+            self.current_day = 5
+            self.escena_dia1_completada = True
+            self.day1_completed = True
+            self.escena_dia2_chat_completada = True
+            self.escena_dia2_lucas_completada = True
+            self.escena_dia3_piscina_completada = True
+            self.escena_dia3_cafeteria_completada = True
+            self.escena_dia3_pelea_completada = True
+            self.escena_dia4_azotea_completada = True
+            self.escena_dia4_biblioteca_completada = True
+            self.escena_dia4_rumores_completada = True
+            self.escena_dia5_pasillo_completada = False
+            self.escena_dia5_fin_completada = False
+            self.decision_dia5_pasillo = ""
+            self.decision_dia5_final = ""
+            self.day5_guide_target = ""
+            self.day5_event_active = ""
+            self.day5_choice_menu_active = False
+            self.day5_pelea_active = False
+            self.day5_pelea_mgr = None
+            self.day5_minigame_result = None
+            self.day5_hide_player = False
+            self.day5_pending_teleport = ""
+            self.current_screen = "aventura"
+            self._change_adventure_background("HabDía.png")
+            self._prepare_day5_state()
 
         audio = getattr(self, "audio", None)
         if audio and getattr(self, "aventura_fondo", None):

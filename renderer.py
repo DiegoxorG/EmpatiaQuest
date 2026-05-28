@@ -1,4 +1,4 @@
-﻿"""
+"""
 Mixin de renderizado para EmpatiaQuestUI.
 Contiene todos los m?todos _draw_* y _render_current_screen.
 
@@ -18,6 +18,7 @@ from config import (
     SEATED_OFFSET_X, SEATED_OFFSET_Y, SEATED_DESK_TOP_FRAC,
 )
 from ui_components import Button
+from achievements import AchievementUI
 import screens.historia as historia_screen
 import screens.progreso as progreso_screen
 import screens.tutorial as tutorial_screen
@@ -48,9 +49,9 @@ class RendererMixin:
         "main_reirse.png": 5,
     }
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Texto pixel-art
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def draw_pixel_text(self, text, x, y, style, color, center=True):
         base = self.base_fonts[style].render(text, True, color)
@@ -101,9 +102,9 @@ class RendererMixin:
             self.draw_pixel_text(line, x, y + i * line_h, style, color, False)
         return len(lines) * line_h
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Constructores de botones (dependen del tama?o de pantalla)
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _build_menu_buttons(self):
         labels = [
@@ -163,9 +164,9 @@ class RendererMixin:
             )
         return buttons
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Fondo compartido
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_pixel_background(self):
         self.screen.fill(BG_DARK)
@@ -208,9 +209,9 @@ class RendererMixin:
                 return
 
         self.screen.blit(cache, (0, 0))
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Pantallas principales
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_menu(self):
         self._draw_menu_background()
@@ -222,10 +223,6 @@ class RendererMixin:
         self.draw_pixel_text(
             "Mouse o flechas + Enter. ESC vuelve al menú.",
             self.width // 2, self.height - 40, "small", (194, 216, 248), True,
-        )
-        self.draw_pixel_text(
-            "F5: test pelea  |  F6: test palabras",
-            self.width // 2, self.height - 18, "small", (90, 100, 130), True,
         )
 
     def _draw_panel_screen(self, title, lines):
@@ -346,9 +343,9 @@ class RendererMixin:
             self.width // 2, panel.bottom - 24, "small", TEXT_SOFT, True,
         )
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Configuraci?n y controles
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _settings_layout(self):
         panel = pygame.Rect(self.width // 2 - 600, self.height // 2 - 370, 1200, 740)
@@ -492,9 +489,9 @@ class RendererMixin:
             panel.x + 24, panel.bottom - 34, "small", TEXT_SOFT, False,
         )
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # CAMBIO 1 - Pantalla de ingreso de nombre
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_name_input_screen(self):
         # [UI] ASSET_UI: Imagenes/UI/fondo_nombre.png | 1280x720 | Pantalla de ingreso de nombre, estilo pixel-art escolar
@@ -533,9 +530,9 @@ class RendererMixin:
         )
         self.draw_pixel_text("ESC para volver", self.width // 2, panel.bottom - 22, "small", TEXT_SOFT, True)
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Creador de personaje
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_character_preview(self, x, y, scale=6):
         c = self.character_colors
@@ -662,33 +659,94 @@ class RendererMixin:
             self.width // 2, panel.y + panel.height - 28, "small", TEXT_SOFT, True,
         )
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Pr?logo
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_prologo_screen(self):
-        self.screen.fill((30, 30, 30))
-        self.draw_pixel_text("PROLOGO - FLASHBACK", self.width // 2, 34, "subtitle", (240, 240, 240), True)
-        box_h = 190
-        dialog_box = pygame.Rect(26, self.height - box_h - 22, self.width - 52, box_h)
-        pygame.draw.rect(self.screen, (242, 242, 242), dialog_box)
-        pygame.draw.rect(self.screen, (18, 18, 18), dialog_box, 4)
-        entry = self.prologo_textos[self.prologo_paso] if self.prologo_textos else {"speaker": "", "text": ""}
-        speaker = entry.get("speaker", "")
-        text = entry.get("text", "")
-        name_box = pygame.Rect(dialog_box.x + 16, dialog_box.y - 34, 220, 34)
-        pygame.draw.rect(self.screen, (255, 255, 255), name_box)
-        pygame.draw.rect(self.screen, (18, 18, 18), name_box, 3)
-        self.draw_pixel_text(speaker, name_box.centerx, name_box.centery, "small", TEXT_MAIN, True)
-        self.draw_pixel_text(text, dialog_box.x + 24, dialog_box.y + 74, "body", TEXT_MAIN, False)
-        self.draw_pixel_text(
-            "ENTER/ESPACIO para continuar",
-            dialog_box.right - 16, dialog_box.bottom - 20, "small", TEXT_SOFT, False,
-        )
+        _FADE_MS   = 1100   # duración del crossfade en ms
+        _TINT      = (10, 8, 20)  # tinte oscuro sobre el frame para dar atmósfera
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        frames    = getattr(self, "prologo_frames", [])
+        paso      = getattr(self, "prologo_paso", 0)
+        frame_from = getattr(self, "prologo_frame_from", None)
+        fade_start = getattr(self, "prologo_fade_start_ms", 0)
+
+        # ── Fondo: frame actual (o negro si no hay frames) ────────────────────
+        if frames:
+            cur_idx   = min(paso, len(frames) - 1)
+            cur_frame = frames[cur_idx]
+            scaled_cur = pygame.transform.smoothscale(cur_frame, (self.width, self.height))
+
+            if frame_from is not None:
+                # Crossfade: dibujar frame anterior y encima el nuevo con alpha creciente
+                elapsed = pygame.time.get_ticks() - fade_start
+                alpha   = min(255, int(255 * elapsed / _FADE_MS))
+                scaled_from = pygame.transform.smoothscale(frame_from, (self.width, self.height))
+                self.screen.blit(scaled_from, (0, 0))
+                scaled_cur.set_alpha(alpha)
+                self.screen.blit(scaled_cur, (0, 0))
+                scaled_cur.set_alpha(255)
+                if alpha >= 255:
+                    self.prologo_frame_from = None
+            else:
+                self.screen.blit(scaled_cur, (0, 0))
+
+            # Tinte semitransparente para mejorar contraste del diálogo
+            tint = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            tint.fill((*_TINT, 110))
+            self.screen.blit(tint, (0, 0))
+        else:
+            self.screen.fill((18, 16, 28))
+
+        # ── Degradado oscuro en la franja inferior (detrás del diálogo) ───────
+        box_h     = 200
+        grad_h    = box_h + 80
+        grad_y    = self.height - grad_h
+        grad_surf = pygame.Surface((self.width, grad_h), pygame.SRCALPHA)
+        for i in range(grad_h):
+            a = int(210 * (i / grad_h))
+            pygame.draw.line(grad_surf, (0, 0, 0, a), (0, i), (self.width, i))
+        self.screen.blit(grad_surf, (0, grad_y))
+
+        # ── Caja de diálogo ───────────────────────────────────────────────────
+        dialog_box = pygame.Rect(26, self.height - box_h - 22, self.width - 52, box_h)
+        box_surf   = pygame.Surface((dialog_box.width, dialog_box.height), pygame.SRCALPHA)
+        box_surf.fill((8, 6, 18, 210))
+        self.screen.blit(box_surf, dialog_box.topleft)
+        pygame.draw.rect(self.screen, (180, 185, 220), dialog_box, 2)
+
+        texto_idx = min(paso, len(self.prologo_textos) - 1) if self.prologo_textos else -1
+        entry   = self.prologo_textos[texto_idx] if texto_idx >= 0 else {"speaker": "", "text": ""}
+        speaker = entry.get("speaker", "")
+        text    = entry.get("text", "")
+
+        # Pastilla con el nombre del hablante
+        if speaker:
+            name_box = pygame.Rect(dialog_box.x + 16, dialog_box.y - 36, 220, 34)
+            nb_surf  = pygame.Surface((name_box.width, name_box.height), pygame.SRCALPHA)
+            nb_surf.fill((8, 6, 18, 230))
+            self.screen.blit(nb_surf, name_box.topleft)
+            pygame.draw.rect(self.screen, (180, 185, 220), name_box, 2)
+            self.draw_pixel_text(speaker, name_box.centerx, name_box.centery, "small", (220, 225, 255), True)
+
+        self.draw_pixel_text(text, dialog_box.x + 28, dialog_box.y + 56, "body", (230, 235, 255), False)
+
+        # Indicador de avance (parpadea)
+        if (pygame.time.get_ticks() // 600) % 2 == 0:
+            self.draw_pixel_text(
+                "ENTER / ESPACIO para continuar",
+                dialog_box.right - 20, dialog_box.bottom - 22, "small", (140, 148, 190), False,
+            )
+
+        # Contador de paso (discreto, esquina superior derecha)
+        if frames:
+            prog = f"{paso + 1} / {len(self.prologo_textos)}"
+            self.draw_pixel_text(prog, self.width - 20, 18, "small", (90, 95, 130), False)
+
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Aventura
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_reputation_face(self, x, y):
         if self.story_reputacion > 50:
@@ -710,6 +768,94 @@ class RendererMixin:
         else:
             overlay.fill((0, 0, 0, 0))
         self.screen.blit(overlay, (0, 0))
+
+    def _draw_ending_screen(self):
+        final_key  = getattr(self, "story_final_key",  "NEUTRAL")
+        final_text = getattr(self, "story_final_text", "")
+        history    = getattr(self, "decision_history", [])
+
+        # Per-final palette
+        _palettes = {
+            "POSITIVO": {
+                "bg":       (10,  30,  18, 230),
+                "title":    (120, 230, 150),
+                "label":    "FINAL POSITIVO",
+                "sublabel": "Alguien hizo algo",
+                "accent":   (90, 200, 130),
+            },
+            "NEGATIVO": {
+                "bg":       (28,   8,   8, 235),
+                "title":    (230,  80,  70),
+                "label":    "FINAL NEGATIVO",
+                "sublabel": "Todos miraron",
+                "accent":   (200,  60,  60),
+            },
+            "NEUTRAL": {
+                "bg":       (14,  18,  32, 225),
+                "title":    (180, 185, 220),
+                "label":    "FINAL NEUTRAL",
+                "sublabel": "No basta con mirar",
+                "accent":   (130, 140, 180),
+            },
+        }
+        pal = _palettes.get(final_key, _palettes["NEUTRAL"])
+
+        bg = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        bg.fill(pal["bg"])
+        self.screen.blit(bg, (0, 0))
+
+        cx = self.width  // 2
+        cy = self.height // 2
+
+        # Thin accent line above label
+        line_w = min(560, self.width - 80)
+        pygame.draw.line(self.screen, pal["accent"],
+                         (cx - line_w // 2, cy - 110),
+                         (cx + line_w // 2, cy - 110), 2)
+
+        self.draw_pixel_text(pal["label"],    cx, cy - 86, "subtitle", pal["title"],  True)
+        self.draw_pixel_text(pal["sublabel"], cx, cy - 50, "body",     pal["accent"], True)
+
+        pygame.draw.line(self.screen, (*pal["accent"], 120),
+                         (cx - line_w // 2, cy - 28),
+                         (cx + line_w // 2, cy - 28), 1)
+
+        # Main text (word-wrapped manually at ~70 chars)
+        words     = final_text.split()
+        lines_out : list[str] = []
+        cur_line  = ""
+        for w in words:
+            test = (cur_line + " " + w).strip()
+            if len(test) > 68:
+                lines_out.append(cur_line)
+                cur_line = w
+            else:
+                cur_line = test
+        if cur_line:
+            lines_out.append(cur_line)
+        line_y = cy - 2
+        for ln in lines_out:
+            self.draw_pixel_text(ln, cx, line_y, "body", (230, 235, 245), True)
+            line_y += 30
+
+        # Decision summary
+        if history:
+            empathetic = sum(1 for d in history if d.get("dF", 0) > 0)
+            total      = len(history)
+            pct        = int(100 * empathetic / total)
+            summary_y  = line_y + 18
+            self.draw_pixel_text(
+                f"Decisiones empaticas: {empathetic}/{total}  ({pct}%)",
+                cx, summary_y, "small", pal["accent"], True,
+            )
+
+        # Prompt
+        blink_on = (pygame.time.get_ticks() // 600) % 2 == 0
+        if blink_on:
+            self.draw_pixel_text(
+                "Presiona ENTER para volver al menu",
+                cx, self.height - 44, "small", (160, 165, 185), True,
+            )
 
     def _draw_story_clock_hud(self):
         if getattr(self, "day1_intro_step", 0) < 2:
@@ -969,7 +1115,7 @@ class RendererMixin:
                 if "profesor" in h.get("object_name", "").lower():
                     continue
 
-            # â”€â”€ Pupitre de Sara en SalonTarde: lo dibuja _draw_sara_tarde_seated â”€
+            # â"€â"€ Pupitre de Sara en SalonTarde: lo dibuja _draw_sara_tarde_seated â"€
             # Saltamos el sprite del pupitre completamente para que no se vea ni
             # Pupitre-Sal?n1.png ni el placeholder de pupitre_rayado.png encima de Sara.
             if in_tarde and self._is_sara_tarde_desk(h):
@@ -1110,9 +1256,9 @@ class RendererMixin:
         draw_y = spy - int(frac * sh)               + int(offset_y)
         self.screen.blit(scaled, (draw_x, draw_y))
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # CAMBIO 2 - Flecha gu?a
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_guide_arrow(self):
         # [UI] ASSET_UI: Imagenes/flecha_guia.png | 64x64 | Flecha pixel-art amarilla, se rota por c?digo
@@ -1372,9 +1518,9 @@ class RendererMixin:
         pygame.draw.polygon(self.screen, (255, 220, 30), [p1, p2, p3])
         pygame.draw.polygon(self.screen, (180, 140, 0), [p1, p2, p3], 2)
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Intro cinematogr?fica - mensajes al inicio de la aventura
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_day1_intro_dialog(self):
         step = getattr(self, "day1_intro_step", 2)
@@ -1396,9 +1542,9 @@ class RendererMixin:
         self.draw_pixel_text(text, box.x + 24, box.y + 52, "body", TEXT_MAIN, False)
         self.draw_pixel_text("ENTER para continuar", box.right - 16, box.bottom - 18, "small", TEXT_SOFT, False)
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Profesora junto al pupitre de Sara (tras llamarla, opci?n D)
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_profe_en_sara(self):
         """Dibuja a la profesora parada junto al pupitre de Sara en SalonTarde.
@@ -1447,9 +1593,9 @@ class RendererMixin:
         sy = wy - self.story_camera_y - sprite.get_height() // 2
         self.screen.blit(sprite, (sx, sy))
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Item-4 - Overlay dormitorio (A_Sleeping.png)
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_bedroom_sleeping_overlay(self):
         """Anima A_Sleeping.png (spritesheet 8 frames) sobre la posici?n de la cama,
@@ -1502,16 +1648,24 @@ class RendererMixin:
         scaled = pygame.transform.smoothscale(frame, (bw, bh))
         self.screen.blit(scaled, (bx, by))
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # CAMBIO 3 - Caja de di?logo D?a 1
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_debug_day_menu(self):
         W, H = self.width, self.height
-        options = ["Dia 1: Primer dia de escuela", "Dia 2: Chat de WhatsApp / Lucas", "Dia 3: Piscina, cafeteria y pelea"]
+        options = [
+            "Dia 1: Primer dia de escuela",
+            "Dia 2: Chat de WhatsApp / Lucas",
+            "Dia 3: Piscina, cafeteria y pelea",
+            "Dia 4: Azotea, biblioteca y rumores",
+            "Dia 5: Pasillo final",
+        ]
         cursor = getattr(self, "debug_day_cursor", 0)
 
-        panel_w, panel_h = 500, 180
+        row_h    = 34
+        panel_w  = 520
+        panel_h  = 60 + len(options) * row_h
         px = (W - panel_w) // 2
         py = (H - panel_h) // 2
 
@@ -1524,12 +1678,12 @@ class RendererMixin:
         pygame.draw.rect(panel, (80, 120, 255), (0, 0, panel_w, panel_h), 2, border_radius=8)
         self.screen.blit(panel, (px, py))
 
-        self.draw_pixel_text("F4 — Iniciar desde dia", px + panel_w // 2, py + 14, "small", (160, 200, 255))
+        self.draw_pixel_text("F4 — Iniciar desde dia", px + panel_w // 2, py + 14, "small", (160, 200, 255), True)
         for i, opt in enumerate(options):
             color = (255, 240, 80) if i == cursor else (200, 200, 220)
             prefix = "> " if i == cursor else "  "
-            self.draw_pixel_text(prefix + opt, px + panel_w // 2, py + 46 + i * 36, "small", color)
-        self.draw_pixel_text("ENTER: confirmar   ESC/F4: cerrar", px + panel_w // 2, py + panel_h - 18, "small", (120, 120, 160))
+            self.draw_pixel_text(prefix + opt, px + panel_w // 2, py + 44 + i * row_h, "small", color, True)
+        self.draw_pixel_text("ENTER: confirmar   ESC/F4: cerrar", px + panel_w // 2, py + panel_h - 18, "small", (120, 120, 160), True)
 
     def _draw_day1_dialog(self):
         seq = getattr(self, "day1_seq_step", 0)
@@ -1562,15 +1716,15 @@ class RendererMixin:
         self.draw_pixel_text(text, box.x + 24, box.y + 52, "body", TEXT_MAIN, False)
         self.draw_pixel_text(hint, box.right - 16, box.bottom - 18, "small", TEXT_SOFT, False)
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # CAMBIO 4 - Zoom pupitre rayado
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_pupitre_zoom(self):
         if not getattr(self, "day1_pupitre_zoom_active", False):
             return
 
-        # â”€â”€ 1. Fondo del pupitre limpio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ 1. Fondo del pupitre limpio â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         # [IMG]ï¸ ASSET_IMG: Imagenes/Interactuables/Pupitre.png | fondo del pupitre sin graffiti
         zoom_img = self._load_object_interactable_image("Pupitre.png")
         if zoom_img is not None:
@@ -1583,7 +1737,7 @@ class RendererMixin:
                 pygame.draw.line(placeholder, (80, 55, 28), (_lx, 0), (_lx, self.height), 2)
             self.screen.blit(placeholder, (0, 0))
 
-        # â”€â”€ 2. Capa de letras.png borrables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ 2. Capa de letras.png borrables â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         # [IMG]️ ASSET_IMG: Imagenes/Interactuables/letras.png | capa PNG con insultos (se borra con el rat?n)
         erase_surf = getattr(self, "day1_pupitre_erase_surface", None)
         if erase_surf is not None:
@@ -1594,7 +1748,7 @@ class RendererMixin:
         erase_mode = getattr(self, "day1_pupitre_erase_mode", False)
         if step == 2:
             if erase_mode:
-                # â”€â”€ 3a. Modo borrador activo: mostrar solo barra de progreso â”€
+                # â"€â"€ 3a. Modo borrador activo: mostrar solo barra de progreso â"€
                 prog = getattr(self, "day1_pupitre_erase_progress", 0.0)
                 _bw  = self.width - 80
                 _bx  = 40
@@ -1604,7 +1758,7 @@ class RendererMixin:
                     self.width // 2, self.height - 30, "small", TEXT_MAIN, True,
                 )
             else:
-                # â”€â”€ 3b. Panel de decisiones (A/B/C/D) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # â"€â"€ 3b. Panel de decisiones (A/B/C/D) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
                 panel_h = 230
                 panel = pygame.Rect(26, self.height - panel_h - 10, self.width - 52, panel_h)
                 overlay = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
@@ -1632,7 +1786,7 @@ class RendererMixin:
                     "ESC = ignorar", panel.right - 16, panel.bottom - 16, "small", TEXT_SOFT, False
                 )
 
-        # â”€â”€ 4. Flash de foto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ 4. Flash de foto â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         if getattr(self, "pupitre_rayado_foto_active", False):
             _timer = getattr(self, "pupitre_rayado_foto_timer", 0)
             _alpha = max(0, min(255, int(255 * _timer / 800)))
@@ -1644,9 +1798,9 @@ class RendererMixin:
         if getattr(self, "day1_pupitre_erase_mode", False):
             self._draw_eraser_cursor()
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Cursor del borrador
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_eraser_cursor(self):
         """Dibuja Borradortab.png centrado en la posici?n actual del rat?n.
@@ -1669,9 +1823,9 @@ class RendererMixin:
         w, h   = cache.get_size()
         self.screen.blit(cache, (mx - w // 2, my - h // 2))
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # SalonTarde: fondo sara + Sara sentada
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_pupitre_sara_fondo(self):
         """Dibuja sara_pupitre_rayado_256x256.png escalado a pantalla completa.
@@ -1698,9 +1852,9 @@ class RendererMixin:
                 self.width // 2, self.height // 2 - 30, "subtitle", (180, 160, 200), True,
             )
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Overlays Misi?n 3 - Bugs 8 y 9
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_mision3_overlay(self, flag_active: str, flag_ms: str, filename: str,
                                cache_attr: str, cache_size_attr: str):
@@ -1755,7 +1909,7 @@ class RendererMixin:
             "_m3llamar_surf", "_m3llamar_size",
         )
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_sara_tarde_seated(self):
         """Dibuja a Sara sentada en su pupitre rayado durante SalonTarde.
@@ -2283,6 +2437,10 @@ class RendererMixin:
         else:
             pygame.draw.rect(self.screen, (255, 255, 255), (0, 0, self.width, self.height))
 
+        ambient = getattr(self, "ambient_mgr", None)
+        if ambient is not None:
+            ambient.draw(self.screen)
+
         # ── Day 5: pelea minigame full-screen draw ────────────────────────────
         if getattr(self, "day5_pelea_active", False):
             mgr5 = getattr(self, "day5_pelea_mgr", None)
@@ -2469,7 +2627,7 @@ class RendererMixin:
                 self.screen.blit(spr, (x, y))
             self._draw_day2_lucas_choice_overlay()
 
-        # â”€â”€ Item-4: overlay A_Sleeping.png durante intro del dormitorio â”€â”€â”€â”€â”€
+        # â"€â"€ Item-4: overlay A_Sleeping.png durante intro del dormitorio â"€â"€â"€â"€â"€
         # Cubre todo el mundo; el di?logo de SceneManager se dibuja encima.
         if getattr(self, "bedroom_sleeping_active", False):
             self._draw_bedroom_sleeping_overlay()
@@ -2501,7 +2659,7 @@ class RendererMixin:
         if not getattr(self, "day1_salon_entered", True) and getattr(self, "escena_activa", None) is None:
             return
 
-        # â”€â”€ SceneManager overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ SceneManager overlay â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         # Reemplaza la caja del Dia 1 cuando hay una escena cinematica activa.
         # La c?mara ya se actualiza en _update_story_camera con lerp; aqu? solo
         # dibujamos el overlay de di?logo encima de todo lo ya renderizado.
@@ -2517,17 +2675,11 @@ class RendererMixin:
             self._draw_day1_dialog()
             return
 
-        # â”€â”€ Pantalla de final â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if self.story_pending_end:
-            end_overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-            end_overlay.fill((0, 0, 0, 210))
-            self.screen.blit(end_overlay, (0, 0))
-            self.draw_pixel_text(self.story_final_key, self.width // 2, self.height // 2 - 60, "subtitle", (245, 247, 255), True)
-            self.draw_pixel_text(self.story_final_text, self.width // 2, self.height // 2, "body", TEXT_SOFT, True)
-            self.draw_pixel_text("ENTER para volver al menú", self.width // 2, self.height // 2 + 80, "small", TEXT_SOFT, True)
+            self._draw_ending_screen()
             return
 
-        # â”€â”€ Barra de estado inferior â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # â"€â"€ Barra de estado inferior â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         status_h = 72
         status_box = pygame.Rect(26, self.height - status_h - 10, self.width - 52, status_h)
         status_surf = pygame.Surface((status_box.width, status_box.height), pygame.SRCALPHA)
@@ -2555,9 +2707,9 @@ class RendererMixin:
             status_box.right - 14, status_box.bottom - 10, "small", TEXT_SOFT, False,
         )
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Simulaci?n
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_simulacion_screen(self):
         if not self.simulacion_activa:
@@ -2578,9 +2730,9 @@ class RendererMixin:
         self.draw_pixel_text("Flechas: cambiar R/G, Q/W: cambiar B, ENTER: guardar", self.width // 2, 80, "small", (255, 255, 255), True)
         self.draw_pixel_text("ESC: menú", self.width // 2, self.height - 32, "small", (255, 255, 255), True)
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Nuevo: popup de logro (Undertale-style)
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_achievement_popup(self):
         """
@@ -2590,29 +2742,36 @@ class RendererMixin:
         logro = getattr(self, "popup_logro_actual", None)
         if logro is None:
             return
-        pw, ph = 400, 90
-        px = self.width - pw - 16
+        timer = max(0, getattr(self, "popup_logro_timer", 0))
+        pw, ph = 460, 112
+        slide = min(1.0, timer / 450.0) if timer < 450 else min(1.0, (3500 - timer) / 450.0)
+        px = int(self.width - 16 - pw * max(0.0, slide))
         py = 16
+        rarity = AchievementUI.rarity_color(getattr(logro, "rareza", "comun"))
         bg = pygame.Surface((pw, ph), pygame.SRCALPHA)
         bg.fill((20, 22, 38, 220))
         self.screen.blit(bg, (px, py))
-        pygame.draw.rect(self.screen, PIXEL_CYAN, (px, py, pw, ph), 3)
+        pygame.draw.rect(self.screen, rarity, (px, py, pw, ph), 3)
         # Estrella peque?a (procedural)
         star_cx = px + 28
         star_cy = py + ph // 2
         pygame.draw.polygon(
-            self.screen, (230, 180, 30),
+            self.screen, rarity,
             [(star_cx, star_cy - 12), (star_cx + 8, star_cy + 10),
              (star_cx - 10, star_cy - 4), (star_cx + 10, star_cy - 4),
              (star_cx - 8, star_cy + 10)],
         )
-        self.draw_pixel_text("Logro desbloqueado!", px + 52, py + 22, "small", PIXEL_CYAN, False)
-        nombre = logro.nombre[:38] + ".." if len(logro.nombre) > 40 else logro.nombre
-        self.draw_pixel_text(nombre, px + 52, py + 50, "small", (245, 248, 255), False)
+        self.draw_pixel_text("LOGRO DESBLOQUEADO", px + 56, py + 16, "small", rarity, False)
+        nombre = logro.nombre[:34] + ".." if len(logro.nombre) > 36 else logro.nombre
+        self.draw_pixel_text(nombre, px + 56, py + 43, "small", (245, 248, 255), False)
+        desc = getattr(logro, "descripcion_visible", getattr(logro, "descripcion", ""))
+        desc = desc[:48] + ".." if len(desc) > 50 else desc
+        self.draw_pixel_text(desc, px + 56, py + 70, "small", (190, 205, 220), False)
+        self.draw_pixel_text(str(getattr(logro, "categoria", "General")).upper(), px + pw - 20, py + 18, "small", rarity, False)
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Nuevo: panel lateral de habilidades (TAB)
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_skills_inventory_overlay(self):
         """
@@ -2676,9 +2835,9 @@ class RendererMixin:
 
         self.draw_pixel_text("TAB para cerrar", self.width // 2, py + ph - 18, "small", (150, 170, 190), True)
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     # Dispatcher principal
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     def _draw_minijuego_screen(self):
         """Delegado de renderizado al MinigameManager activo."""

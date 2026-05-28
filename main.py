@@ -157,6 +157,9 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         self.prologo_paso = 0
         self.prologo_razon = ""
         self.prologo_textos = []
+        self.prologo_frames = []
+        self.prologo_frame_from = None
+        self.prologo_fade_start_ms = 0
 
         # ── Ingreso de nombre ─────────────────────────────────────────────────
         self.player_name = ""
@@ -266,6 +269,9 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
             self._update_adventure()
             self._update_simulacion()
             self._update_minijuego(dt_ms)
+            lista = getattr(self, "lista_logros", None)
+            if lista is not None and hasattr(lista, "update_from_game"):
+                lista.update_from_game(self)
             if self.current_screen == "nombre_input":
                 self._update_nombre_cursor(dt_ms)
 
@@ -283,13 +289,13 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
 
     def _update_popup_logro(self, dt_ms):
         """Consume la cola de popups de logros y decrementa el timer."""
+        lista = getattr(self, "lista_logros", None)
         if self.popup_logro_timer > 0:
             self.popup_logro_timer -= dt_ms
             if self.popup_logro_timer <= 0:
                 self.popup_logro_timer = 0
                 self.popup_logro_actual = None
                 # Consumir el siguiente logro de la cola si existe
-                lista = getattr(self, "lista_logros", None)
                 if lista is not None:
                     siguiente = lista.consumir_popup()
                     if siguiente is not None:
@@ -298,6 +304,14 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
                         audio = getattr(self, "audio", None)
                         if audio is not None:
                             audio.sfx_logro()
+        elif lista is not None:
+            siguiente = lista.consumir_popup()
+            if siguiente is not None:
+                self.popup_logro_actual = siguiente
+                self.popup_logro_timer = 3500
+                audio = getattr(self, "audio", None)
+                if audio is not None:
+                    audio.sfx_logro()
 
 
 if __name__ == "__main__":

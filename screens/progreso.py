@@ -8,6 +8,7 @@ Pantalla de Progreso - estad?sticas, logros y completitud del juego.
 """
 
 import pygame
+from achievements import AchievementUI
 from config import (
     CARD, CARD_HOVER, CARD_BORDER, TEXT_MAIN, TEXT_SOFT,
     PIXEL_CYAN, PIXEL_PINK, BG_DARK,
@@ -145,16 +146,17 @@ def draw(game):
         row_y = logros_panel_y + (i - _SCROLL) * ROW_STEP
         row_rect = pygame.Rect(panel.x + 40, row_y, panel.width - 80, ROW_H)
 
+        rarity_color = AchievementUI.rarity_color(getattr(logro, "rareza", "comun"))
         if logro.completo:
             # [UI] ASSET_UI: Imagenes/UI/icono_logro_desbloqueado.png | 36x36 | Estrella dorada
             bg = (230, 245, 215)
-            border = (60, 160, 60)
+            border = rarity_color
             nombre_color = TEXT_MAIN
             desc_color = TEXT_SOFT
         else:
             # [UI] ASSET_UI: Imagenes/UI/icono_logro_bloqueado.png | 36x36 | Candado gris
             bg = (205, 210, 215)
-            border = (150, 155, 165)
+            border = rarity_color if getattr(logro, "rareza", "") == "oculto" else (150, 155, 165)
             nombre_color = (140, 145, 155)
             desc_color = (160, 165, 175)
 
@@ -177,13 +179,21 @@ def draw(game):
             pygame.draw.rect(game.screen, (120, 120, 140),
                              pygame.Rect(icon_x - 7, icon_y, 14, 10), 0, 2)
 
+        nombre = logro.nombre if logro.completo or not getattr(logro, "secreto", False) else "???"
+        meta = f"{getattr(logro, 'categoria', 'General')} | {getattr(logro, 'rareza', 'comun')}"
+        game.draw_pixel_text(nombre, row_rect.x + 32, row_rect.y + 6, "small", nombre_color, False)
+        game.draw_pixel_text(meta, row_rect.right - 210, row_rect.y + 6, "small", rarity_color, False)
+        desc = getattr(logro, "descripcion_visible", logro.descripcion)
+        desc_short = desc[:48] + ".." if len(desc) > 50 else desc
         game.draw_pixel_text(
-            logro.nombre, row_rect.x + 32, row_rect.y + 8, "small", nombre_color, False
+            desc_short, row_rect.x + 32, row_rect.y + 25, "small", desc_color, False
         )
-        desc_short = logro.descripcion[:50] + ".." if len(logro.descripcion) > 52 else logro.descripcion
-        game.draw_pixel_text(
-            desc_short, row_rect.x + 32, row_rect.y + 26, "small", desc_color, False
-        )
+        pct = getattr(logro, "porcentaje", 100 if logro.completo else 0)
+        bar = pygame.Rect(row_rect.right - 128, row_rect.y + 28, 92, 10)
+        pygame.draw.rect(game.screen, (165, 170, 180), bar, 0, 3)
+        fill = pygame.Rect(bar.x, bar.y, int(bar.width * pct / 100), bar.height)
+        pygame.draw.rect(game.screen, rarity_color, fill, 0, 3)
+        game.draw_pixel_text(f"{pct}%", row_rect.right - 30, row_rect.y + 24, "small", desc_color, False)
 
     # Scrollbar
     if len(logros_list) > visible_rows:

@@ -598,6 +598,32 @@ class AudioManager:
         self._current_ambience_name = None
         self._current_detail_name = None
 
+    def set_felicidad_context(self, felicidad: int) -> None:
+        """Modulate ambience/detail volumes based on the F (happiness) value."""
+        if not self._initialized:
+            return
+        if felicidad >= 70:
+            scale = 1.10
+        elif felicidad >= 50:
+            scale = 1.00
+        elif felicidad >= 40:
+            scale = 0.80
+        elif felicidad >= 25:
+            scale = 0.55
+        else:
+            scale = 0.22
+        try:
+            if self._ambience_channel is not None:
+                self._ambience_channel.set_volume(
+                    min(1.0, self._music_volume * 0.35 * scale)
+                )
+            if self._detail_channel is not None:
+                self._detail_channel.set_volume(
+                    min(1.0, self._music_volume * 0.28 * scale)
+                )
+        except Exception:
+            pass
+
     # SFX
 
     def _generate_sfx(self, nombre):

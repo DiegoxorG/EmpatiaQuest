@@ -978,6 +978,14 @@ def get_scene_dia2_chat(player_name: str) -> SceneManager:
         game.story_felicidad = max(0, min(100, game.story_felicidad + df))
         game.story_reputacion = max(0, min(100, game.story_reputacion + dr))
         game.decision_dia2_chat = choice
+        game.decision_history.append({
+            "event_id": "dia2_chat",
+            "option_label": choice,
+            "choice": choice,
+            "dF": df,
+            "dR": dr,
+        })
+        game.story_completed += 1
         game.escena_dia2_chat_completada = True
         game.day2_chat_choice_menu_active = False
         game.day2_chat_active = False
@@ -1110,6 +1118,14 @@ def get_scene_dia2_lucas_bano(player_name: str) -> SceneManager:
         game.story_felicidad = max(0, min(100, game.story_felicidad + df))
         game.story_reputacion = max(0, min(100, game.story_reputacion + dr))
         game.decision_dia2_lucas = choice
+        game.decision_history.append({
+            "event_id": "dia2_lucas",
+            "option_label": choice,
+            "choice": choice,
+            "dF": df,
+            "dR": dr,
+        })
+        game.story_completed += 1
         game.escena_dia2_lucas_completada = True
         game.day2_lucas_choice_menu_active = False
         game.day2_lucas_event_active = False
@@ -1916,7 +1932,8 @@ def get_scene_dia4_rumores(player_name: str) -> SceneManager:
         DialogBeat(pname, "Quizas si no hubiera hecho tantas cosas raras, nadie hablaria.", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "juzgar"),
         DialogBeat("Valeria", "No tienes idea de lo que estas diciendo.", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "juzgar"),
         DialogBeat("", "Valeria se va rapido por el pasillo.", avanza_con="tiempo", tiempo_ms=1500, condition=lambda g: getattr(g, "day4_choice", "") == "juzgar"),
-        ActionBeat(lambda g: _day4_finish_event(g, DAY4_RUMORES, getattr(g, "day4_choice", "") or "acompanar")),
+        ActionBeat(lambda g: (_day4_finish_event(g, DAY4_RUMORES, getattr(g, "day4_choice", "") or "acompanar"),
+                              g._change_adventure_background("Pasillo1_tarde.png"))),
     ])
 
 
@@ -1995,6 +2012,13 @@ def get_scene_dia5_pasillo(player_name: str) -> SceneManager:
         game.day5_choice_menu_active        = False
         game.escena_dia5_pasillo_completada = True
         game.decision_dia5_pasillo          = choice
+        game.decision_history.append({
+            "event_id": "dia5_pasillo",
+            "option_label": choice,
+            "choice": choice,
+            "dF": 0,
+            "dR": 0,
+        })
         game.day5_event_active              = ""
         game.day5_animation_phase           = ""
         game.camera_mode                    = "follow_player"

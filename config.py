@@ -108,7 +108,7 @@ SEATED_DESK_TOP_FRAC = 0.3500  # fracción del sprite donde empieza la mesa (0.0
                              # sube este valor para que el personaje aparezca más abajo
 
 # Versión del schema de guardado; incrementar si cambia la estructura del JSON.
-SAVE_VERSION = 3
+SAVE_VERSION = 4
 
 # Duración de transiciones de pantalla en milisegundos.
 TRANSITION_DURATION_MS = 300

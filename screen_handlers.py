@@ -493,14 +493,28 @@ class ScreenHandlersMixin:
             audio = getattr(self, "audio", None)
             if audio is not None:
                 audio.sfx_dialogo()
+            # Save current frame as the one to fade out from
+            frames = getattr(self, "prologo_frames", [])
+            if frames:
+                cur_idx = min(self.prologo_paso, len(frames) - 1)
+                self.prologo_frame_from = frames[cur_idx]
+                self.prologo_fade_start_ms = pygame.time.get_ticks()
             self.prologo_paso += 1
             if self.prologo_paso >= len(self.prologo_textos):
                 self.prologo_activo = False
-                if audio is not None:
-                    audio.play_bgm_for_screen("aventura")
-                    if hasattr(self, "_sync_scene_audio"):
-                        self._sync_scene_audio()
-                self.current_screen = "aventura"
+                transitions = getattr(self, "transitions", None)
+                def _after_fade():
+                    if audio is not None:
+                        audio.play_bgm_for_screen("aventura")
+                        if hasattr(self, "_sync_scene_audio"):
+                            self._sync_scene_audio()
+                if transitions is not None and transitions.is_idle():
+                    transitions.request(self, "aventura",
+                                        callback=_after_fade,
+                                        duration_ms=1400)
+                else:
+                    _after_fade()
+                    self.current_screen = "aventura"
 
     # ──────────────────────────────────────────────────────────────────────────
     # Aventura (movimiento + decisiones + TAB)
@@ -1118,7 +1132,7 @@ class ScreenHandlersMixin:
 
         # Debug day-select menu intercepts navigation when active
         if getattr(self, "debug_day_menu_active", False) and event.type == pygame.KEYDOWN:
-            _days = [1, 2, 3]
+            _days = [1, 2, 3, 4, 5]
             if event.key in (pygame.K_UP, pygame.K_w):
                 self.debug_day_cursor = (self.debug_day_cursor - 1) % len(_days)
             elif event.key in (pygame.K_DOWN, pygame.K_s):
@@ -1129,14 +1143,6 @@ class ScreenHandlersMixin:
                 self._debug_jump_to_day(day)
             return
 
-        # F5 / F6 — test rápido de minijuego (cualquier pantalla, sin historia)
-        if event.type == pygame.KEYDOWN and self.current_screen != "minijuego":
-            if event.key == pygame.K_F5:
-                self._trigger_minijuego("agresivo")
-                return
-            if event.key == pygame.K_F6:
-                self._trigger_minijuego("pacifico")
-                return
 
         screen = self.current_screen
         if screen == "menu":
@@ -1312,8 +1318,32 @@ class ScreenHandlersMixin:
 
     def _handle_minijuego_result(self, result: dict):
         """Aplica stats, desbloquea logros y regresa a aventura."""
+        mgr = getattr(self, "minijuego_manager", None)
+        if mgr is not None:
+            if "vidas_restantes" not in result and hasattr(mgr, "vidas"):
+                result["vidas_restantes"] = getattr(mgr, "vidas", 0)
+            if "vidas_max" not in result:
+                if hasattr(mgr, "max_lives"):
+                    result["vidas_max"] = getattr(mgr, "max_lives", 0)
+                elif hasattr(mgr, "vidas"):
+                    result["vidas_max"] = 3
+            if "goles" not in result and hasattr(mgr, "goles"):
+                result["goles"] = getattr(mgr, "goles", 0)
+            if "puntos" not in result and hasattr(mgr, "puntos"):
+                result["puntos"] = getattr(mgr, "puntos", 0)
         gano  = result.get("gano", result.get("ganó", False))
         tipo  = result.get("tipo", getattr(self, "minijuego_pending_tipo", "agresivo"))
+        lista = getattr(self, "lista_logros", None)
+        if lista is not None and hasattr(lista, "register_minigame_result"):
+            context = (
+                getattr(self, "day3_pending_minigame_context", "")
+                or getattr(self, "day4_pending_minigame_context", "")
+                or getattr(self, "minijuego_pending_tipo", "")
+            )
+            normalized = dict(result)
+            normalized["gano"] = bool(gano)
+            normalized["tipo"] = tipo
+            lista.register_minigame_result(normalized, context)
 
         if getattr(self, "day3_pending_minigame_context", ""):
             self.day3_minigame_result = {"gano": bool(gano), "tipo": tipo}

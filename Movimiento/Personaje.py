@@ -382,6 +382,7 @@ class Personaje:
             self.interactable_hitbox_w,
             self.interactable_hitbox_h,
         )
+        self.moviendose = False
 
     def _load_config(self, root_dir):
         candidate_paths = [
