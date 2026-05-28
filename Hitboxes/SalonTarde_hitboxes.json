@@ -293,7 +293,9 @@
         "y": 0.224609375,
         "w": 0.3509114583333333,
         "h": 0.486328125
-      }
+      },
+      "npc_owner": "Sara",
+      "npc_animation": "Sara_Sentado.png"
     },
     {
       "name": "Pupitre-Sal\u00f3n1.png",

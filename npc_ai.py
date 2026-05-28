@@ -327,6 +327,8 @@ class NPCAIManager:
             npc.rx = max(0.02, min(0.98, (player_rect.centerx + 70) / world_w))
             npc.ry = max(0.02, min(0.98, player_rect.centery / world_h))
         npc.destino_rx, npc.destino_ry = npc.rx, npc.ry
+        npc.waypoints = []
+        npc.waypoint_idx = 0
         npc.fase_evento = "dia3_idle"
         npc.anim_state = "idle"
         self._sync_profesor1_to_game(game, npc)
@@ -336,7 +338,7 @@ class NPCAIManager:
         if not self.npc_ai_active:
             return
         key = _map_key(new_map_basename)
-        if "salondia" in key or "salondía" in key:
+        if ("salondia" in key or "salondía" in key) and getattr(game, "current_day", 1) == 1:
             self._place_npcs_at_chairs(game)
 
     def update(self, dt_ms: float, game):
@@ -378,8 +380,8 @@ class NPCAIManager:
                 self._update_day3_idle(npc, dt_ms, walls, world_w, world_h,
                                        same_map, game)
             elif npc.fase_evento == "dia3_follow":
-                self._update_day3_follow(npc, dt_ms, world_w, world_h,
-                                         current_map, game)
+                self._update_day3_follow(npc, dt_ms, walls, world_w, world_h,
+                                         same_map, current_map, game)
             self._advance_npc_frames(npc, dt_ms)
             if npc.nombre.lower() == "profesor1":
                 self._sync_profesor1_to_game(game, npc)
@@ -602,7 +604,8 @@ class NPCAIManager:
             npc.destino_rx, npc.destino_ry = npc.waypoints[npc.waypoint_idx]
             npc.anim_state = "idle"
             return
-        step = min(npc.velocidad * world_w * (dt_ms / 16.667), dist)
+        speed_mult = 0.5 if (npc.nombre == "Profesor1" and "bibdia" in npc.fondo_actual.lower()) else 1.0
+        step = min(npc.velocidad * speed_mult * world_w * (dt_ms / 16.667), dist)
         dx_raw, dy_raw = _normalize(dest_wx - npc_wx, dest_wy - npc_wy)
         npc.anim_state = "walk"
         if same_map:
@@ -614,7 +617,8 @@ class NPCAIManager:
             self._update_facing(npc, dx_raw, dy_raw)
 
     def _update_day3_follow(self, npc: NPCEntity, dt_ms: float,
-                            world_w, world_h, current_map: str, game):
+                            walls, world_w, world_h, same_map: bool,
+                            current_map: str, game):
         player_rect = getattr(game, "player_rect", None)
         if player_rect is None:
             return
@@ -632,32 +636,7 @@ class NPCAIManager:
             return
         step = min(npc.velocidad * world_w * 1.35 * (dt_ms / 16.667), dist)
         dx_raw, dy_raw = _normalize(dest_wx - npc_wx, dest_wy - npc_wy)
-        npc.rx += dx_raw * step / world_w
-        npc.ry += dy_raw * step / world_h
         npc.anim_state = "walk"
-        self._update_facing(npc, dx_raw, dy_raw)
-
-        return
-        # Timeout global → teleport con fade
-        npc.waypoint_timeout_ms += dt_ms
-        if npc.waypoint_timeout_ms > _WP_TIMEOUT:
-            print(f"[NPC_AI] {npc.nombre} saliendo timeout → teleport")
-            npc.rx = npc.destino_rx
-            npc.ry = npc.destino_ry
-            npc.waypoint_timeout_ms = 0.0
-            npc.steer_stuck_ms = 0.0
-            npc.steer_rodeo_target = None
-            npc.steer_rodeo_ms = 0.0
-            npc.fade_alpha = 0
-            npc.fade_in_ms = _FADE_DUR
-            npc.anim_state = "idle"
-            self._on_reached_destination_saliendo(npc, game, walls)
-            return
-
-        step = npc.velocidad * world_w * (dt_ms / 16.667)
-        step = min(step, dist)
-        dx_raw, dy_raw = _normalize(dest_wx - npc_wx, dest_wy - npc_wy)
-
         if same_map:
             self._move_npc(npc, dx_raw * step, dy_raw * step,
                            walls, world_w, world_h, dt_ms)
@@ -1226,4 +1205,8 @@ class NPCAIManager:
             frame.set_alpha(npc.fade_alpha)
 
         fw, fh = frame.get_size()
+        if npc.nombre == "Profesor1":
+            fw = int(fw * 1.5)
+            fh = int(fh * 1.5)
+            frame = pygame.transform.smoothscale(frame, (fw, fh))
         screen.blit(frame, (sx - fw // 2, sy - fh // 2))

@@ -850,7 +850,29 @@ class RendererMixin:
             if seated_pupitre is not None and h is seated_pupitre:
                 continue  # pupitre hidden while player is seated there
             # Mejora 2: ocultar pupitre decorativo si un NPC est? sentado all?
-            object_name = str(h.get("object_name", "")).lower()
+            object_name = str(h.get("object_name", ""))
+            # NPCs de eventos Día 3: solo visibles en Day 3 con el evento activo
+            if "personajes/" in object_name.lower():
+                _cur_map = self._current_adventure_map_norm()
+                if "cafeteriadia" in _cur_map:
+                    if getattr(self, "current_day", 1) != 3 or getattr(self, "day3_event_active", "") != "cafeteria":
+                        continue
+                elif "piscinadia" in _cur_map:
+                    if getattr(self, "current_day", 1) != 3:
+                        continue
+                    if (getattr(self, "day3_event_active", "") != "piscina"
+                            and not getattr(self, "escena_dia3_piscina_completada", False)):
+                        continue
+                elif "pasillo2dia" in _cur_map:
+                    if getattr(self, "current_day", 1) != 3 or getattr(self, "day3_event_active", "") != "pelea":
+                        continue
+                    if "separar.png" in object_name.lower():
+                        if getattr(self, "day3_choice", "") != "separar":
+                            continue
+                elif "salondia" in _cur_map:
+                    if getattr(self, "current_day", 1) != 1:
+                        continue
+            object_name = object_name.lower()
             if "pupitre-sal" in object_name and pup_ocupados:
                 cx = round(h["rx"] + h["rw"] / 2, 4)
                 cy = round(h["ry"] + h["rh"] / 2, 4)
@@ -1060,15 +1082,17 @@ class RendererMixin:
                 DAY1_NEXT = {}
                 next_keyword = ""
             else:
+                _prof_in_bib = "bib" in prof_map
+                _prof_in_p2  = "pasillo2" in prof_map
                 DAY1_NEXT = {
                     "habdia": "calle",
                     "habtarde": "calle",
                     "calledia": "patio",
                     "calletarde": "patio",
                     "patiodia": "pasillo1",
-                    "pasillo1_dia": "pasillo2" if "pasillo2" in prof_map else ("cafeteria" if "cafeteria" in prof_map else ("bib" if "bib" in prof_map else "salon")),
-                    "pasillo2dia": "pasillo1",
-                    "cafeteriadia": "pasillo1",
+                    "pasillo1_dia": "pasillo2" if (_prof_in_p2 or _prof_in_bib) else ("cafeteria" if "cafeteria" in prof_map else "salon"),
+                    "pasillo2dia": "bib" if _prof_in_bib else "pasillo1",
+                    "cafeteriadia": "pasillo2",
                     "bibdia": "pasillo1",
                     "salondia": "pasillo1",
                     "piscinadia": "pasillo1",
@@ -1087,7 +1111,8 @@ class RendererMixin:
             elif target == "cafeteria":
                 DAY1_NEXT = {
                     "piscinadia": "pasillo1",
-                    "pasillo1_dia": "cafeteria",
+                    "pasillo1_dia": "pasillo2",
+                    "pasillo2dia": "cafeteria",
                     "patiodia": "pasillo1",
                     "calledia": "patio",
                     "habdia": "calle",
@@ -1101,6 +1126,9 @@ class RendererMixin:
                 }
             else:
                 DAY1_NEXT = {
+                    "pasillo2tarde": "pasillo1",
+                    "pasillo1_tarde": "patio",
+                    "patiotarde": "calle",
                     "pasillo2dia": "pasillo1",
                     "pasillo1_dia": "patio",
                     "patiodia": "calle",
@@ -1606,6 +1634,8 @@ class RendererMixin:
         y no hay zoom/sara-fondo activo."""
         if not getattr(self, "day1_in_tarde", False):
             return
+        if getattr(self, "current_day", 1) != 1:
+            return
         # Verificar que el mapa actual sea SalonTarde; day1_in_tarde no se resetea
         # al cambiar de mapa, as? que sin este check Sara aparecer?a en otros fondos.
         _fondo = getattr(self, "aventura_fondo", None)
@@ -1628,8 +1658,8 @@ class RendererMixin:
             "npc_animation": "Sara_Sentado.png",
             "rx": 0.16969,
             "ry": 0.68955,
-            "rw": 0.1023990637799883,
-            "rh": 0.12792511700468018,
+            "rw": 0.1117612638970158,
+            "rh": 0.1357254290171607,
             "crop": {
                 "x": 0.3170572916666667,
                 "y": 0.224609375,
@@ -1846,26 +1876,7 @@ class RendererMixin:
             self._draw_day3_sprite(character, f"{character}_grabar.png", rx, ry, 170)
 
     def _draw_day3_event_npcs(self):
-        event = getattr(self, "day3_event_active", "")
-        if event == "piscina":
-            self._draw_day3_sprite("Carlos", "Carlos_burla.png", 0.34, 0.58)
-            self._draw_day3_sprite("Diego", "Diego_idle_down.png", 0.42, 0.59)
-            self._draw_day3_sprite("NPC1", "NPC1_burla.png", 0.27, 0.60)
-            self._draw_day3_sprite("NPC2", "NPC2_Burla.png", 0.49, 0.60)
-            self._draw_day3_sprite("Samuel", "Samuel_idle_down.png", 0.70, 0.62)
-            self._draw_day3_sprite("Profesor2", "Profesor2_idle_down.png", 0.84, 0.45, 185)
-        elif event == "cafeteria":
-            self._draw_day3_sprite("Carlos", "Carlos_burla.png", 0.46, 0.58)
-            self._draw_day3_sprite("Mateo", "Mateo_llorando.png", 0.58, 0.60)
-            self._draw_day3_recording_npc("NPC1", 0.34, 0.62)
-            self._draw_day3_recording_npc("NPC2", 0.70, 0.62)
-        elif event == "pelea":
-            self._draw_day3_sprite("Carlos", "Carlos_pelear.png", 0.43, 0.60)
-            self._draw_day3_sprite("Andres", "Andres_pelear.png", 0.56, 0.60)
-            self._draw_day3_recording_npc("NPC1", 0.30, 0.62)
-            self._draw_day3_recording_npc("NPC2", 0.72, 0.62)
-            if getattr(self, "day3_choice", "") == "separar":
-                self._draw_day3_sprite("personaje_main", "Separar.png", 0.50, 0.61, 180)
+        pass  # NPC positions/animations are defined in the map's hitbox JSON decoracion
 
     def _draw_day3_foto_pelea_overlay(self):
         if not getattr(self, "day3_foto_pelea_active", False):
@@ -2015,7 +2026,7 @@ class RendererMixin:
         self._draw_day3_event_npcs()
 
         # Item-4: no dibujar al jugador mientras duerme (la animaci?n lo "representa")
-        if not getattr(self, "bedroom_sleeping_active", False):
+        if not getattr(self, "bedroom_sleeping_active", False) and not getattr(self, "day3_separar_active", False):
             if self.aventura_personaje is not None:
                 if self.story_is_seated and self.story_seated_sprite is not None:
                     p = getattr(self, "story_seated_pupitre", None)

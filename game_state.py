@@ -30,6 +30,7 @@ from scene_manager import (
     get_scene_callejon_emociones,
     get_scene_bedroom_intro,
     get_scene_cama_dormir,
+    get_scene_cama_dormir_dia2,
     get_scene_dia2_chat,
     get_scene_dia2_lucas_bano,
     get_scene_dia3_piscina,
@@ -535,6 +536,7 @@ class GameStateMixin:
         self.day3_profesor1_return_target = ""
         self.day3_foto_pelea_active = False
         self.day3_foto_pelea_timer_ms = 0
+        self.day3_separar_active = False
         self.day3_fin_active = False
         self.day3_fin_timer_ms = 0
         self.profesor1_fondo_actual = ""
@@ -869,7 +871,31 @@ class GameStateMixin:
         return False
 
     def _is_blocking_hitbox(self, h):
-        return h.get("role", "wall") != "interactable" or bool(h.get("blocking", False))
+        if h.get("role", "wall") != "interactable":
+            return True
+        if not h.get("blocking", False):
+            return False
+        # Personajes/ decorations only block when they are currently visible
+        obj = str(h.get("object_name", ""))
+        if "personajes/" in obj.lower():
+            cur_map = self._current_adventure_map_norm()
+            if "cafeteriadia" in cur_map:
+                return (getattr(self, "current_day", 1) == 3
+                        and getattr(self, "day3_event_active", "") == "cafeteria")
+            if "piscinadia" in cur_map:
+                return (getattr(self, "current_day", 1) == 3
+                        and (getattr(self, "day3_event_active", "") == "piscina"
+                             or getattr(self, "escena_dia3_piscina_completada", False)))
+            if "pasillo2dia" in cur_map:
+                if (getattr(self, "current_day", 1) != 3
+                        or getattr(self, "day3_event_active", "") != "pelea"):
+                    return False
+                if "separar.png" in obj.lower():
+                    return getattr(self, "day3_choice", "") == "separar"
+                return True
+            if "salondia" in cur_map:
+                return getattr(self, "current_day", 1) == 1
+        return True
 
     def _collides_with_interaction_area(self, personaje_rect, h):
         margin = int(getattr(self, "story_interaction_margin", 42))
@@ -1303,12 +1329,10 @@ class GameStateMixin:
             if getattr(self, "player_can_move", True):
                 if (getattr(self, "current_day", 1) == 2
                         and getattr(self, "escena_dia2_lucas_completada", False)):
-                    # Fin del Día 2: dormir → Día 3
-                    self.current_mission = ""
-                    self.bedroom_sleeping_active = True
-                    self.day2_fin_active = True
-                    self.day2_fin_timer_ms = 3000
-                    self.player_can_move = False
+                    # Fin del Día 2: dormir → Día 3 con diálogo
+                    pname = getattr(self, "player_name", "") or "Protagonista"
+                    self.scene_manager = get_scene_cama_dormir_dia2(pname)
+                    self.escena_activa = "cama_dormir_dia2"
                 else:
                     pname = getattr(self, "player_name", "") or "Protagonista"
                     self.scene_manager = get_scene_cama_dormir(pname)
@@ -1406,16 +1430,33 @@ class GameStateMixin:
                 return friendly
         return "algo"
 
+    def _get_dynamic_npc_walls(self):
+        """Returns a collision rect for Profesor1 when on BibDia."""
+        npc_mgr = getattr(self, "npc_ai_manager", None)
+        if npc_mgr is None:
+            return []
+        if "bibdia" not in self._current_adventure_map_norm():
+            return []
+        prof = npc_mgr.get_profesor1()
+        if prof is None or not prof.alive():
+            return []
+        npc_hw, npc_hh = 0.025, 0.040
+        return [{"type": "rect", "role": "wall",
+                 "rx": max(0.0, prof.rx - npc_hw), "ry": max(0.0, prof.ry - npc_hh),
+                 "rw": npc_hw * 2, "rh": npc_hh * 2}]
+
     def _move_player_with_walls(self, dx, dy):
+        dyn_walls = self._get_dynamic_npc_walls()
+        all_walls = self.story_walls + dyn_walls
         currently_stuck = any(
             self._is_blocking_hitbox(w) and self._collides_with_hitbox(self.player_rect, w)
-            for w in self.story_walls
+            for w in all_walls
         )
         prev_x = self.player_rect.x
         self.player_rect.x += dx
         self.player_rect.clamp_ip(self.story_map_rect)
         if not currently_stuck:
-            for wall in self.story_walls:
+            for wall in all_walls:
                 if self._is_blocking_hitbox(wall) and self._collides_with_hitbox(self.player_rect, wall):
                     self.player_rect.x = prev_x
                     break
@@ -1423,7 +1464,7 @@ class GameStateMixin:
         self.player_rect.y += dy
         self.player_rect.clamp_ip(self.story_map_rect)
         if not currently_stuck:
-            for wall in self.story_walls:
+            for wall in all_walls:
                 if self._is_blocking_hitbox(wall) and self._collides_with_hitbox(self.player_rect, wall):
                     self.player_rect.y = prev_y
                     break

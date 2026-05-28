@@ -857,6 +857,40 @@ def get_scene_cama_dormir(player_name: str) -> SceneManager:
     ])
 
 
+def get_scene_cama_dormir_dia2(player_name: str) -> SceneManager:
+    """Cinemática al dormir al final del Día 2. Muestra Zzzzz y transiciona al Día 3."""
+    pname = player_name or "Protagonista"
+
+    def beat_dormir(game):
+        game.bedroom_sleeping_active = True
+        game.player_can_move = False
+        game.current_mission = ""
+
+    def beat_dia3(game):
+        game.bedroom_sleeping_active = False
+        game.escena_activa = None
+        game.current_day = 3
+        game.player_can_move = False
+
+        def _after_fade():
+            game._change_adventure_background("HabDía.png")
+            game._prepare_day3_state()
+            game.player_can_move = True
+
+        transitions = getattr(game, "transitions", None)
+        if transitions is not None and transitions.is_idle():
+            transitions.request(game, "aventura", callback=_after_fade, duration_ms=700)
+        else:
+            _after_fade()
+
+    return SceneManager([
+        ActionBeat(beat_dormir),
+        DialogBeat("", "Zzzzz...", avanza_con="tiempo", tiempo_ms=2000),
+        DialogBeat(pname, "Zzzzz, mañana será un nuevo día.", avanza_con="tiempo", tiempo_ms=1800),
+        ActionBeat(beat_dia3),
+    ])
+
+
 def get_scene_dia2_chat(player_name: str) -> SceneManager:
     pname = player_name or "Protagonista"
 
@@ -904,12 +938,20 @@ def get_scene_dia2_chat(player_name: str) -> SceneManager:
         game.day2_chat_choice_menu_active = False
         game.day2_chat_active = False
         game.day2_chat_show_ana_photo = False
-        game.player_can_move = True
         game.escena_activa = None
-        game._change_adventure_background("HabDía.png")
-        game.story_thought = "Bueno, hora de ir a la escuela."
-        game.current_mission = "Ir a la escuela"
-        game.day2_guide_target = "escuela"
+
+        def _after_fade():
+            game._change_adventure_background("HabDía.png")
+            game.story_thought = "Bueno, hora de ir a la escuela."
+            game.current_mission = "Ir a la escuela"
+            game.day2_guide_target = "escuela"
+            game.player_can_move = True
+
+        transitions = getattr(game, "transitions", None)
+        if transitions is not None and transitions.is_idle():
+            transitions.request(game, "aventura", callback=_after_fade, duration_ms=600)
+        else:
+            _after_fade()
 
     return SceneManager([
         ActionBeat(beat1_setup),
@@ -1125,8 +1167,20 @@ def _day3_finalize_common(game, attr_done: str, decision_attr: str, choice: str,
         "habtarde": "Volver a casa",
     }.get(next_target, "")
     game.escena_activa = None
-    game.player_can_move = True
     game.camera_mode = "follow_player"
+    game.day3_separar_active = False
+    if event_id == "dia3_pelea":
+        game.player_can_move = False
+        def _to_tarde():
+            game._change_adventure_background("Pasillo2Tarde.png")
+            game.player_can_move = True
+        transitions = getattr(game, "transitions", None)
+        if transitions is not None and transitions.is_idle():
+            transitions.request(game, "aventura", callback=_to_tarde, duration_ms=700)
+        else:
+            _to_tarde()
+    else:
+        game.player_can_move = True
 
 
 def get_scene_dia3_piscina(player_name: str) -> SceneManager:
@@ -1141,8 +1195,8 @@ def get_scene_dia3_piscina(player_name: str) -> SceneManager:
         game.camera_mode = "cinematic"
         game.camera_lerp = 0.06
         game.camera_target = (
-            int(game.story_world_width * 0.42),
-            int(game.story_world_height * 0.54),
+            int(game.story_world_width * 0.82),
+            int(game.story_world_height * 0.44),
         )
 
     def show_choices(game):
@@ -1233,9 +1287,23 @@ def get_scene_dia3_cafeteria(player_name: str) -> SceneManager:
             game.day3_event_active = ""
             game.day3_buscar_profesor_context = "cafeteria"
             game.day3_guide_target = "profesor1"
-            game.current_mission = "Buscar a la profesora"
+            game.current_mission = "Buscar a la profesora en la biblioteca"
             game.escena_activa = None
             game.player_can_move = True
+            mgr = getattr(game, "npc_ai_manager", None)
+            if mgr is not None:
+                prof = mgr.get_profesor1()
+                if prof is None:
+                    mgr.init_day3_profesor1(game, "BibDia.png")
+                else:
+                    prof.fondo_actual = "BibDia.png"
+                    wpts = mgr._load_waypoints("BibDia.png") or [
+                        (0.30, 0.50), (0.55, 0.50), (0.30, 0.65), (0.55, 0.65)
+                    ]
+                    prof.waypoints = wpts
+                    prof.waypoint_idx = 0
+                    prof.destino_rx, prof.destino_ry = wpts[0]
+                    prof.fase_evento = "dia3_idle"
 
     def finalize(game):
         choice = getattr(game, "day3_choice", "") or "ignorar"
@@ -1322,15 +1390,37 @@ def get_scene_dia3_pelea(player_name: str) -> SceneManager:
         game.player_can_move = True
         game.camera_mode = "follow_player"
 
+    def begin_separar(game):
+        if getattr(game, "day3_choice", "") != "separar":
+            return
+        game.day3_separar_active = True
+        game.player_can_move = False
+        game.player_rect.x = int(game.story_world_width * 0.496)
+        game.player_rect.y = int(game.story_world_height * 0.528)
+
     def start_teacher_mission(game):
         if getattr(game, "day3_choice", "") == "profesor":
             game.day3_choice_menu_active = False
             game.day3_event_active = ""
             game.day3_buscar_profesor_context = "pelea"
             game.day3_guide_target = "profesor1"
-            game.current_mission = "Buscar a la profesora"
+            game.current_mission = "Buscar a la profesora en el salón"
             game.escena_activa = None
             game.player_can_move = True
+            mgr = getattr(game, "npc_ai_manager", None)
+            if mgr is not None:
+                prof = mgr.get_profesor1()
+                if prof is None:
+                    mgr.init_day3_profesor1(game, "salonDia.png")
+                else:
+                    prof.fondo_actual = "salonDia.png"
+                    wpts = mgr._load_waypoints("salonDia.png") or [
+                        (0.40, 0.35), (0.60, 0.35), (0.40, 0.50), (0.60, 0.50)
+                    ]
+                    prof.waypoints = wpts
+                    prof.waypoint_idx = 0
+                    prof.destino_rx, prof.destino_ry = wpts[0]
+                    prof.fase_evento = "dia3_idle"
 
     def take_photo(game):
         if getattr(game, "day3_choice", "") == "foto":
@@ -1366,6 +1456,7 @@ def get_scene_dia3_pelea(player_name: str) -> SceneManager:
         WaitBeat(condicion=lambda g: bool(getattr(g, "day3_choice", "")),
                  prompt="Elige que hacer en el pasillo (A-D)",
                  hint="A Separarlos  B Profesor  C Foto  D Ignorar"),
+        ActionBeat(begin_separar),
         DialogBeat(pname, "No peleen, resolvamos esto calmadamente, por favor.", avanza_con="click", condition=lambda g: getattr(g, "day3_choice", "") == "separar"),
         DialogBeat("Carlos", "¿Que te metes tu?", avanza_con="tiempo", tiempo_ms=1200, condition=lambda g: getattr(g, "day3_choice", "") == "separar"),
         DialogBeat("Andres", "...esta bien. Dejalo.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day3_choice", "") == "separar"),
