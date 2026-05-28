@@ -543,6 +543,7 @@ class GameStateMixin:
         self.npc_ai_manager = NPCAIManager(os.path.dirname(__file__))
         # Mejora 2: set de posiciones (rx, ry) de pupitres actualmente ocupados por NPCs
         self.pupitres_ocupados: set = set()
+        self.story_deco_frame_states = {}
         self.popup_logro_timer = 0
         # â”€â”€ SceneManager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.escena_dia1_completada:  bool  = False
@@ -745,7 +746,7 @@ class GameStateMixin:
                 hitbox = {
                     "type": "rect",
                     "role": "interactable",
-                    "action": "objeto",
+                    "action": self._infer_object_action(str(obj.get("name", ""))),
                     "blocking": True,
                     "object_name": str(obj.get("name", "")),
                     "rx": float(obj["x"]),
@@ -770,6 +771,8 @@ class GameStateMixin:
                     hitbox["npc_animation"] = str(obj["npc_animation"])
                 if obj.get("frames"):
                     hitbox["frames"] = int(obj["frames"])
+                if obj.get("interactive_frame"):
+                    hitbox["interactive_frame"] = True
                 # Cachear nombre del sprite de la profesora para usarlo en _draw_profe_en_sara
                 if "profesor" in hitbox["object_name"].lower() and not self._profe_deco_name:
                     self._profe_deco_name = hitbox["object_name"]
@@ -777,6 +780,14 @@ class GameStateMixin:
             except (KeyError, TypeError, ValueError):
                 continue
         return hitboxes
+
+    def _infer_object_action(self, object_name):
+        name = str(object_name).lower()
+        if "cama" in name:
+            return "cama"
+        if "escritorio" in name:
+            return "escritorio"
+        return "objeto"
 
     def _current_scene_has_students(self):
         """Detecta si la escena actual debe tener bullicio de estudiantes."""
@@ -876,10 +887,40 @@ class GameStateMixin:
         probe = self.player_rect
         if self.aventura_personaje is not None:
             probe = self.aventura_personaje.interactable_hitbox
+        candidates = []
         for h in self.story_walls:
-            if h.get("role", "wall") == "interactable" and self._collides_with_interaction_area(probe, h):
-                return h
-        return None
+            if h.get("role", "wall") != "interactable":
+                continue
+            if not self._interactable_enabled(h):
+                continue
+            if self._collides_with_interaction_area(probe, h):
+                candidates.append(h)
+        if not candidates:
+            return None
+        priority = {
+            "cama": 0,
+            "puerta": 1,
+            "minijuego": 2,
+            "silla": 3,
+            "npc": 5,
+            "objeto": 6,
+        }
+        return min(candidates, key=lambda h: priority.get(h.get("action", "puerta"), 4))
+
+    def _interactable_enabled(self, h):
+        if h.get("action") == "silla":
+            if getattr(self, "day1_in_tarde", False) and not getattr(self, "pupitre_rayado_completado", False):
+                if h.get("zone_tag") == "sara_zone":
+                    return False
+        if h.get("action") == "objeto":
+            name = str(h.get("object_name", "")).lower()
+            if "pupitre-sal" in name:
+                if getattr(self, "day1_in_tarde", False) and not getattr(self, "pupitre_rayado_completado", False):
+                    rx = float(h.get("rx", 0.0))
+                    ry = float(h.get("ry", 0.0))
+                    if abs(rx - 0.16969) < 0.03 and abs(ry - 0.68955) < 0.04:
+                        return False
+        return True
 
     def _should_show_interactable_prompt(self):
         interactable = self._get_player_interactable()
@@ -1323,6 +1364,13 @@ class GameStateMixin:
                     self.story_thought = "Este es mi lugar."
                     self.audio.sfx_sentarse()
                 return
+            if interactable.get("interactive_frame"):
+                key = f"{interactable.get('object_name','')}_{interactable.get('rx',0):.4f}"
+                frames = int(interactable.get("frames", 2))
+                current = self.story_deco_frame_states.get(key, 0)
+                self.story_deco_frame_states[key] = (current + 1) % frames
+                self.audio.sfx_interactuar()
+            return
             friendly = self._friendly_object_name(raw_name)
             self.story_interaction_text = f"Interactuaste con {friendly}."
             self.story_thought = "Hay algo interesante aqui."

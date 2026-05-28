@@ -278,28 +278,6 @@
       "rh": 0.05850234009360374,
       "action": "puerta",
       "target_image": "CalleTarde (3).png"
-    },
-    {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.24203821656050956,
-      "ry": 0.4609984399375975,
-      "rw": 0.1,
-      "rh": 0.07956318252730109,
-      "action": "cama",
-      "label": "Cama",
-      "target_image": ""
-    },
-    {
-      "role": "interactable",
-      "type": "rect",
-      "rx": 0.4,
-      "ry": 0.42,
-      "rw": 0.16,
-      "rh": 0.07,
-      "action": "escritorio",
-      "label": "Escritorio / PC",
-      "target_image": ""
     }
   ],
   "spawn": {
@@ -317,10 +295,12 @@
   "decoracion": [
     {
       "name": "Armario-HabTarde.png",
-      "x": 0.7044585987261146,
-      "y": 0.17394695787831513,
-      "w": 0.22802547770700637,
-      "h": 0.18954758190327614
+      "x": 0.697452229299363,
+      "y": 0.056162246489859596,
+      "w": 0.21847133757961784,
+      "h": 0.36505460218408736,
+      "frames": 2,
+      "interactive_frame": true
     },
     {
       "name": "Escritorio-HabTarde.png",

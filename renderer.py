@@ -845,7 +845,7 @@ class RendererMixin:
         in_tarde = getattr(self, "day1_in_tarde", False)
 
         for h in self.story_walls:
-            if h.get("role") != "interactable" or h.get("action") != "objeto":
+            if h.get("role") != "interactable" or h.get("action") not in ("objeto", "cama", "escritorio"):
                 continue
             if seated_pupitre is not None and h is seated_pupitre:
                 continue  # pupitre hidden while player is seated there
@@ -887,7 +887,12 @@ class RendererMixin:
             frames = int(h.get("frames", 1))
             if frames > 1:
                 # Spritesheet horizontal: rw ya es el ancho de UN frame; recortar y animar
-                frame_idx  = (pygame.time.get_ticks() // 120) % frames
+                if h.get("interactive_frame"):
+                    key = f"{h.get('object_name','')}_{h.get('rx',0):.4f}"
+                    frame_idx = getattr(self, "story_deco_frame_states", {}).get(key, 0)
+                else:
+                    frame_idx = (pygame.time.get_ticks() // 120) % frames
+                    
                 img_w      = image.get_width()
                 img_h      = image.get_height()
                 fw         = max(1, img_w // frames)
