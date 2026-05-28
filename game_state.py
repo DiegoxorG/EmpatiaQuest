@@ -31,6 +31,7 @@ from scene_manager import (
     get_scene_bedroom_intro,
     get_scene_cama_dormir,
     get_scene_cama_dormir_dia2,
+    get_scene_cama_dormir_dia4,
     get_scene_dia2_chat,
     get_scene_dia2_lucas_bano,
     get_scene_dia3_piscina,
@@ -40,6 +41,9 @@ from scene_manager import (
     get_scene_dia3_pelea_profesor,
     get_scene_dia3_buscar_profesor,
     get_scene_dia3_fin,
+    get_scene_dia4_azotea,
+    get_scene_dia4_biblioteca,
+    get_scene_dia4_rumores,
 )
 
 
@@ -159,6 +163,13 @@ class GameStateMixin:
             "decision_dia3_piscina": getattr(self, "decision_dia3_piscina", ""),
             "decision_dia3_cafeteria": getattr(self, "decision_dia3_cafeteria", ""),
             "decision_dia3_pelea": getattr(self, "decision_dia3_pelea", ""),
+            "escena_dia4_azotea_completada": getattr(self, "escena_dia4_azotea_completada", False),
+            "escena_dia4_biblioteca_completada": getattr(self, "escena_dia4_biblioteca_completada", False),
+            "escena_dia4_rumores_completada": getattr(self, "escena_dia4_rumores_completada", False),
+            "decision_dia4_azotea": getattr(self, "decision_dia4_azotea", ""),
+            "decision_dia4_biblioteca": getattr(self, "decision_dia4_biblioteca", ""),
+            "decision_dia4_rumores": getattr(self, "decision_dia4_rumores", ""),
+            "day4_guide_target": getattr(self, "day4_guide_target", ""),
             "profesor1_fondo_actual": getattr(self, "profesor1_fondo_actual", ""),
             "profesor1_pos": list(getattr(self, "profesor1_pos", (0.5, 0.5))),
         }
@@ -204,6 +215,13 @@ class GameStateMixin:
         self.decision_dia3_piscina = str(data.get("decision_dia3_piscina", ""))
         self.decision_dia3_cafeteria = str(data.get("decision_dia3_cafeteria", ""))
         self.decision_dia3_pelea = str(data.get("decision_dia3_pelea", ""))
+        self.escena_dia4_azotea_completada = bool(data.get("escena_dia4_azotea_completada", False))
+        self.escena_dia4_biblioteca_completada = bool(data.get("escena_dia4_biblioteca_completada", False))
+        self.escena_dia4_rumores_completada = bool(data.get("escena_dia4_rumores_completada", False))
+        self.decision_dia4_azotea = str(data.get("decision_dia4_azotea", ""))
+        self.decision_dia4_biblioteca = str(data.get("decision_dia4_biblioteca", ""))
+        self.decision_dia4_rumores = str(data.get("decision_dia4_rumores", ""))
+        self.day4_guide_target = str(data.get("day4_guide_target", ""))
         self.profesor1_fondo_actual = str(data.get("profesor1_fondo_actual", ""))
         pos = data.get("profesor1_pos", (0.5, 0.5))
         if isinstance(pos, (list, tuple)) and len(pos) == 2:
@@ -257,6 +275,8 @@ class GameStateMixin:
             self.audio.apply_volume(self.settings["Volumen"])
         if getattr(self, "current_day", 1) == 3:
             self._prepare_day3_state()
+        if getattr(self, "current_day", 1) == 4:
+            self._prepare_day4_state()
 
     def _save_to_slot(self, slot):
         data = self._build_save_data()
@@ -541,6 +561,22 @@ class GameStateMixin:
         self.day3_fin_timer_ms = 0
         self.profesor1_fondo_actual = ""
         self.profesor1_pos = (0.5, 0.5)
+        # Day 4 state
+        self.escena_dia4_azotea_completada = False
+        self.escena_dia4_biblioteca_completada = False
+        self.escena_dia4_rumores_completada = False
+        self.decision_dia4_azotea = ""
+        self.decision_dia4_biblioteca = ""
+        self.decision_dia4_rumores = ""
+        self.day4_guide_target = ""
+        self.day4_event_active = ""
+        self.day4_choice_context = ""
+        self.day4_choice = ""
+        self.day4_choice_menu_active = False
+        self.day4_pending_minigame_context = ""
+        self.day4_minigame_result = None
+        self.day4_scene_sprite = ""
+        self.day4_animation_phase = ""
         # NPC AI Manager (Evento 1)
         self.npc_ai_manager = NPCAIManager(os.path.dirname(__file__))
         # Mejora 2: set de posiciones (rx, ry) de pupitres actualmente ocupados por NPCs
@@ -1087,6 +1123,20 @@ class GameStateMixin:
             self.day3_guide_target = "habtarde"
             self.current_mission = "Volver a casa"
 
+    def _prepare_day4_state(self):
+        if not getattr(self, "escena_dia4_azotea_completada", False):
+            self.day4_guide_target = "azotea"
+            self.current_mission = "Ir a la azotea"
+        elif not getattr(self, "escena_dia4_biblioteca_completada", False):
+            self.day4_guide_target = "biblioteca"
+            self.current_mission = "Ir a la biblioteca"
+        elif not getattr(self, "escena_dia4_rumores_completada", False):
+            self.day4_guide_target = "rumores"
+            self.current_mission = 'Ir al evento: "Rumores"'
+        else:
+            self.day4_guide_target = "cama"
+            self.current_mission = "Ir a dormir"
+
     def _current_adventure_map_norm(self):
         fondo = getattr(self, "aventura_fondo", None)
         raw = os.path.basename(str(getattr(fondo, "ruta_imagen", ""))).lower()
@@ -1259,6 +1309,27 @@ class GameStateMixin:
                 self.escena_activa = "dia3_fin"
                 self.player_can_move = False
 
+        if getattr(self, "current_day", 1) == 4:
+            self._prepare_day4_state()
+            pname = getattr(self, "player_name", "") or "Protagonista"
+            if ("azoteadia" in base_norm
+                    and not getattr(self, "escena_dia4_azotea_completada", False)):
+                self.scene_manager = get_scene_dia4_azotea(pname)
+                self.escena_activa = "dia4_azotea"
+                self.player_can_move = False
+            elif ("bibdia" in base_norm
+                    and getattr(self, "escena_dia4_azotea_completada", False)
+                    and not getattr(self, "escena_dia4_biblioteca_completada", False)):
+                self.scene_manager = get_scene_dia4_biblioteca(pname)
+                self.escena_activa = "dia4_biblioteca"
+                self.player_can_move = False
+            elif (("pasillo1_dia" in base_norm or "pasillo1dia" in base_norm)
+                    and getattr(self, "escena_dia4_biblioteca_completada", False)
+                    and not getattr(self, "escena_dia4_rumores_completada", False)):
+                self.scene_manager = get_scene_dia4_rumores(pname)
+                self.escena_activa = "dia4_rumores"
+                self.player_can_move = False
+
     def _execute_interactable_action(self, interactable):
         action = interactable.get("action", "puerta")
         if action == "puerta":
@@ -1340,6 +1411,11 @@ class GameStateMixin:
                     pname = getattr(self, "player_name", "") or "Protagonista"
                     self.scene_manager = get_scene_cama_dormir_dia2(pname)
                     self.escena_activa = "cama_dormir_dia2"
+                elif (getattr(self, "current_day", 1) == 4
+                        and getattr(self, "escena_dia4_rumores_completada", False)):
+                    pname = getattr(self, "player_name", "") or "Protagonista"
+                    self.scene_manager = get_scene_cama_dormir_dia4(pname)
+                    self.escena_activa = "cama_dormir_dia4"
                 else:
                     pname = getattr(self, "player_name", "") or "Protagonista"
                     self.scene_manager = get_scene_cama_dormir(pname)
@@ -2040,7 +2116,7 @@ class GameStateMixin:
         }
 
     def _debug_jump_to_day(self, day: int):
-        """Debug helper: jump directly to the start of the given day (1, 2, or 3)."""
+        """Debug helper: jump directly to the start of the given day (1, 2, 3 or 4)."""
         # Ensure the adventure personaje exists (may not if jumped from main menu)
         if self.aventura_personaje is None:
             if not getattr(self, "player_name", ""):
@@ -2108,6 +2184,25 @@ class GameStateMixin:
             self.current_screen = "aventura"
             self._change_adventure_background("HabDía.png")
             self._prepare_day3_state()
+
+        elif day == 4:
+            self.current_day = 4
+            self.escena_dia1_completada = True
+            self.day1_completed = True
+            self.escena_dia2_chat_completada = True
+            self.escena_dia2_lucas_completada = True
+            self.escena_dia3_piscina_completada = True
+            self.escena_dia3_cafeteria_completada = True
+            self.escena_dia3_pelea_completada = True
+            self.escena_dia4_azotea_completada = False
+            self.escena_dia4_biblioteca_completada = False
+            self.escena_dia4_rumores_completada = False
+            self.day4_guide_target = ""
+            self.day4_event_active = ""
+            self.day4_choice_menu_active = False
+            self.current_screen = "aventura"
+            self._change_adventure_background("HabDía.png")
+            self._prepare_day4_state()
 
         audio = getattr(self, "audio", None)
         if audio and getattr(self, "aventura_fondo", None):

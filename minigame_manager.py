@@ -44,6 +44,43 @@ MINI_HITBOX_DEFAULTS = {
 AGRESIVO_SPAWN_INTERVALS = [2200, 2800, 1800, 1200]  # oleadas 0-3
 PACIFICO_SPAWN_INTERVALS  = [3000, 0, 0, 0]           # solo oleada 0 usa timer
 
+CUSTOM_TEXT_VARIANTS = {
+    "insultos_sara": {
+        "base": "pacifico",
+        "duration_ms": 45_000,
+        "max_lives": 4,
+        "phrases": [
+            "Metete en tus asuntos",
+            "Ahora eres su heroe?",
+            "Que ridiculo",
+            "Nadie te pidio ayuda",
+            "Dejala sola",
+            "Solo es una broma",
+            "No deberias meterte",
+        ],
+        "pre": [("Grupo", "Si vas a defenderla, aguanta lo que digan.")],
+        "win": [("Grupo", "Ya... ya estuvo.")],
+        "lose": [("Grupo", "Viste? Mejor no te metas.")],
+    },
+    "rumores_valeria": {
+        "base": "pacifico",
+        "duration_ms": 40_000,
+        "max_lives": 3,
+        "phrases": [
+            "Dicen que fue por ella",
+            "Seguro exagera",
+            "Todos ya lo saben",
+            "Que drama",
+            "No la defiendas",
+            "Algo habra hecho",
+            "Mira como camina",
+        ],
+        "pre": [("Pasillo", "Los rumores vienen de todos lados.")],
+        "win": [("Pasillo", "Las voces empiezan a apagarse.")],
+        "lose": [("Pasillo", "El ruido pesa demasiado.")],
+    },
+}
+
 PRE_DIALOGS = {
     "agresivo": [("Bully", "¿Quieres pelear? ¡Muy bien!")],
     "pacifico": [("Bully", "¿Crees que puedes defenderlo? ¡Inténtalo!")],
@@ -70,11 +107,15 @@ class MinigameManager:
     """Gestiona un minijuego completo (pre-diálogo → juego → resultado)."""
 
     def __init__(self, tipo: str, screen_w: int, screen_h: int, audio=None):
-        self.tipo = tipo
+        self.variant = tipo
+        self.variant_cfg = CUSTOM_TEXT_VARIANTS.get(tipo, {})
+        self.tipo = self.variant_cfg.get("base", tipo)
         self.screen_w = screen_w
         self.screen_h = screen_h
         self.audio = audio
         self.result = None  # None mientras corre; dict al terminar
+        self.max_lives = int(self.variant_cfg.get("max_lives", MAX_LIVES))
+        self.duration_ms = int(self.variant_cfg.get("duration_ms", DURATION_MS))
 
         # Área de batalla: ancho centrado, altura fijada con margen superior para HUD
         self.battle_rect = pygame.Rect(
@@ -86,7 +127,7 @@ class MinigameManager:
         # Corazón
         self.heart_x = float(self.battle_rect.centerx)
         self.heart_y = float(self.battle_rect.centery)
-        self.lives = MAX_LIVES
+        self.lives = self.max_lives
         self.invincible_ms = 0
         self.blink_visible = True
         self.blink_acc_ms = 0
@@ -187,7 +228,7 @@ class MinigameManager:
             if self.audio is not None:
                 self.audio.sfx_dialogo()
             self.dialog_step += 1
-            if self.dialog_step >= len(PRE_DIALOGS[self.tipo]):
+            if self.dialog_step >= len(self._pre_dialogs()):
                 self.phase = "playing"
                 self.wave = -1
                 self.elapsed_ms = 0
@@ -198,9 +239,12 @@ class MinigameManager:
             if self.audio is not None:
                 self.audio.sfx_dialogo()
             self.post_dialog_step += 1
-            post = POST_DIALOGS_WIN[self.tipo] if self.ending_won else POST_DIALOGS_LOSE[self.tipo]
+            post = self._post_dialogs()
             if self.post_dialog_step >= len(post):
                 self.result = {"ganó": self.ending_won, "tipo": self.tipo}
+
+            if self.result is not None:
+                self.result["tipo"] = self.variant
 
     def update(self, dt_ms: int):
         if self.result is not None:
@@ -237,7 +281,7 @@ class MinigameManager:
         screen.fill((10, 10, 16))
 
         if self.phase == "pre_dialog":
-            dialog = PRE_DIALOGS[self.tipo]
+            dialog = self._pre_dialogs()
             step = min(self.dialog_step, len(dialog) - 1)
             self._draw_dialog_box(screen, base_fonts, *dialog[step])
             return
@@ -279,7 +323,7 @@ class MinigameManager:
             self._draw_ending_flash(screen, base_fonts)
         elif self.phase == "post_dialog":
             self._draw_ending_flash(screen, base_fonts)
-            post = POST_DIALOGS_WIN[self.tipo] if self.ending_won else POST_DIALOGS_LOSE[self.tipo]
+            post = self._post_dialogs()
             step = min(self.post_dialog_step, len(post) - 1)
             self._draw_dialog_box(screen, base_fonts, *post[step])
 
@@ -349,7 +393,7 @@ class MinigameManager:
             alive.append(p)
         self.projectiles = alive
 
-        if self.elapsed_ms >= DURATION_MS:
+        if self.elapsed_ms >= self.duration_ms:
             self._start_ending(won=True)
         elif self.lives <= 0:
             self._start_ending(won=False)
@@ -400,6 +444,18 @@ class MinigameManager:
 
     def _rand_msg_idx(self) -> int:
         return random.randint(0, max(0, len(self.proj_imgs) - 1))
+
+    def _rand_phrase(self) -> str:
+        phrases = self.variant_cfg.get("phrases") or []
+        return random.choice(phrases) if phrases else ""
+
+    def _pre_dialogs(self):
+        return self.variant_cfg.get("pre") or PRE_DIALOGS[self.tipo]
+
+    def _post_dialogs(self):
+        if self.ending_won:
+            return self.variant_cfg.get("win") or POST_DIALOGS_WIN[self.tipo]
+        return self.variant_cfg.get("lose") or POST_DIALOGS_LOSE[self.tipo]
 
     # ── Spawning agresivo ─────────────────────────────────────────────────────
 
@@ -491,6 +547,7 @@ class MinigameManager:
                 "arc_total_x": float(br.width + 100),
                 "arc_x0": float(br.left - 50),
                 "size_scale": self._rand_size_scale(),
+                "text": self._rand_phrase(),
             }
             self.warnings.append({
                 "timer_ms": 600, "orig_timer_ms": 600,
@@ -513,6 +570,7 @@ class MinigameManager:
                 "angle": 0.0,
                 "ptype": "bouncing",
                 "size_scale": self._rand_size_scale(),
+                "text": self._rand_phrase(),
             })
 
     def _spawn_pacifico_wave2_init(self):
@@ -530,6 +588,7 @@ class MinigameManager:
                 "spiral_r": 0.0,
                 "spiral_dr": 0.8,
                 "size_scale": self._rand_size_scale(),
+                "text": self._rand_phrase(),
             })
 
     def _spawn_pacifico_wave3_init(self):
@@ -553,6 +612,7 @@ class MinigameManager:
                 "img_idx": i % len(self.proj_imgs),
                 "angle": 0.0, "ptype": "straight",
                 "size_scale": self._rand_size_scale(),
+                "text": self._rand_phrase(),
             })
 
     def _spawn_from_warning(self, w: dict):
@@ -580,8 +640,9 @@ class MinigameManager:
             p["y"] += p["vy"]
             br = self.battle_rect
             img_idx = p.get("img_idx", 0)
-            img = (self.proj_imgs[img_idx]
-                   if 0 <= img_idx < len(self.proj_imgs) else None)
+            img = None if p.get("text") else (
+                self.proj_imgs[img_idx] if 0 <= img_idx < len(self.proj_imgs) else None
+            )
             sc = p.get("size_scale", 1.0)
             hw = int((img.get_width()  // 2) * sc) if img else 30
             hh = int((img.get_height() // 2) * sc) if img else 20
@@ -638,10 +699,13 @@ class MinigameManager:
         pkey = "fist" if self.tipo == "agresivo" else "message"
         pcfg = self.hitbox_cfg[pkey]
         img_idx = p.get("img_idx", 0)
-        img = self.proj_imgs[img_idx] if 0 <= img_idx < len(self.proj_imgs) else None
+        img = None if p.get("text") else (self.proj_imgs[img_idx] if 0 <= img_idx < len(self.proj_imgs) else None)
         if img:
             iw = max(1, int(img.get_width()  * sc))
             ih = max(1, int(img.get_height() * sc))
+        elif p.get("text"):
+            iw = max(110, int(18 * len(str(p.get("text", ""))) * sc))
+            ih = max(42, int(48 * sc))
         else:
             iw = ih = max(1, int(80 * sc))
         half_w = max(2, int(iw * pcfg["w_ratio"])  // 2)
@@ -684,10 +748,13 @@ class MinigameManager:
         pkey = "fist" if self.tipo == "agresivo" else "message"
         pcfg = self.hitbox_cfg[pkey]
         img_idx = spawn.get("img_idx", 0)
-        img = self.proj_imgs[img_idx] if 0 <= img_idx < len(self.proj_imgs) else None
+        img = None if spawn.get("text") else (self.proj_imgs[img_idx] if 0 <= img_idx < len(self.proj_imgs) else None)
         if img:
             iw = max(1, int(img.get_width()  * sc))
             ih = max(1, int(img.get_height() * sc))
+        elif spawn.get("text"):
+            iw = max(110, int(18 * len(str(spawn.get("text", ""))) * sc))
+            ih = max(42, int(48 * sc))
         else:
             iw = ih = max(1, int(80 * sc))
         return max(4, int(iw * pcfg["w_ratio"])), max(4, int(ih * pcfg["h_ratio"]))
@@ -747,7 +814,7 @@ class MinigameManager:
         gap = 16
         start_x = br.left + sx
         y = br.top - life_h - 6 + sy
-        for i in range(MAX_LIVES):
+        for i in range(self.max_lives):
             x = start_x + i * (life_w + gap)
             if i < self.lives:
                 if self.heart_img:
@@ -769,8 +836,8 @@ class MinigameManager:
         bw = br.width
         bh = 22
 
-        elapsed = min(self.elapsed_ms, DURATION_MS)
-        remaining = 1.0 - elapsed / DURATION_MS
+        elapsed = min(self.elapsed_ms, self.duration_ms)
+        remaining = 1.0 - elapsed / self.duration_ms
 
         pygame.draw.rect(screen, (50, 50, 70), (bx, by, bw, bh))
         fill_w = max(0, int(remaining * bw))
@@ -834,11 +901,27 @@ class MinigameManager:
         x = int(p["x"]) + sx
         y = int(p["y"]) + sy
         img_idx = p.get("img_idx", 0)
-        img = (self.proj_imgs[img_idx]
-               if 0 <= img_idx < len(self.proj_imgs) else None)
+        img = None if p.get("text") else (
+            self.proj_imgs[img_idx] if 0 <= img_idx < len(self.proj_imgs) else None
+        )
         size_scale = p.get("size_scale", 1.0)
 
-        if img:
+        if p.get("text"):
+            text = str(p.get("text", ""))
+            font = pygame.font.Font(None, max(24, int(30 * size_scale)))
+            label = font.render(text, True, (20, 20, 26))
+            pad_x, pad_y = 16, 8
+            rw = label.get_width() + pad_x * 2
+            rh = label.get_height() + pad_y * 2
+            bubble = pygame.Surface((rw, rh), pygame.SRCALPHA)
+            bubble.fill((246, 241, 210, 235))
+            pygame.draw.rect(bubble, (25, 25, 30), bubble.get_rect(), 3)
+            bubble.blit(label, (pad_x, pad_y))
+            angle = p.get("angle", 0.0)
+            rotated = pygame.transform.rotate(bubble, -angle) if angle != 0.0 else bubble
+            screen.blit(rotated, (x - rotated.get_width() // 2,
+                                  y - rotated.get_height() // 2))
+        elif img:
             angle = p.get("angle", 0.0)
             rotated = pygame.transform.rotate(img, -angle) if angle != 0.0 else img
             if abs(size_scale - 1.0) > 0.02:
