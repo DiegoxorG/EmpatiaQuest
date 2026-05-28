@@ -694,7 +694,7 @@ class GameStateMixin:
                 hitbox = {
                     "type": "rect",
                     "role": "interactable",
-                    "action": "objeto",
+                    "action": self._infer_object_action(str(obj.get("name", ""))),
                     "blocking": True,
                     "object_name": str(obj.get("name", "")),
                     "rx": float(obj["x"]),
@@ -728,6 +728,14 @@ class GameStateMixin:
             except (KeyError, TypeError, ValueError):
                 continue
         return hitboxes
+
+    def _infer_object_action(self, object_name):
+        name = str(object_name).lower()
+        if "cama" in name:
+            return "cama"
+        if "escritorio" in name:
+            return "escritorio"
+        return "objeto"
 
     def _current_scene_has_students(self):
         """Detecta si la escena actual debe tener bullicio de estudiantes."""
@@ -827,10 +835,40 @@ class GameStateMixin:
         probe = self.player_rect
         if self.aventura_personaje is not None:
             probe = self.aventura_personaje.interactable_hitbox
+        candidates = []
         for h in self.story_walls:
-            if h.get("role", "wall") == "interactable" and self._collides_with_interaction_area(probe, h):
-                return h
-        return None
+            if h.get("role", "wall") != "interactable":
+                continue
+            if not self._interactable_enabled(h):
+                continue
+            if self._collides_with_interaction_area(probe, h):
+                candidates.append(h)
+        if not candidates:
+            return None
+        priority = {
+            "cama": 0,
+            "puerta": 1,
+            "minijuego": 2,
+            "silla": 3,
+            "npc": 5,
+            "objeto": 6,
+        }
+        return min(candidates, key=lambda h: priority.get(h.get("action", "puerta"), 4))
+
+    def _interactable_enabled(self, h):
+        if h.get("action") == "silla":
+            if getattr(self, "day1_in_tarde", False) and not getattr(self, "pupitre_rayado_completado", False):
+                if h.get("zone_tag") == "sara_zone":
+                    return False
+        if h.get("action") == "objeto":
+            name = str(h.get("object_name", "")).lower()
+            if "pupitre-sal" in name:
+                if getattr(self, "day1_in_tarde", False) and not getattr(self, "pupitre_rayado_completado", False):
+                    rx = float(h.get("rx", 0.0))
+                    ry = float(h.get("ry", 0.0))
+                    if abs(rx - 0.16969) < 0.03 and abs(ry - 0.68955) < 0.04:
+                        return False
+        return True
 
     def _should_show_interactable_prompt(self):
         interactable = self._get_player_interactable()

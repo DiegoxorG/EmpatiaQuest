@@ -803,7 +803,7 @@ class RendererMixin:
         in_tarde = getattr(self, "day1_in_tarde", False)
 
         for h in self.story_walls:
-            if h.get("role") != "interactable" or h.get("action") != "objeto":
+            if h.get("role") != "interactable" or h.get("action") not in ("objeto", "cama", "escritorio"):
                 continue
             if seated_pupitre is not None and h is seated_pupitre:
                 continue  # pupitre hidden while player is seated there

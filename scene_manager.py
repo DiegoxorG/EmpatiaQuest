@@ -818,6 +818,7 @@ def get_scene_cama_dormir(player_name: str) -> SceneManager:
 
     def beat_ir_hab_noche(game):
         game.bedroom_sleeping_active = False   # apagar overlay justo antes del fade
+        game.current_day = 2
         transitions = getattr(game, "transitions", None)
         if transitions is not None and transitions.is_idle():
             transitions.request(
@@ -827,7 +828,6 @@ def get_scene_cama_dormir(player_name: str) -> SceneManager:
             )
         else:
             game._change_adventure_background("HabNoche (2).png")
-        game.current_day = 2
 
     def beat_completar(game):
         game.escena_activa = None

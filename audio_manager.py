@@ -172,6 +172,73 @@ class AudioManager:
             samples.append(s)
         return self._make_sound(samples)
 
+    def _door_open(self):
+        duration = 0.92
+        n = max(1, int(_SAMPLE_RATE * duration))
+        samples = array("h")
+        creak_phase = 0.0
+        wood_phase = 0.0
+        hinge_phase = 0.0
+        filtered_noise = 0.0
+        for i in range(n):
+            t = i / _SAMPLE_RATE
+            p = i / max(1, n - 1)
+            filtered_noise = filtered_noise * 0.86 + random.uniform(-1.0, 1.0) * 0.14
+            creak_freq = 230.0 - 135.0 * p + math.sin(p * math.pi * 6.0) * 18.0
+            wood_freq = 74.0 + math.sin(p * math.pi) * 13.0
+            hinge_freq = 410.0 - 170.0 * p
+            creak_phase += 2.0 * math.pi * creak_freq / _SAMPLE_RATE
+            wood_phase += 2.0 * math.pi * wood_freq / _SAMPLE_RATE
+            hinge_phase += 2.0 * math.pi * hinge_freq / _SAMPLE_RATE
+
+            handle = 0.0
+            if 0.035 <= t <= 0.105:
+                hp = (t - 0.035) / 0.070
+                handle = (1.0 - hp) * random.uniform(-1.0, 1.0) * 0.55
+                handle += math.sin(2 * math.pi * 1250 * t) * (1.0 - hp) * 0.18
+
+            creak_env = math.sin(math.pi * min(1.0, max(0.0, (p - 0.08) / 0.74))) ** 0.55
+            close_body = max(0.0, 1.0 - abs(t - 0.82) / 0.09)
+            v = (
+                math.sin(creak_phase) * 0.34 * creak_env
+                + math.sin(wood_phase) * 0.22 * creak_env
+                + math.sin(hinge_phase) * 0.045 * creak_env
+                + filtered_noise * 0.16 * creak_env
+                + handle
+                + math.sin(2 * math.pi * 92 * t) * close_body * 0.30
+            )
+            env = _adsr(t, duration, attack=0.008, release=0.08)
+            s = _clamp_sample(v * env * 0.42 * _MAX_I16)
+            samples.append(s)
+            samples.append(s)
+        return self._make_sound(samples)
+
+    def _floor_step(self, variant=0):
+        duration = 0.145
+        n = max(1, int(_SAMPLE_RATE * duration))
+        samples = array("h")
+        thump_freq = 92.0 if variant == 0 else 106.0
+        sole_freq = 540.0 if variant == 0 else 480.0
+        filtered_noise = 0.0
+        for i in range(n):
+            t = i / _SAMPLE_RATE
+            p = i / max(1, n - 1)
+            filtered_noise = filtered_noise * 0.72 + random.uniform(-1.0, 1.0) * 0.28
+            impact = math.exp(-p * 22.0)
+            sole = math.exp(-((p - 0.30) / 0.20) ** 2)
+            tail = math.exp(-p * 7.5)
+            v = (
+                math.sin(2 * math.pi * thump_freq * t) * 0.36 * impact
+                + math.sin(2 * math.pi * sole_freq * t) * 0.035 * sole
+                + filtered_noise * 0.16 * tail
+            )
+            env = _adsr(t, duration, attack=0.003, release=0.035)
+            left = _clamp_sample(v * env * 0.34 * _MAX_I16)
+            right = _clamp_sample((v * (0.92 if variant == 0 else 1.05)) * env * 0.34 * _MAX_I16)
+            samples.append(left)
+            samples.append(right)
+        return self._make_sound(samples)
+
     def _rhythm_loop(self, base_freqs, duration=3.2, volume=0.18, noise=0.0):
         n = max(1, int(_SAMPLE_RATE * duration))
         samples = array("h")
@@ -206,7 +273,7 @@ class AudioManager:
 
     def _main_theme_loop(self):
         """Tema esperanzador y sobrio: tension social + impulso de cambio."""
-        duration = 12.8
+        duration = 25.6
         n = max(1, int(_SAMPLE_RATE * duration))
         samples = array("h")
         chords = [
@@ -214,31 +281,56 @@ class AudioManager:
             (174.61, 261.63, 329.63),  # F maj7 sin quinta
             (196.00, 246.94, 293.66),  # G suspendido
             (164.81, 246.94, 329.63),  # E menor abierto
+            (220.00, 261.63, 329.63),
+            (174.61, 261.63, 349.23),
+            (196.00, 246.94, 392.00),
+            (164.81, 246.94, 329.63),
         ]
-        motif = [440.00, 493.88, 523.25, 659.25, 587.33, 523.25, 493.88, 392.00]
+        motif = [
+            440.00, 493.88, 523.25, 659.25, 587.33, 523.25, 493.88, 392.00,
+            440.00, 523.25, 587.33, 659.25, 783.99, 659.25, 587.33, 523.25,
+        ]
+        two_pi = 2.0 * math.pi
         for i in range(n):
             t = i / _SAMPLE_RATE
-            bar = int(t / 3.2) % len(chords)
-            beat_pos = (t % 3.2) / 3.2
+            loop_p = i / n
+            bar_float = loop_p * len(chords)
+            bar = int(bar_float) % len(chords)
+            beat_pos = bar_float % 1.0
             chord = chords[bar]
+            phrase = 0.82 + 0.18 * math.sin(two_pi * loop_p)
             pad = 0.0
             for freq in chord:
-                pad += math.sin(2 * math.pi * freq * t) * 0.18
-                pad += math.sin(2 * math.pi * freq * 2.0 * t) * 0.035
+                pad += math.sin(two_pi * freq * t) * 0.15
+                pad += math.sin(two_pi * (freq * 2.0) * t) * 0.025
             bass_freq = chord[0] / 2.0
-            bass_pulse = 0.55 + 0.45 * math.sin(2 * math.pi * 0.625 * t)
-            bass = math.sin(2 * math.pi * bass_freq * t) * 0.36 * bass_pulse
-            step = int((t * 2.5) % len(motif))
-            note_env = max(0.0, 1.0 - ((t * 2.5) % 1.0) * 2.4)
-            melody = math.sin(2 * math.pi * motif[step] * t) * 0.16 * note_env
-            resolve = math.sin(2 * math.pi * 880.0 * t) * 0.035 if beat_pos > 0.78 else 0.0
-            breath = random.uniform(-1.0, 1.0) * 0.008
-            env = min(1.0, t / 0.7, (duration - t) / 0.7)
-            v = (pad + bass + melody + resolve + breath) * env
+            bass_pulse = 0.54 + 0.46 * math.sin(two_pi * 16.0 * loop_p)
+            bass = math.sin(two_pi * bass_freq * t) * 0.32 * bass_pulse
+            step_float = loop_p * len(motif) * 2.0
+            step = int(step_float) % len(motif)
+            note_pos = step_float % 1.0
+            note_env = max(0.0, 1.0 - note_pos * 2.35)
+            melody_freq = motif[step]
+            melody = math.sin(two_pi * melody_freq * t) * 0.14 * note_env
+            melody += math.sin(two_pi * (melody_freq * 2.0) * t) * 0.025 * note_env
+            resolve = math.sin(two_pi * 880.0 * t) * 0.025 * max(0.0, (beat_pos - 0.76) / 0.24)
+            shimmer = math.sin(two_pi * 3.0 * loop_p) * 0.004
+            v = (pad + bass + melody + resolve + shimmer) * phrase
             left = _clamp_sample(v * 0.90 * _MAX_I16)
             right = _clamp_sample((v * 0.82 + melody * 0.22) * _MAX_I16)
             samples.append(left)
             samples.append(right)
+
+        overlap = min(n // 8, int(_SAMPLE_RATE * 2.0))
+        for i in range(overlap):
+            a = (i + 1) / overlap
+            ease = a * a * (3.0 - 2.0 * a)
+            src_idx = i * 2
+            dst_idx = (n - overlap + i) * 2
+            samples[dst_idx] = _clamp_sample(samples[dst_idx] * (1.0 - ease) + samples[src_idx] * ease)
+            samples[dst_idx + 1] = _clamp_sample(
+                samples[dst_idx + 1] * (1.0 - ease) + samples[src_idx + 1] * ease
+            )
         return self._make_sound(samples)
 
     def _texture_loop(self, name):
@@ -475,11 +567,13 @@ class AudioManager:
             "final_luz": lambda: self._tone([392, 523, 659, 784], 0.70, 0.26, "sine"),
             "final_sombra": lambda: self._sweep(196, 110, 0.70, 0.22, noise=0.08),
             "logro_desbloqueado": lambda: self._tone([523, 659, 784], 0.45, 0.30, "sine"),
-            "paso_suave": lambda: self._tone(105, 0.06, 0.13, "triangle", noise=0.50),
-            "paso_firme": lambda: self._tone(86, 0.07, 0.17, "triangle", noise=0.55),
-            "paso_exterior": lambda: self._tone(72, 0.075, 0.14, "triangle", noise=0.72),
-            "paso_madera": lambda: self._tone(132, 0.065, 0.14, "triangle", noise=0.40),
-            "puerta": lambda: self._sweep(140, 70, 0.36, 0.24, noise=0.42),
+            "paso_suave": lambda: self._floor_step(0),
+            "paso_firme": lambda: self._floor_step(1),
+            "paso_piso_1": lambda: self._floor_step(0),
+            "paso_piso_2": lambda: self._floor_step(1),
+            "paso_exterior": lambda: self._tone(88, 0.052, 0.12, "triangle", noise=0.20),
+            "paso_madera": lambda: self._tone(132, 0.060, 0.12, "triangle", noise=0.24),
+            "puerta": lambda: self._door_open(),
             "interactuar": lambda: self._tone([392, 587], 0.11, 0.18, "sine"),
             "sentarse": lambda: self._sweep(180, 90, 0.20, 0.20, noise=0.35),
             "dialogo_avanzar": lambda: self._tone(640, 0.035, 0.10, "triangle"),
@@ -557,14 +651,14 @@ class AudioManager:
             return
         self._last_step_ms = now
         ambience = self.ambience_name_for_map(map_name)
+        self._step_toggle = not self._step_toggle
         if ambience in ("calle", "exterior_colegio"):
             name = "paso_exterior"
         elif ambience in ("habitacion", "habitacion_noche", "biblioteca"):
-            name = "paso_madera"
+            name = "paso_piso_1" if self._step_toggle else "paso_piso_2"
         else:
-            name = "paso_firme" if sprint else "paso_suave"
-        self._step_toggle = not self._step_toggle
-        self.play_sfx(name, 0.95 if self._step_toggle else 0.75)
+            name = "paso_firme" if sprint else ("paso_piso_1" if self._step_toggle else "paso_piso_2")
+        self.play_sfx(name, 0.92 if self._step_toggle else 0.78)
 
     def apply_volume(self, valor_0_a_100):
         self._volume = max(0.0, min(1.0, valor_0_a_100 / 100.0))
