@@ -176,6 +176,14 @@ class NPCAIManager:
     """Gestiona todos los NPCEntity del Evento 1."""
 
     _SPRITE_FRAME_COUNTS: dict = {
+        "profesor1_idle_down.png": 8,
+        "profesor1_idle_up.png": 8,
+        "profesor1_idle_left.png": 8,
+        "profesor1_idle_right.png": 8,
+        "profesor1_walk_down.png": 8,
+        "profesor1_walk_up.png": 8,
+        "profesor1_walk_left.png": 8,
+        "profesor1_walk_right.png": 8,
         "npc2_burla.png": 16,
         "andres_pelear.png": 16,
         "carlos_pelear.png": 16,
@@ -1103,7 +1111,8 @@ class NPCAIManager:
             if os.path.isfile(idle_path):
                 try:
                     img = pygame.image.load(idle_path)
-                    w = img.get_width()
+                    count = self._frame_count_for_path(idle_path)
+                    w = img.get_width() // max(1, count or 1)
                 except (OSError, pygame.error):
                     w = 0
         self._idle_width_cache[nombre] = w
@@ -1132,6 +1141,9 @@ class NPCAIManager:
         self._sprite_cache[cache_key] = frames
         return frames
 
+    def _frame_count_for_path(self, path: str) -> int | None:
+        return self._SPRITE_FRAME_COUNTS.get(os.path.basename(str(path)).lower())
+
     def _load_sheet(self, path: str) -> list[pygame.Surface]:
         """Carga un sprite (estático o spritesheet) aplicando convert_alpha().
         Auto-detecta frames horizontales: w > h*1.5 → count=round(w/h); si no, imagen única."""
@@ -1140,7 +1152,11 @@ class NPCAIManager:
         except (OSError, pygame.error, FileNotFoundError):
             return []
         sw, sh = sheet.get_size()
-        if sw > sh * 1.5:
+        explicit_count = self._frame_count_for_path(path)
+        if explicit_count is not None:
+            count = max(1, explicit_count)
+            fw = max(1, sw // count)
+        elif sw > sh * 1.5:
             count = max(1, round(sw / max(1, sh)))
             fw = max(1, sw // count)
         else:
@@ -1160,14 +1176,19 @@ class NPCAIManager:
         except (OSError, pygame.error, FileNotFoundError):
             return []
         sw, sh = sheet.get_size()
-        idle_w = self._get_idle_width(nombre)
-        if idle_w > 0 and sw % idle_w == 0:
-            count = sw // idle_w
-            fw = idle_w
-        elif sw > sh * 1.5:
-            count = max(1, round(sw / max(1, sh)))
+        explicit_count = self._frame_count_for_path(path)
+        if explicit_count is not None:
+            count = max(1, explicit_count)
             fw = max(1, sw // count)
         else:
+            idle_w = self._get_idle_width(nombre)
+        if explicit_count is None and idle_w > 0 and sw % idle_w == 0:
+            count = sw // idle_w
+            fw = idle_w
+        elif explicit_count is None and sw > sh * 1.5:
+            count = max(1, round(sw / max(1, sh)))
+            fw = max(1, sw // count)
+        elif explicit_count is None:
             count = 1
             fw = sw
         return self._slice_sheet(sheet, sw, sh, count, fw)
@@ -1187,7 +1208,7 @@ class NPCAIManager:
     def _advance_npc_frames(self, npc: NPCEntity, dt_ms: float):
         """Carga sprites en npc.frames cuando cambia el estado/facing, y avanza frame_index."""
         anim_state = npc.anim_state
-        load_state = "walk" if anim_state in ("idle", "sitting") else anim_state
+        load_state = anim_state
 
         cache_key = (npc.nombre, load_state, npc.facing)
         if cache_key != npc._anim_key:
@@ -1205,7 +1226,7 @@ class NPCAIManager:
         if not npc.frames:
             return
 
-        if anim_state in ("idle", "sitting"):
+        if anim_state == "sitting":
             npc.frame_index = 0
             npc.frame_timer = 0.0
         else:

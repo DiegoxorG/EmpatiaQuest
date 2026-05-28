@@ -29,6 +29,14 @@ class RendererMixin:
     """Todos los m?todos de renderizado de EmpatiaQuestUI."""
 
     _DAY3_SPRITE_FRAMES: dict = {
+        "profesor1_idle_down.png": 8,
+        "profesor1_idle_up.png": 8,
+        "profesor1_idle_left.png": 8,
+        "profesor1_idle_right.png": 8,
+        "profesor1_walk_down.png": 8,
+        "profesor1_walk_up.png": 8,
+        "profesor1_walk_left.png": 8,
+        "profesor1_walk_right.png": 8,
         "npc2_burla.png": 16,
         "andres_pelear.png": 16,
         "carlos_pelear.png": 16,
@@ -1139,6 +1147,9 @@ class RendererMixin:
             h_px = max(8, int(self.story_world_height * h["rh"]))
 
             frames = int(h.get("frames", 1))
+            if frames <= 1:
+                object_file = str(h.get("object_name", "")).replace("\\", "/").rsplit("/", 1)[-1].lower()
+                frames = self._DAY3_SPRITE_FRAMES.get(object_file, frames)
             if frames > 1:
                 # Spritesheet horizontal: rw ya es el ancho de UN frame; recortar y animar
                 if h.get("interactive_frame"):
@@ -1561,25 +1572,21 @@ class RendererMixin:
         # Obtener nombre del sprite (cacheado al pasar por SalonDia, o fallback)
         sprite_name = getattr(self, "_profe_deco_name", "") or "Personajes/Profesor1/Profesor1_idle_down.png"
 
-        # Cargar y cachear (invalidar si cambia world_height)
-        cache_key   = "_profe_sara_surf"
-        cache_h_key = "_profe_sara_world_h"
-        if (not hasattr(self, cache_key)
-                or getattr(self, cache_h_key, 0) != self.story_world_height
-                or getattr(self, "_profe_sara_name_used", "") != sprite_name):
-            img = self._load_object_interactable_image(sprite_name)
-            if img is None:
-                setattr(self, cache_key, None)
-            else:
-                target_h = max(100, int(self.story_world_height * 0.22))
-                target_w = max(56, int(img.get_width() * target_h / max(1, img.get_height())))
-                setattr(self, cache_key, pygame.transform.smoothscale(img, (target_w, target_h)))
-            setattr(self, cache_h_key, self.story_world_height)
-            setattr(self, "_profe_sara_name_used", sprite_name)
-
-        sprite = getattr(self, cache_key, None)
-        if sprite is None:
+        sheet = self._load_object_interactable_image(sprite_name)
+        if sheet is None:
             return
+        sheet_w, sheet_h = sheet.get_size()
+        sprite_file = str(sprite_name).replace("\\", "/").rsplit("/", 1)[-1].lower()
+        frames = max(1, self._DAY3_SPRITE_FRAMES.get(sprite_file, 1))
+        frame_w = max(1, sheet_w // frames)
+        if frames > 1:
+            frame_idx = (pygame.time.get_ticks() // 120) % frames
+            sprite = sheet.subsurface(pygame.Rect(frame_idx * frame_w, 0, frame_w, sheet_h))
+        else:
+            sprite = sheet
+        target_h = max(100, int(self.story_world_height * 0.22))
+        target_w = max(56, int(frame_w * target_h / max(1, sheet_h)))
+        sprite = pygame.transform.smoothscale(sprite, (target_w, target_h))
 
         # Posici?n: a la derecha del pupitre de Sara
         # Sara: _SARA_TARDE_RX=0.16969, rwâ‰ˆ0.1024 -> borde derecho â‰ˆ 0.272

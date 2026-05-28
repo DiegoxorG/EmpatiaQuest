@@ -2325,6 +2325,14 @@ class GameStateMixin:
     # â"€â"€ Carga de sprites NPC â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     _SPRITE_SHEET_FRAME_COUNTS: dict = {
+        "profesor1_idle_down.png": 8,
+        "profesor1_idle_up.png": 8,
+        "profesor1_idle_left.png": 8,
+        "profesor1_idle_right.png": 8,
+        "profesor1_walk_down.png": 8,
+        "profesor1_walk_up.png": 8,
+        "profesor1_walk_left.png": 8,
+        "profesor1_walk_right.png": 8,
         "npc2_burla.png": 16,
         "andres_pelear.png": 16,
         "carlos_pelear.png": 16,
