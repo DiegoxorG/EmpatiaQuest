@@ -48,6 +48,8 @@ _SPAWN_ZONES = [
     (0.55, 0.70, 0.40, 0.65),   # C
     (0.20, 0.40, 0.65, 0.80),   # D
 ]
+_PROFESOR1_SALON1_MAP = "salonDia.png"
+_PROFESOR1_SALON1_POS = (0.52, 0.43)
 
 # ── Posiciones de puertas clave del Evento 1 (rx, ry normalizado) ────────────
 _E1_DOOR = {
@@ -281,21 +283,26 @@ class NPCAIManager:
         """Crea o restaura a Profesor1 como NPC itinerante del Dia 3."""
         existing = self.get_profesor1()
         if existing is not None:
+            if existing.fase_evento != "dia3_follow":
+                existing.fondo_actual = _PROFESOR1_SALON1_MAP
+                existing.rx, existing.ry = _PROFESOR1_SALON1_POS
+                existing.waypoints = [_PROFESOR1_SALON1_POS]
+                existing.waypoint_idx = 0
+                existing.destino_rx, existing.destino_ry = _PROFESOR1_SALON1_POS
+                existing.estado = "walking"
+                existing.fase_evento = "dia3_idle"
+                existing.anim_state = "idle"
+                self._sync_profesor1_to_game(game, existing)
             return existing
-        fondo = fondo_actual or random.choice(_PROFESOR1_DAY3_MAPS)
+        fondo = _PROFESOR1_SALON1_MAP
         if "baño" in fondo.lower() or "bano" in fondo.lower():
             fondo = random.choice(_PROFESOR1_DAY3_MAPS)
-        rx, ry = pos if pos else self._pick_profesor1_spawn(fondo)
+        rx, ry = _PROFESOR1_SALON1_POS
         npc = NPCEntity("Profesor1", fondo, rx, ry, _SPEEDS.get("Profesor1", 0.0020), 0)
         npc.estado = "walking"
         npc.fase_evento = "dia3_idle"
         npc.anim_state = "idle"
-        npc.waypoints = self._load_waypoints(fondo) or [
-            (max(0.08, rx - 0.08), ry),
-            (min(0.92, rx + 0.08), ry),
-            (rx, max(0.12, ry - 0.06)),
-            (rx, min(0.88, ry + 0.06)),
-        ]
+        npc.waypoints = [_PROFESOR1_SALON1_POS]
         npc.waypoint_idx = 0
         npc.destino_rx, npc.destino_ry = npc.waypoints[0]
         self.npc_ai_active = True

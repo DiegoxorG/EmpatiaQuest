@@ -78,6 +78,7 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         self.setting_keys = list(self.settings.keys())
         self.selected_setting_index = 0
         self.dragging_volume = False
+        self.dragging_volume_key = None
 
         # ── Controles ─────────────────────────────────────────────────────────
         self.controls = self._build_default_controls()
@@ -215,7 +216,8 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         # ── Sistemas nuevos ───────────────────────────────────────────────────
         self.audio = AudioManager()
         self.transitions = TransitionManager()
-        self.audio.apply_volume(self.settings["Volumen"])
+        self.audio.apply_music_volume(self.settings.get("Musica", self.settings.get("Volumen", 70)))
+        self.audio.apply_sfx_volume(self.settings.get("Efectos de sonido", self.settings.get("Volumen", 70)))
         self.audio.play_bgm_for_screen(self.current_screen)
         self._last_hover_target = None
 

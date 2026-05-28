@@ -79,6 +79,8 @@ class AudioManager:
         self._current_ambience_name = None
         self._current_detail_name = None
         self._volume = 0.7
+        self._music_volume = 0.7
+        self._sfx_volume = 0.7
         self._sfx_cache = {}
         self._generated_cache = {}
         self._ambience_cache = {}
@@ -239,6 +241,49 @@ class AudioManager:
             samples.append(right)
         return self._make_sound(samples)
 
+    def _stairs_steps(self):
+        duration = 0.62
+        n = max(1, int(_SAMPLE_RATE * duration))
+        samples = array("h")
+        events = (0.04, 0.19, 0.34, 0.49)
+        for i in range(n):
+            t = i / _SAMPLE_RATE
+            v = 0.0
+            for j, ev in enumerate(events):
+                d = t - ev
+                if 0 <= d < 0.13:
+                    p = d / 0.13
+                    impact = math.exp(-p * 18.0)
+                    scrape = math.exp(-((p - 0.35) / 0.24) ** 2)
+                    v += math.sin(2 * math.pi * (96 + j * 12) * t) * 0.34 * impact
+                    v += random.uniform(-1.0, 1.0) * 0.12 * scrape
+            env = _adsr(t, duration, attack=0.003, release=0.04)
+            s = _clamp_sample(v * env * 0.38 * _MAX_I16)
+            samples.append(s)
+            samples.append(s)
+        return self._make_sound(samples)
+
+    def _metal_gate(self):
+        duration = 0.72
+        n = max(1, int(_SAMPLE_RATE * duration))
+        samples = array("h")
+        for i in range(n):
+            t = i / _SAMPLE_RATE
+            p = i / max(1, n - 1)
+            clang = math.exp(-p * 5.2)
+            scrape = math.sin(math.pi * min(1.0, p / 0.68))
+            v = (
+                math.sin(2 * math.pi * 420 * t) * 0.34 * clang
+                + math.sin(2 * math.pi * 735 * t) * 0.22 * clang
+                + math.sin(2 * math.pi * 1180 * t) * 0.10 * clang
+                + random.uniform(-1.0, 1.0) * 0.20 * scrape
+            )
+            env = _adsr(t, duration, attack=0.004, release=0.12)
+            s = _clamp_sample(v * env * 0.42 * _MAX_I16)
+            samples.append(s)
+            samples.append(s)
+        return self._make_sound(samples)
+
     def _rhythm_loop(self, base_freqs, duration=3.2, volume=0.18, noise=0.0):
         n = max(1, int(_SAMPLE_RATE * duration))
         samples = array("h")
@@ -390,7 +435,7 @@ class AudioManager:
         if os.path.exists(path):
             try:
                 pygame.mixer.music.load(path)
-                pygame.mixer.music.set_volume(self._volume)
+                pygame.mixer.music.set_volume(min(1.0, self._music_volume * 1.18))
                 pygame.mixer.music.play(-1 if loop else 0)
                 self._current_bgm_name = nombre
                 return
@@ -411,7 +456,7 @@ class AudioManager:
         if sound is None:
             return
         try:
-            sound.set_volume(self._volume * 0.36)
+            sound.set_volume(min(1.0, self._music_volume * 0.62))
             self._bgm_fallback_channel.play(sound, -1 if loop else 0, 0, 250)
             self._current_bgm_name = nombre
         except Exception:
@@ -505,7 +550,7 @@ class AudioManager:
         if sound is None:
             return
         try:
-            sound.set_volume(self._volume * 0.35)
+            sound.set_volume(self._music_volume * 0.35)
             self._ambience_channel.play(sound, -1, 0, 500)
             self._current_ambience_name = name
         except Exception:
@@ -533,7 +578,7 @@ class AudioManager:
         if sound is None:
             return
         try:
-            sound.set_volume(self._volume * (0.26 if detail == "estudiantes" else 0.30))
+            sound.set_volume(self._music_volume * (0.26 if detail == "estudiantes" else 0.30))
             self._detail_channel.play(sound, -1, 0, 500)
             self._current_detail_name = detail
         except Exception:
@@ -574,6 +619,8 @@ class AudioManager:
             "paso_exterior": lambda: self._tone(88, 0.052, 0.12, "triangle", noise=0.20),
             "paso_madera": lambda: self._tone(132, 0.060, 0.12, "triangle", noise=0.24),
             "puerta": lambda: self._door_open(),
+            "escalera": lambda: self._stairs_steps(),
+            "verja_metal": lambda: self._metal_gate(),
             "interactuar": lambda: self._tone([392, 587], 0.11, 0.18, "sine"),
             "sentarse": lambda: self._sweep(180, 90, 0.20, 0.20, noise=0.35),
             "dialogo_avanzar": lambda: self._tone(640, 0.035, 0.10, "triangle"),
@@ -601,7 +648,7 @@ class AudioManager:
         sound = factory()
         if sound is not None:
             try:
-                sound.set_volume(self._volume * 0.85)
+                sound.set_volume(self._sfx_volume * 0.85)
             except Exception:
                 pass
         self._generated_cache[nombre] = sound
@@ -617,7 +664,7 @@ class AudioManager:
         if os.path.exists(path):
             try:
                 sound = pygame.mixer.Sound(path)
-                sound.set_volume(self._volume * 0.85)
+                sound.set_volume(self._sfx_volume * 0.85)
                 self._sfx_cache[nombre] = sound
                 return sound
             except Exception:
@@ -637,7 +684,7 @@ class AudioManager:
         if sound is None:
             return
         try:
-            sound.set_volume(self._volume * 0.85 * volume_scale)
+            sound.set_volume(self._sfx_volume * 0.85 * volume_scale)
             sound.play()
         except Exception:
             pass
@@ -662,25 +709,38 @@ class AudioManager:
 
     def apply_volume(self, valor_0_a_100):
         self._volume = max(0.0, min(1.0, valor_0_a_100 / 100.0))
+        self._music_volume = self._volume
+        self._sfx_volume = self._volume
+        self._apply_channel_volumes()
+
+    def apply_music_volume(self, valor_0_a_100):
+        self._music_volume = max(0.0, min(1.0, valor_0_a_100 / 100.0))
+        self._apply_channel_volumes()
+
+    def apply_sfx_volume(self, valor_0_a_100):
+        self._sfx_volume = max(0.0, min(1.0, valor_0_a_100 / 100.0))
+        self._apply_channel_volumes()
+
+    def _apply_channel_volumes(self):
         if not self._initialized:
             return
         try:
-            pygame.mixer.music.set_volume(self._volume)
+            pygame.mixer.music.set_volume(min(1.0, self._music_volume * 1.18))
         except Exception:
             pass
         for sound in list(self._sfx_cache.values()) + list(self._generated_cache.values()):
             if sound is not None:
                 try:
-                    sound.set_volume(self._volume * 0.85)
+                    sound.set_volume(self._sfx_volume * 0.85)
                 except Exception:
                     pass
         try:
             if self._ambience_channel is not None:
-                self._ambience_channel.set_volume(self._volume * 0.35)
+                self._ambience_channel.set_volume(self._music_volume * 0.35)
             if self._detail_channel is not None:
-                self._detail_channel.set_volume(self._volume * 0.28)
+                self._detail_channel.set_volume(self._music_volume * 0.28)
             if self._bgm_fallback_channel is not None:
-                self._bgm_fallback_channel.set_volume(self._volume * 0.36)
+                self._bgm_fallback_channel.set_volume(min(1.0, self._music_volume * 0.62))
         except Exception:
             pass
 
@@ -692,6 +752,8 @@ class AudioManager:
     def sfx_decision(self): self.play_sfx("decision_tomada")
     def sfx_logro(self): self.play_sfx("logro_desbloqueado")
     def sfx_puerta(self): self.play_sfx("puerta")
+    def sfx_escalera(self): self.play_sfx("escalera")
+    def sfx_verja_metal(self): self.play_sfx("verja_metal")
     def sfx_interactuar(self): self.play_sfx("interactuar")
     def sfx_sentarse(self): self.play_sfx("sentarse")
     def sfx_dialogo(self): self.play_sfx("dialogo_avanzar", 0.8)

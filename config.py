@@ -58,7 +58,8 @@ DEFAULT_CHARACTER_COLORS = {
 # Configuraciones por defecto
 DEFAULT_SETTINGS = {
     "Pantalla completa": False,
-    "Volumen": 70,
+    "Musica": 70,
+    "Efectos de sonido": 70,
     "Limite FPS": DEFAULT_FPS,
     "Mostrar FPS": False,
     "Mostrar hitboxes": False,

@@ -879,8 +879,12 @@ class ScreenHandlersMixin:
     def _handle_settings_events(self, event):
         panel, row_h, row_x, row_w, start_y, _ = self._settings_layout()
 
-        def volume_bar_rect():
-            idx = self.setting_keys.index("Volumen")
+        volume_keys = ("Musica", "Efectos de sonido")
+
+        def volume_bar_rect(key=None):
+            if key is None:
+                key = self.setting_keys[self.selected_setting_index]
+            idx = self.setting_keys.index(key)
             row = pygame.Rect(row_x, start_y + idx * row_h, row_w, 50)
             bar_w = 260
             bar_h = 16
@@ -888,13 +892,20 @@ class ScreenHandlersMixin:
             bar_y = row.centery - bar_h // 2
             return pygame.Rect(bar_x, bar_y, bar_w, bar_h)
 
-        def set_volume_from_x(mouse_x):
-            bar = volume_bar_rect()
+        def set_volume_from_x(mouse_x, key=None):
+            if key is None:
+                key = getattr(self, "dragging_volume_key", None) or self.setting_keys[self.selected_setting_index]
+            if key not in volume_keys:
+                return
+            bar = volume_bar_rect(key)
             rel_x = max(0, min(bar.width, mouse_x - bar.x))
-            self.settings["Volumen"] = int((rel_x / bar.width) * 100)
+            self.settings[key] = int((rel_x / bar.width) * 100)
             audio = getattr(self, "audio", None)
             if audio is not None:
-                audio.apply_volume(self.settings["Volumen"])
+                if key == "Musica":
+                    audio.apply_music_volume(self.settings[key])
+                else:
+                    audio.apply_sfx_volume(self.settings[key])
 
         if event.type == pygame.MOUSEMOTION:
             for i in range(len(self.setting_keys)):
@@ -907,11 +918,13 @@ class ScreenHandlersMixin:
                 set_volume_from_x(event.pos[0])
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if volume_bar_rect().collidepoint(event.pos):
-                self.selected_setting_index = self.setting_keys.index("Volumen")
-                self.dragging_volume = True
-                set_volume_from_x(event.pos[0])
-                return
+            for key in volume_keys:
+                if key in self.setting_keys and volume_bar_rect(key).collidepoint(event.pos):
+                    self.selected_setting_index = self.setting_keys.index(key)
+                    self.dragging_volume = True
+                    self.dragging_volume_key = key
+                    set_volume_from_x(event.pos[0], key)
+                    return
             controls_row = pygame.Rect(row_x, start_y + len(self.setting_keys) * row_h, row_w, 50)
             if controls_row.collidepoint(event.pos):
                 self.current_screen = "controles"
@@ -930,6 +943,7 @@ class ScreenHandlersMixin:
 
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.dragging_volume = False
+            self.dragging_volume_key = None
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_DOWN:

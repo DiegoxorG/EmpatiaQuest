@@ -55,7 +55,12 @@ _SPEAKER_COLORS: dict[str, tuple] = {
     "diego":  (74,  158, 255),
     "sara":   (126, 203, 161),
     "profe":  (220, 180,  80),
+    "profesora jessica": (220, 180, 80),
+    "profesor martin": (220, 180, 80),
+    "profesor joaquin": (220, 180, 80),
     "npc":    (170, 170, 170),
+    "gabriela": (170, 170, 170),
+    "maria":  (170, 170, 170),
     "lucas":  (255, 180, 100),
     "carlos": (200, 130, 255),
     "mateo":  (255, 200,  80),
@@ -892,6 +897,40 @@ def get_scene_cama_dormir_dia2(player_name: str) -> SceneManager:
     ])
 
 
+def get_scene_cama_dormir_dia3(player_name: str) -> SceneManager:
+    """Cinematica al dormir al final del Dia 3. Transiciona al Dia 4 sin cartel."""
+    pname = player_name or "Protagonista"
+
+    def beat_dormir(game):
+        game.bedroom_sleeping_active = True
+        game.player_can_move = False
+        game.current_mission = ""
+
+    def beat_dia4(game):
+        game.bedroom_sleeping_active = False
+        game.escena_activa = None
+        game.current_day = 4
+        game.player_can_move = False
+
+        def _after_fade():
+            game._change_adventure_background("HabDía.png")
+            game._prepare_day4_state()
+            game.player_can_move = True
+
+        transitions = getattr(game, "transitions", None)
+        if transitions is not None and transitions.is_idle():
+            transitions.request(game, "aventura", callback=_after_fade, duration_ms=700)
+        else:
+            _after_fade()
+
+    return SceneManager([
+        ActionBeat(beat_dormir),
+        DialogBeat("", "Zzzzz...", avanza_con="tiempo", tiempo_ms=2000),
+        DialogBeat(pname, "Manana sera otro dia.", avanza_con="tiempo", tiempo_ms=1700),
+        ActionBeat(beat_dia4),
+    ])
+
+
 def get_scene_dia2_chat(player_name: str) -> SceneManager:
     pname = player_name or "Protagonista"
 
@@ -1138,14 +1177,17 @@ def get_scene_cama_dormir_dia4(player_name: str) -> SceneManager:
     def beat_fin(game):
         game.bedroom_sleeping_active = False
         game.escena_activa = None
+        game.current_day = 5
+        game.story_clock_hour = 7
+        game.story_clock_minute = 30
+        game.current_mission = ""
+        game._change_adventure_background("HabDía.png")
         game.player_can_move = True
-        if not getattr(game, "story_pending_end", False):
-            game._resolve_ending()
 
     return SceneManager([
         ActionBeat(beat_dormir),
         DialogBeat("", "Zzzzz...", avanza_con="tiempo", tiempo_ms=2000),
-        DialogBeat(pname, "Hoy fue dificil. Manana tendre que vivir con lo que hice.", avanza_con="tiempo", tiempo_ms=2200),
+        DialogBeat(pname, "Hoy fue dificil. Mañana tendre que vivir con lo que hice.", avanza_con="tiempo", tiempo_ms=2200),
         ActionBeat(beat_fin),
     ])
 
@@ -1164,7 +1206,8 @@ def _day3_apply_decision(game, event_id: str, choice: str, df: int, dr: int,
         "dR": dr,
     })
     game.story_completed += 1
-    if game.story_completed >= getattr(game, "story_goal", 10):
+    if (game.story_completed >= getattr(game, "story_goal", 10)
+            and getattr(game, "current_day", 1) != 4):
         game._resolve_ending()
 
 
@@ -1217,6 +1260,9 @@ def get_scene_dia3_piscina(player_name: str) -> SceneManager:
         game.day3_choice_menu_active = False
         game.day3_choice_context = "piscina"
         game.day3_choice = ""
+        game.day3_minigame_result = None
+        game.day3_piscina_serios = False
+        game.day3_piscina_hide_npcs = False
         game.camera_mode = "cinematic"
         game.camera_lerp = 0.06
         game.camera_target = (
@@ -1234,6 +1280,19 @@ def get_scene_dia3_piscina(player_name: str) -> SceneManager:
         if getattr(game, "day3_choice", "") == "detener":
             _day3_finish_minigame_scene(game, "piscina_detener")
 
+    def set_serious_if_good(game):
+        choice = getattr(game, "day3_choice", "")
+        result = getattr(game, "day3_minigame_result", None)
+        game.day3_piscina_serios = choice == "negarse" or (
+            choice == "detener"
+            and isinstance(result, dict)
+            and bool(result.get("gano"))
+        )
+
+    def hide_serious_group(game):
+        if getattr(game, "day3_piscina_serios", False):
+            game.day3_piscina_hide_npcs = True
+
     def finalize(game):
         choice = getattr(game, "day3_choice", "") or "irse"
         data = {
@@ -1248,18 +1307,21 @@ def get_scene_dia3_piscina(player_name: str) -> SceneManager:
             "decision_dia3_piscina", choice, df, dr, label,
             "cafeteria", "dia3_piscina",
         )
+        game.day3_piscina_serios = False
+        game.day3_piscina_hide_npcs = False
 
     return SceneManager([
         ActionBeat(setup),
-        DialogBeat("NPC1", "Si quieres estar con nosotros, demuestra que no eres aburrido.", avanza_con="click"),
+        DialogBeat("Gabriela", "Si quieres estar con nosotros, demuestra que no eres aburrido.", avanza_con="click"),
         DialogBeat(pname, "Todos me estan mirando... ¿que se supone que haga?", avanza_con="tiempo", tiempo_ms=2000),
         ActionBeat(show_choices),
         WaitBeat(condicion=lambda g: bool(getattr(g, "day3_choice", "")),
                  prompt="Elige que hacer en la piscina (A-D)",
                  hint="A Participar  B Negarse  C Detenerlos  D Irse"),
+        ActionBeat(set_serious_if_good),
         DialogBeat(pname, "Me uni a la burla y dije algo que no deberia haber dicho sobre Samuel.", avanza_con="tiempo", tiempo_ms=1700, condition=lambda g: getattr(g, "day3_choice", "") == "participar"),
         DialogBeat("Carlos", "Eso es. Ya vas entendiendo.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day3_choice", "") == "participar"),
-        DialogBeat("NPC1", "Samuel bajo la cabeza mientras todos se reian.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day3_choice", "") == "participar"),
+        DialogBeat("Gabriela", "Samuel bajo la cabeza mientras todos se reian.", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day3_choice", "") == "participar"),
         DialogBeat(pname, "¿Por que hice eso...?", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day3_choice", "") == "participar"),
         DialogBeat(pname, "No lo hare. Deberian avergonzarse.", avanza_con="click", condition=lambda g: getattr(g, "day3_choice", "") == "negarse"),
         DialogBeat("Carlos", "Uy, ahora resulta que eres juez.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day3_choice", "") == "negarse"),
@@ -1270,9 +1332,11 @@ def get_scene_dia3_piscina(player_name: str) -> SceneManager:
         WaitBeat(condicion=lambda g: getattr(g, "day3_choice", "") != "detener" or getattr(g, "day3_minigame_result", None) is not None,
                  prompt="Defiende con palabras",
                  hint="Completa el minijuego pacifico"),
+        ActionBeat(set_serious_if_good),
         DialogBeat("Carlos", "Ugh... lo que sea.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day3_choice", "") == "detener" and bool(getattr(g, "day3_minigame_result", {}).get("gano"))),
         DialogBeat("Carlos", "Exacto. Mejor callate.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day3_choice", "") == "detener" and not bool(getattr(g, "day3_minigame_result", {}).get("gano"))),
         DialogBeat(pname, "No es mi problema... ¿o si?", avanza_con="tiempo", tiempo_ms=1400, condition=lambda g: getattr(g, "day3_choice", "") == "irse"),
+        ActionBeat(hide_serious_group),
         DialogBeat("Samuel", "Samuel me miro un momento antes de apartar la vista.", avanza_con="tiempo", tiempo_ms=1500, condition=lambda g: getattr(g, "day3_choice", "") != "irse"),
         ActionBeat(finalize),
     ])
@@ -1312,18 +1376,18 @@ def get_scene_dia3_cafeteria(player_name: str) -> SceneManager:
             game.day3_event_active = ""
             game.day3_buscar_profesor_context = "cafeteria"
             game.day3_guide_target = "profesor1"
-            game.current_mission = "Buscar a la profesora en la biblioteca"
+            game.current_mission = "Buscar a la profesora en el salon1"
             game.escena_activa = None
             game.player_can_move = True
             mgr = getattr(game, "npc_ai_manager", None)
             if mgr is not None:
                 prof = mgr.get_profesor1()
                 if prof is None:
-                    mgr.init_day3_profesor1(game, "BibDia.png")
+                    mgr.init_day3_profesor1(game, "salonDia.png")
                 else:
-                    prof.fondo_actual = "BibDia.png"
-                    wpts = mgr._load_waypoints("BibDia.png") or [
-                        (0.30, 0.50), (0.55, 0.50), (0.30, 0.65), (0.55, 0.65)
+                    prof.fondo_actual = "salonDia.png"
+                    wpts = mgr._load_waypoints("salonDia.png") or [
+                        (0.40, 0.35), (0.60, 0.35), (0.40, 0.50), (0.60, 0.50)
                     ]
                     prof.waypoints = wpts
                     prof.waypoint_idx = 0
@@ -1403,10 +1467,10 @@ def get_scene_dia3_cafeteria_profesor(player_name: str) -> SceneManager:
 
     return SceneManager([
         ActionBeat(setup),
-        DialogBeat("Profesor1", "¿Que esta pasando aqui?", avanza_con="click"),
+        DialogBeat("profesora Jessica", "¿Que esta pasando aqui?", avanza_con="click"),
         DialogBeat("Carlos", "Carlos se paralizo al verla entrar.", avanza_con="tiempo", tiempo_ms=1300),
-        DialogBeat("Profesor1", "Bajen esos celulares. Humillar a alguien no es un juego.", avanza_con="click"),
-        DialogBeat("Profesor1", "Carlos, vas a explicar esto en coordinacion.", avanza_con="click"),
+        DialogBeat("profesora Jessica", "Bajen esos celulares. Humillar a alguien no es un juego.", avanza_con="click"),
+        DialogBeat("profesora Jessica", "Carlos, vas a explicar esto en coordinacion.", avanza_con="click"),
         DialogBeat("Mateo", f"Gracias, {pname}.", avanza_con="tiempo", tiempo_ms=1400),
         ActionBeat(despawn_profesor),
         ActionBeat(lambda g: _day3_finalize_common(g, "escena_dia3_cafeteria_completada", "decision_dia3_cafeteria", "ayuda", +2, 0, "Buscar ayuda institucional", "pasillo2", "dia3_cafeteria")),
@@ -1451,7 +1515,7 @@ def get_scene_dia3_pelea(player_name: str) -> SceneManager:
             game.day3_event_active = ""
             game.day3_buscar_profesor_context = "pelea"
             game.day3_guide_target = "profesor1"
-            game.current_mission = "Buscar a la profesora en el salón"
+            game.current_mission = "Buscar a la profesora en el salon1"
             game.escena_activa = None
             game.player_can_move = True
             mgr = getattr(game, "npc_ai_manager", None)
@@ -1496,8 +1560,8 @@ def get_scene_dia3_pelea(player_name: str) -> SceneManager:
 
     return SceneManager([
         ActionBeat(setup),
-        DialogBeat("NPC1", "¡Pegale!", avanza_con="tiempo", tiempo_ms=800),
-        DialogBeat("NPC1", "¡Grabalo, esto se va a volver viral!", avanza_con="tiempo", tiempo_ms=800),
+        DialogBeat("Gabriela", "¡Pegale!", avanza_con="tiempo", tiempo_ms=800),
+        DialogBeat("Gabriela", "¡Grabalo, esto se va a volver viral!", avanza_con="tiempo", tiempo_ms=800),
         DialogBeat(pname, "Esto se esta poniendo serio... tengo que hacer algo.", avanza_con="tiempo", tiempo_ms=2000),
         ActionBeat(show_choices),
         WaitBeat(condicion=lambda g: bool(getattr(g, "day3_choice", "")),
@@ -1545,11 +1609,11 @@ def get_scene_dia3_pelea_profesor(player_name: str) -> SceneManager:
 
     return SceneManager([
         ActionBeat(setup),
-        DialogBeat("Profesor1", "¡Paren ahora mismo!", avanza_con="click"),
+        DialogBeat("profesora Jessica", "¡Paren ahora mismo!", avanza_con="click"),
         DialogBeat("Carlos", "Carlos y Andres se separaron de golpe.", avanza_con="tiempo", tiempo_ms=1300),
-        DialogBeat("Profesor1", "Los dos a direccion. Ya.", avanza_con="click"),
-        DialogBeat("NPC1", "NPC1 y NPC2 bajaron los celulares.", avanza_con="tiempo", tiempo_ms=1200),
-        DialogBeat("Profesor1", "Gracias por avisar a tiempo.", avanza_con="tiempo", tiempo_ms=1400),
+        DialogBeat("profesora Jessica", "Los dos a direccion. Ya.", avanza_con="click"),
+        DialogBeat("Gabriela", "Gabriela y Maria bajaron los celulares.", avanza_con="tiempo", tiempo_ms=1200),
+        DialogBeat("profesora Jessica", "Gracias por avisar a tiempo.", avanza_con="tiempo", tiempo_ms=1400),
         ActionBeat(despawn_profesor),
         ActionBeat(lambda g: _day3_finalize_common(g, "escena_dia3_pelea_completada", "decision_dia3_pelea", "profesor", +2, 0, "Buscar a un profesor", "habtarde", "dia3_pelea")),
     ])
@@ -1578,7 +1642,7 @@ def get_scene_dia3_buscar_profesor(player_name: str, context: str) -> SceneManag
         ActionBeat(setup),
         DialogBeat(pname, "Profesora, necesito ayuda. Algo grave esta pasando.", avanza_con="click"),
         DialogBeat(pname, "Estan peleando en el pasillo." if is_pelea else "Carlos esta humillando a Mateo y todos estan grabando.", avanza_con="click"),
-        DialogBeat("Profesor1", "Vamos inmediatamente." if is_pelea else "Vamos.", avanza_con="click"),
+        DialogBeat("profesora Jessica", "Vamos inmediatamente." if is_pelea else "Vamos.", avanza_con="click"),
         ActionBeat(follow),
     ])
 
@@ -1586,8 +1650,6 @@ def get_scene_dia3_buscar_profesor(player_name: str, context: str) -> SceneManag
 def get_scene_dia3_fin(player_name: str) -> SceneManager:
     def setup(game):
         game.player_can_move = False
-        game.day3_fin_active = True
-        game.day3_fin_timer_ms = 2000
 
     def finish(game):
         game.day3_fin_active = False
@@ -1603,7 +1665,6 @@ def get_scene_dia3_fin(player_name: str) -> SceneManager:
 
     return SceneManager([
         ActionBeat(setup),
-        DialogBeat("", "Fin del Dia 3", avanza_con="tiempo", tiempo_ms=2000),
         ActionBeat(finish),
     ])
 
@@ -1624,7 +1685,8 @@ def _day4_apply_decision(game, event: EmotionalEvent, choice_key: str):
         "dR": choice.dr,
     })
     game.story_completed += 1
-    if game.story_completed >= getattr(game, "story_goal", 10):
+    if (game.story_completed >= getattr(game, "story_goal", 10)
+            and getattr(game, "current_day", 1) != 4):
         game._resolve_ending()
 
 
@@ -1634,24 +1696,12 @@ def _day4_finish_event(game, event: EmotionalEvent, choice_key: str):
     game.day4_event_active = ""
     game.day4_scene_sprite = ""
     game.day4_animation_phase = ""
+    game.day4_hide_player = False
     game.day4_guide_target = event.next_target
     game.current_mission = event.mission
     game.camera_mode = "follow_player"
     game.escena_activa = None
-    if event.next_target == "cama":
-        game.player_can_move = False
-        transitions = getattr(game, "transitions", None)
-
-        def _to_home():
-            game._change_adventure_background("HabTarde.png")
-            game.player_can_move = True
-
-        if transitions is not None and transitions.is_idle():
-            transitions.request(game, "aventura", callback=_to_home, duration_ms=700)
-        else:
-            _to_home()
-    else:
-        game.player_can_move = True
+    game.player_can_move = True
 
 
 def _day4_start_minigame(game, context: str, tipo: str):
@@ -1673,6 +1723,8 @@ def get_scene_dia4_azotea(player_name: str) -> SceneManager:
         game.day4_choice_menu_active = False
         game.day4_scene_sprite = "sara_carlos"
         game.day4_animation_phase = "setup"
+        game.day4_devolver_started_ms = 0
+        game.day4_quitar_started_ms = 0
         game.camera_mode = "cinematic"
         game.camera_lerp = 0.06
         game.camera_target = (int(game.story_world_width * 0.52), int(game.story_world_height * 0.43))
@@ -1680,6 +1732,7 @@ def get_scene_dia4_azotea(player_name: str) -> SceneManager:
     def quitar_bolso(game):
         game.day4_scene_sprite = "quitar_bolso"
         game.day4_animation_phase = "quitar_bolso"
+        game.day4_quitar_started_ms = pygame.time.get_ticks()
 
     def show_choices(game):
         game.day4_choice_menu_active = True
@@ -1691,9 +1744,11 @@ def get_scene_dia4_azotea(player_name: str) -> SceneManager:
             _day4_start_minigame(game, "azotea_defender", "insultos_sara")
 
     def devolver(game):
-        if getattr(game, "day4_choice", "") in ("defender", "diego"):
+        if (getattr(game, "day4_choice", "") in ("defender", "diego")
+                and getattr(game, "day4_animation_phase", "") != "devolver"):
             game.day4_scene_sprite = "carlos_devolver"
             game.day4_animation_phase = "devolver"
+            game.day4_devolver_started_ms = pygame.time.get_ticks()
 
     def calmar(game):
         game.day4_scene_sprite = "sara_carlos"
@@ -1705,7 +1760,7 @@ def get_scene_dia4_azotea(player_name: str) -> SceneManager:
         ActionBeat(quitar_bolso),
         DialogBeat("Sara", "Carlos, devuelvemela.", avanza_con="tiempo", tiempo_ms=1500),
         DialogBeat("", "Sara intenta alcanzarla. Varios estudiantes se rien.", avanza_con="tiempo", tiempo_ms=1700),
-        DialogBeat("NPC1", "Relajate, solo es una broma.", avanza_con="click"),
+        DialogBeat("Gabriela", "Relajate, solo es una broma.", avanza_con="click"),
         DialogBeat("Diego", "Diego mira la escena, pero no dice nada.", avanza_con="tiempo", tiempo_ms=1400),
         ActionBeat(show_choices),
         WaitBeat(condicion=lambda g: bool(getattr(g, "day4_choice", "")),
@@ -1749,6 +1804,7 @@ def get_scene_dia4_biblioteca(player_name: str) -> SceneManager:
         game.day4_choice = ""
         game.day4_choice_menu_active = False
         game.day4_animation_phase = "sentados"
+        game.day4_hide_player = False
         game.camera_mode = "cinematic"
         game.camera_target = (int(game.story_world_width * 0.50), int(game.story_world_height * 0.54))
 
@@ -1761,16 +1817,34 @@ def get_scene_dia4_biblioteca(player_name: str) -> SceneManager:
         if getattr(game, "day4_choice", "") == "incluir":
             game.day4_animation_phase = "sara_incluida"
 
+    def focus_choice_table(game):
+        choice = getattr(game, "day4_choice", "")
+        game.day4_hide_player = True
+        game.player_can_move = False
+        game.camera_mode = "cinematic"
+        game.camera_lerp = 0.06
+        if choice == "sara":
+            game.camera_target = (
+                int(game.story_world_width * 0.78),
+                int(game.story_world_height * 0.64),
+            )
+        else:
+            game.camera_target = (
+                int(game.story_world_width * 0.49),
+                int(game.story_world_height * 0.53),
+            )
+
     return SceneManager([
         ActionBeat(setup),
-        DialogBeat("Profesor", "Formen equipos para el trabajo. Empiecen de una vez.", avanza_con="click"),
-        DialogBeat("", "Diego, NPC1, NPC2 y Carlos juntan sus sillas rapidamente.", avanza_con="tiempo", tiempo_ms=1700),
+        DialogBeat("profesor Martin", "Formen equipos para el trabajo. Empiecen de una vez.", avanza_con="click"),
+        DialogBeat("", "Diego, Gabriela, Maria y Carlos juntan sus sillas rapidamente.", avanza_con="tiempo", tiempo_ms=1700),
         DialogBeat("", "Sara queda apartada con sus cosas sobre la mesa.", avanza_con="tiempo", tiempo_ms=1500),
         DialogBeat(pname, "Estoy justo entre los dos grupos.", avanza_con="tiempo", tiempo_ms=1500),
         ActionBeat(show_choices),
         WaitBeat(condicion=lambda g: bool(getattr(g, "day4_choice", "")),
                  prompt="Elige tu grupo (A-C)",
                  hint="A Sara  B Diego  C Incluirla"),
+        ActionBeat(focus_choice_table),
         DialogBeat(pname, "Podemos hacer equipo juntos, si quieres.", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "sara"),
         DialogBeat("Sara", "Pense que iba a quedarme sola otra vez...", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "sara"),
         DialogBeat(pname, "Empezamos despacio. La incomodidad se vuelve menos pesada.", avanza_con="tiempo", tiempo_ms=1700, condition=lambda g: getattr(g, "day4_choice", "") == "sara"),
@@ -1811,8 +1885,8 @@ def get_scene_dia4_rumores(player_name: str) -> SceneManager:
 
     return SceneManager([
         ActionBeat(setup),
-        DialogBeat("NPC1", "Dicen que lo de Valeria fue peor de lo que conto.", avanza_con="tiempo", tiempo_ms=1500),
-        DialogBeat("NPC2", "Shh, ahi viene.", avanza_con="tiempo", tiempo_ms=1100),
+        DialogBeat("Gabriela", "Dicen que lo de Valeria fue peor de lo que conto.", avanza_con="tiempo", tiempo_ms=1500),
+        DialogBeat("Maria", "Shh, ahi viene.", avanza_con="tiempo", tiempo_ms=1100),
         DialogBeat("", "Valeria cruza el pasillo mientras las miradas la siguen.", avanza_con="tiempo", tiempo_ms=1700),
         DialogBeat(pname, "La escuela esta convirtiendo su situacion en espectaculo.", avanza_con="tiempo", tiempo_ms=1700),
         ActionBeat(show_choices),
@@ -1823,17 +1897,17 @@ def get_scene_dia4_rumores(player_name: str) -> SceneManager:
         DialogBeat("Valeria", "Gracias. Ha sido muy dificil... y todos hablan como si no estuviera aqui.", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "acompanar"),
         DialogBeat(pname, "Estoy aqui. Podemos caminar un rato si quieres.", avanza_con="tiempo", tiempo_ms=1600, condition=lambda g: getattr(g, "day4_choice", "") == "acompanar"),
         DialogBeat(pname, "Ya basta. Hablar de alguien asi tambien hace dano.", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "defender"),
-        DialogBeat("NPC1", "Ay, ahora nadie puede decir nada.", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "defender"),
+        DialogBeat("Gabriela", "Ay, ahora nadie puede decir nada.", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "defender"),
         ActionBeat(start_minigame),
         WaitBeat(condicion=lambda g: getattr(g, "day4_choice", "") != "defender" or getattr(g, "day4_minigame_result", None) is not None,
                  prompt="Resiste los rumores",
                  hint="Esquiva frases y chismes"),
         DialogBeat("Valeria", "Gracias por no dejar que siguieran.", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "defender" and bool(getattr(g, "day4_minigame_result", {}).get("gano"))),
-        DialogBeat("NPC2", "Bueno, ya. Dejemos eso.", avanza_con="tiempo", tiempo_ms=1200, condition=lambda g: getattr(g, "day4_choice", "") == "defender" and bool(getattr(g, "day4_minigame_result", {}).get("gano"))),
-        DialogBeat("NPC1", "Igual todos ya lo estaban diciendo.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day4_choice", "") == "defender" and not bool(getattr(g, "day4_minigame_result", {}).get("gano"))),
+        DialogBeat("Maria", "Bueno, ya. Dejemos eso.", avanza_con="tiempo", tiempo_ms=1200, condition=lambda g: getattr(g, "day4_choice", "") == "defender" and bool(getattr(g, "day4_minigame_result", {}).get("gano"))),
+        DialogBeat("Gabriela", "Igual todos ya lo estaban diciendo.", avanza_con="tiempo", tiempo_ms=1300, condition=lambda g: getattr(g, "day4_choice", "") == "defender" and not bool(getattr(g, "day4_minigame_result", {}).get("gano"))),
         DialogBeat("Valeria", "Valeria se aparta, triste y cansada.", avanza_con="tiempo", tiempo_ms=1500, condition=lambda g: getattr(g, "day4_choice", "") == "defender" and not bool(getattr(g, "day4_minigame_result", {}).get("gano"))),
         DialogBeat(pname, "Yo escuche que ni siquiera fue como ella dice.", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "compartir"),
-        DialogBeat("NPC2", "En serio? Cuenta.", avanza_con="tiempo", tiempo_ms=1100, condition=lambda g: getattr(g, "day4_choice", "") == "compartir"),
+        DialogBeat("Maria", "En serio? Cuenta.", avanza_con="tiempo", tiempo_ms=1100, condition=lambda g: getattr(g, "day4_choice", "") == "compartir"),
         DialogBeat("", "Las preguntas se vuelven invasivas. Valeria acelera el paso.", avanza_con="tiempo", tiempo_ms=1700, condition=lambda g: getattr(g, "day4_choice", "") == "compartir"),
         DialogBeat(pname, "Quizas si no hubiera hecho tantas cosas raras, nadie hablaria.", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "juzgar"),
         DialogBeat("Valeria", "No tienes idea de lo que estas diciendo.", avanza_con="click", condition=lambda g: getattr(g, "day4_choice", "") == "juzgar"),

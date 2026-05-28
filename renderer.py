@@ -34,8 +34,8 @@ class RendererMixin:
         "mateo_llorando.png": 16,
         "sara_llorar.png": 16,
         "npc1_burla.png": 8,
-        "npc1_chisme.png": 8,
-        "npc2_chisme.png": 8,
+        "npc1_chisme.png": 4,
+        "npc2_chisme.png": 4,
         "npc2_grabar_animacion.png": 8,
         "npc1_grabar_animacion.png": 4,
         "samuel_llorando_animacion.png": 4,
@@ -43,8 +43,9 @@ class RendererMixin:
         "npc2_grabar.png": 1,
         "quitar_bolso.png": 8,
         "sara-carlos.png": 1,
-        "carlos_devolver.png": 1,
+        "carlos_devolver.png": 8,
         "tener_bolso_sara-carlos.png": 1,
+        "main_reirse.png": 5,
     }
 
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -405,7 +406,7 @@ class RendererMixin:
             pygame.draw.rect(self.screen, CARD_BORDER, row, 3)
             self.draw_pixel_text(key, row.x + 24, row.centery, "body", TEXT_MAIN, False)
             value = self.settings[key]
-            if key == "Volumen":
+            if key in ("Musica", "Efectos de sonido"):
                 bar_w = 260
                 bar_h = 16
                 bar_x = row.right - bar_w - 24
@@ -413,14 +414,14 @@ class RendererMixin:
                 bar = pygame.Rect(bar_x, bar_y, bar_w, bar_h)
                 pygame.draw.rect(self.screen, (180, 188, 170), bar)
                 pygame.draw.rect(self.screen, CARD_BORDER, bar, 3)
-                fill_w = int((self.settings["Volumen"] / 100) * bar_w)
+                fill_w = int((int(self.settings.get(key, 70)) / 100) * bar_w)
                 if fill_w > 0:
                     pygame.draw.rect(self.screen, PIXEL_CYAN, (bar_x, bar_y, fill_w, bar_h))
                 knob_x = bar_x + fill_w
                 knob = pygame.Rect(knob_x - 8, bar_y - 8, 16, 32)
                 pygame.draw.rect(self.screen, PIXEL_PINK, knob)
                 pygame.draw.rect(self.screen, CARD_BORDER, knob, 3)
-                self.draw_pixel_text(f"{self.settings['Volumen']}%", bar_x - 58, row.centery, "small", TEXT_MAIN, False)
+                self.draw_pixel_text(f"{self.settings.get(key, 70)}%", bar_x - 58, row.centery, "small", TEXT_MAIN, False)
             else:
                 value_text = ("ON" if value else "OFF") if isinstance(value, bool) else str(value)
                 self.draw_pixel_text(value_text, row.right - 70, row.centery, "body", TEXT_MAIN, False)
@@ -843,6 +844,58 @@ class RendererMixin:
             and abs(h.get("ry", 0) - self._SARA_TARDE_RY) < self._SARA_TARDE_TOL
         )
 
+    def _day3_piscina_resuelta_bien(self):
+        choice = getattr(self, "decision_dia3_piscina", "")
+        if not choice:
+            choice = getattr(self, "day3_choice", "")
+        result = getattr(self, "day3_minigame_result", None)
+        return choice == "negarse" or (
+            choice == "detener"
+            and isinstance(result, dict)
+            and bool(result.get("gano"))
+        )
+
+    def _piscina_serious_deco(self, h):
+        object_name = str(h.get("object_name", ""))
+        lower = object_name.lower()
+        replacements = {
+            "personajes/carlos/carlos_burla.png": ("Personajes/Carlos/Carlos_idle_down.png", 1),
+            "personajes/npc2/npc2_burla.png": ("Personajes/NPC2/NPC2_idle_down.png", 1),
+            "personajes/npc1/npc1_burla.png": ("Personajes/NPC1/NPC1_idle_right.png", 1),
+            "personajes/samuel/samuel_llorando_animacion.png": ("Personajes/Samuel/Samuel_idle_down.png", 1),
+        }
+        replacement = replacements.get(lower)
+        if replacement is None:
+            return h
+        new_h = dict(h)
+        new_h["object_name"], new_h["frames"] = replacement
+        return new_h
+
+    def _day3_cafeteria_resuelta_bien(self):
+        if not getattr(self, "escena_dia3_cafeteria_completada", False):
+            return False
+        choice = getattr(self, "decision_dia3_cafeteria", "")
+        result = getattr(self, "day3_minigame_result", None)
+        return choice == "ayuda" or (
+            choice == "defender"
+            and isinstance(result, dict)
+            and bool(result.get("gano"))
+        )
+
+    def _cafeteria_resolved_idle_deco(self, h):
+        lower = str(h.get("object_name", "")).lower()
+        replacements = {
+            "personajes/carlos/carlos_burla.png": ("Personajes/Carlos/Carlos_idle_down.png", 1),
+            "personajes/npc2/npc2_burla.png": ("Personajes/NPC2/NPC2_idle_down.png", 1),
+            "personajes/npc1/npc1_burla.png": ("Personajes/NPC1/NPC1_idle_right.png", 1),
+        }
+        replacement = replacements.get(lower)
+        if replacement is None:
+            return h
+        new_h = dict(h)
+        new_h["object_name"], new_h["frames"] = replacement
+        return new_h
+
     def _draw_object_interactables_from_hitboxes(self):
         seated_pupitre = getattr(self, "story_seated_pupitre", None)
         pup_ocupados = getattr(self, "pupitres_ocupados", set())
@@ -856,6 +909,11 @@ class RendererMixin:
                 continue  # pupitre hidden while player is seated there
             # Mejora 2: ocultar pupitre decorativo si un NPC est? sentado all?
             object_name = str(h.get("object_name", ""))
+            if (getattr(self, "current_day", 1) == 4
+                    and getattr(self, "day4_event_active", "") == "biblioteca"):
+                obj_l = object_name.lower()
+                if "mesacentro-bib" in obj_l or "mesaderecha-bib" in obj_l:
+                    continue
             # NPCs de eventos Día 3: solo visibles en Day 3 con el evento activo
             if "personajes/" in object_name.lower():
                 _cur_map = self._current_adventure_map_norm()
@@ -865,13 +923,22 @@ class RendererMixin:
                     _ev_active = getattr(self, "day3_event_active", "") == "cafeteria"
                     _buscar = (getattr(self, "day3_buscar_profesor_context", "") == "cafeteria"
                                and not getattr(self, "escena_dia3_cafeteria_completada", False))
-                    if not (_ev_active or _buscar):
+                    cafeteria_bien = self._day3_cafeteria_resuelta_bien()
+                    if not (_ev_active or _buscar or cafeteria_bien):
                         continue
+                    if cafeteria_bien and not (_ev_active or _buscar):
+                        h = self._cafeteria_resolved_idle_deco(h)
+                        object_name = str(h.get("object_name", ""))
                 elif "piscinadia" in _cur_map:
                     if getattr(self, "current_day", 1) != 3:
                         continue
                     if getattr(self, "day3_event_active", "") != "piscina":
                         continue
+                    if getattr(self, "day3_piscina_hide_npcs", False):
+                        continue
+                    if getattr(self, "day3_piscina_serios", False):
+                        h = self._piscina_serious_deco(h)
+                        object_name = str(h.get("object_name", ""))
                 elif "pasillo2dia" in _cur_map:
                     if getattr(self, "current_day", 1) != 3:
                         continue
@@ -2005,7 +2072,15 @@ class RendererMixin:
             frames = self._DAY3_SPRITE_FRAMES.get(key, 1)
             fw = max(1, sw // max(1, frames))
             if frames > 1:
-                fi = (pygame.time.get_ticks() // 120) % frames
+                if key in ("carlos_devolver.png", "quitar_bolso.png"):
+                    attr = "day4_devolver_started_ms" if key == "carlos_devolver.png" else "day4_quitar_started_ms"
+                    started = getattr(self, attr, 0)
+                    if not started:
+                        started = pygame.time.get_ticks()
+                        setattr(self, attr, started)
+                    fi = min(frames - 1, max(0, (pygame.time.get_ticks() - started) // 120))
+                else:
+                    fi = (pygame.time.get_ticks() // 120) % frames
                 img = img.subsurface(pygame.Rect(fi * fw, 0, fw, sh))
                 sw = fw
             w = max(48, int(sw * (height / max(1, sh))))
@@ -2014,11 +2089,32 @@ class RendererMixin:
                 y += int(4 * abs(__import__("math").sin(pygame.time.get_ticks() / 140.0)))
             self.screen.blit(spr, (x - w // 2, y - height))
 
+        def draw_rect_ref(ref, rx, ry, rw, rh):
+            try:
+                img = self._load_object_interactable_image(ref)
+            except Exception:
+                img = None
+            if img is None:
+                return
+            x = int(self.story_world_width * rx) - self.story_camera_x
+            y = int(self.story_world_height * ry) - self.story_camera_y
+            w = max(8, int(self.story_world_width * rw))
+            h = max(8, int(self.story_world_height * rh))
+            self.screen.blit(pygame.transform.smoothscale(img, (w, h)), (x, y))
+
         if active == "azotea":
             main_ref = {
                 "quitar_bolso": "quitar_bolso.png",
                 "devolver": "Carlos_devolver.png",
             }.get(phase, "Sara-Carlos.png")
+            if phase == "quitar_bolso":
+                started = getattr(self, "day4_quitar_started_ms", 0)
+                if started and pygame.time.get_ticks() - started >= 8 * 120:
+                    main_ref = "tener_bolso_Sara-Carlos.png"
+            if phase == "devolver":
+                started = getattr(self, "day4_devolver_started_ms", 0)
+                if started and pygame.time.get_ticks() - started >= 8 * 120:
+                    main_ref = "Sara-Carlos.png"
             draw_ref("Personajes/Diego/Diego_idle_right.png", 0.39, 0.50, 165)
             draw_ref(main_ref, 0.52, 0.49, 200)
             draw_ref("Personajes/NPC1/NPC1_idle_up.png", 0.43, 0.66, 160)
@@ -2026,15 +2122,24 @@ class RendererMixin:
             if getattr(self, "day4_choice", "") == "reirse":
                 draw_ref("Personajes/personaje_main/main_reirse.png", 0.34, 0.56, 160)
         elif active == "biblioteca":
-            sara_rx = 0.31 if phase != "sara_incluida" else 0.47
-            draw_ref("Personajes/Sara/Sara_Sentado.png", sara_rx, 0.61, 150)
-            draw_ref("Personajes/Diego/Diego_Sentado.png", 0.58, 0.58, 150)
-            draw_ref("Personajes/NPC1/NPC1_Sentado.png", 0.66, 0.58, 150)
-            draw_ref("Personajes/NPC2/NPC2_Sentada.png", 0.58, 0.72, 150)
-            draw_ref("Personajes/Carlos/Carlos_Sentado.png", 0.66, 0.72, 150)
+            choice = getattr(self, "day4_choice", "")
+            centro = (0.39001560062402496, 0.437597503900156, 0.1981279251170047, 0.23088923556942278)
+            derecha = (0.7087883515340614, 0.5787831513260531, 0.1502860114404576, 0.15990639625585024)
+            draw_ref("Personajes/Profesor3/Profesor3_idle_down.png", 0.62, 0.31, 165)
+            if choice == "incluir" or phase == "sara_incluida":
+                draw_rect_ref("Mesa1TODOSProta1.png", *centro)
+            elif choice == "diego":
+                draw_rect_ref("MesaBiB1Prota1.png", *centro)
+                draw_rect_ref("Mesa2.png", *derecha)
+            elif choice == "sara":
+                draw_rect_ref("MesaBiB1.png", *centro)
+                draw_rect_ref("Mesa2Prota1.png", *derecha)
+            else:
+                draw_rect_ref("MesaBiB1.png", *centro)
+                draw_rect_ref("Mesa2.png", *derecha)
         elif active == "rumores":
-            draw_ref("Personajes/NPC1/NPC1_chisme.png", 0.38, 0.52, 165)
-            draw_ref("Personajes/NPC2/NPC2_chisme.png", 0.46, 0.54, 165)
+            draw_ref("Personajes/NPC2/NPC2_chisme.png", 0.40, 0.52, 165)
+            draw_ref("Personajes/NPC1/NPC1_chisme.png", 0.52, 0.52, 165)
             draw_ref("Personajes/Valeria/Valeria_idle_left.png", 0.61, 0.55, 165)
 
     def _draw_day3_foto_pelea_overlay(self):
@@ -2053,10 +2158,6 @@ class RendererMixin:
     def _draw_day3_fin_overlay(self):
         if not getattr(self, "day3_fin_active", False):
             return
-        s = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        s.fill((0, 0, 0, 225))
-        self.screen.blit(s, (0, 0))
-        self.draw_pixel_text("Fin del Dia 3", self.width // 2, self.height // 2, "title", (245, 248, 255), True)
 
     def _draw_adventure_screen(self):
         self.screen.fill((255, 255, 255))
@@ -2186,7 +2287,9 @@ class RendererMixin:
         self._draw_day4_event_sprites()
 
         # Item-4: no dibujar al jugador mientras duerme (la animaci?n lo "representa")
-        if not getattr(self, "bedroom_sleeping_active", False) and not getattr(self, "day3_separar_active", False):
+        if (not getattr(self, "bedroom_sleeping_active", False)
+                and not getattr(self, "day3_separar_active", False)
+                and not getattr(self, "day4_hide_player", False)):
             if self.aventura_personaje is not None:
                 if self.story_is_seated and self.story_seated_sprite is not None:
                     p = getattr(self, "story_seated_pupitre", None)

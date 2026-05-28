@@ -31,6 +31,7 @@ from scene_manager import (
     get_scene_bedroom_intro,
     get_scene_cama_dormir,
     get_scene_cama_dormir_dia2,
+    get_scene_cama_dormir_dia3,
     get_scene_cama_dormir_dia4,
     get_scene_dia2_chat,
     get_scene_dia2_lucas_bano,
@@ -40,7 +41,6 @@ from scene_manager import (
     get_scene_dia3_pelea,
     get_scene_dia3_pelea_profesor,
     get_scene_dia3_buscar_profesor,
-    get_scene_dia3_fin,
     get_scene_dia4_azotea,
     get_scene_dia4_biblioteca,
     get_scene_dia4_rumores,
@@ -222,6 +222,9 @@ class GameStateMixin:
         self.decision_dia4_biblioteca = str(data.get("decision_dia4_biblioteca", ""))
         self.decision_dia4_rumores = str(data.get("decision_dia4_rumores", ""))
         self.day4_guide_target = str(data.get("day4_guide_target", ""))
+        self.day3_piscina_serios = False
+        self.day3_piscina_hide_npcs = False
+        self.day4_hide_player = False
         self.profesor1_fondo_actual = str(data.get("profesor1_fondo_actual", ""))
         pos = data.get("profesor1_pos", (0.5, 0.5))
         if isinstance(pos, (list, tuple)) and len(pos) == 2:
@@ -252,6 +255,9 @@ class GameStateMixin:
 
         loaded_settings = data.get("settings", {})
         if isinstance(loaded_settings, dict):
+            if "Volumen" in loaded_settings:
+                loaded_settings.setdefault("Musica", loaded_settings["Volumen"])
+                loaded_settings.setdefault("Efectos de sonido", loaded_settings["Volumen"])
             prev_fullscreen = bool(self.settings.get("Pantalla completa", False))
             for key in self.settings:
                 if key in loaded_settings:
@@ -271,8 +277,8 @@ class GameStateMixin:
 
         self.lista_logros.load_from_list(data.get("logros", []))
 
-        if self.settings.get("Volumen") is not None:
-            self.audio.apply_volume(self.settings["Volumen"])
+        self.audio.apply_music_volume(self.settings.get("Musica", self.settings.get("Volumen", 70)))
+        self.audio.apply_sfx_volume(self.settings.get("Efectos de sonido", self.settings.get("Volumen", 70)))
         if getattr(self, "current_day", 1) == 3:
             self._prepare_day3_state()
         if getattr(self, "current_day", 1) == 4:
@@ -348,9 +354,14 @@ class GameStateMixin:
             self._apply_display_mode()
             return
 
-        if key == "Volumen":
+        if key == "Musica":
             self.settings[key] = max(0, min(100, value + (5 * direction)))
-            self.audio.apply_volume(self.settings[key])
+            self.audio.apply_music_volume(self.settings[key])
+            return
+
+        if key == "Efectos de sonido":
+            self.settings[key] = max(0, min(100, value + (5 * direction)))
+            self.audio.apply_sfx_volume(self.settings[key])
             return
 
         if key == "Limite FPS":
@@ -550,6 +561,8 @@ class GameStateMixin:
         self.day3_choice_menu_active = False
         self.day3_recording_started = False
         self.day3_recording_anim_started_ms = 0
+        self.day3_piscina_serios = False
+        self.day3_piscina_hide_npcs = False
         self.day3_buscar_profesor_context = ""
         self.day3_pending_minigame_context = ""
         self.day3_minigame_result = None
@@ -577,6 +590,9 @@ class GameStateMixin:
         self.day4_minigame_result = None
         self.day4_scene_sprite = ""
         self.day4_animation_phase = ""
+        self.day4_hide_player = False
+        self.day4_devolver_started_ms = 0
+        self.day4_quitar_started_ms = 0
         # NPC AI Manager (Evento 1)
         self.npc_ai_manager = NPCAIManager(os.path.dirname(__file__))
         # Mejora 2: set de posiciones (rx, ry) de pupitres actualmente ocupados por NPCs
@@ -653,8 +669,8 @@ class GameStateMixin:
             {"speaker": "Narrador", "text": "Otros estudiantes observan sin intervenir. Algunos se rien."},
             {"speaker": "Narrador", "text": "Un adulto pasa cerca, pero no nota la situacion."},
             {"speaker": "Narrador", "text": f"Esta vez las burlas empezaron por: {self.prologo_razon}."},
-            {"speaker": "NPC 1", "text": "¿Por qué eres tan raro?"},
-            {"speaker": "NPC 2", "text": "Ni siquiera sabe responder."},
+            {"speaker": "Gabriela", "text": "¿Por qué eres tan raro?"},
+            {"speaker": "Maria", "text": "Ni siquiera sabe responder."},
             {"speaker": "NPC 3", "text": "Dejalo, siempre es asi."},
             {"speaker": self.player_name or "Protagonista", "text": "Recuerdo pensar que alguien debia hacer algo... aunque fuera una sola persona."},
             {"speaker": "Narrador", "text": "Pantalla negra. Transicion al presente."},
@@ -921,10 +937,22 @@ class GameStateMixin:
                 _ev_active = getattr(self, "day3_event_active", "") == "cafeteria"
                 _buscar = (getattr(self, "day3_buscar_profesor_context", "") == "cafeteria"
                            and not getattr(self, "escena_dia3_cafeteria_completada", False))
-                return _ev_active or _buscar
+                cafeteria_bien = (
+                    getattr(self, "escena_dia3_cafeteria_completada", False)
+                    and (
+                        getattr(self, "decision_dia3_cafeteria", "") == "ayuda"
+                        or (
+                            getattr(self, "decision_dia3_cafeteria", "") == "defender"
+                            and isinstance(getattr(self, "day3_minigame_result", None), dict)
+                            and bool(getattr(self, "day3_minigame_result", {}).get("gano"))
+                        )
+                    )
+                )
+                return _ev_active or _buscar or cafeteria_bien
             if "piscinadia" in cur_map:
                 return (getattr(self, "current_day", 1) == 3
-                        and getattr(self, "day3_event_active", "") == "piscina")
+                        and getattr(self, "day3_event_active", "") == "piscina"
+                        and not getattr(self, "day3_piscina_hide_npcs", False))
             if "pasillo2dia" in cur_map:
                 if getattr(self, "current_day", 1) != 3:
                     return False
@@ -1137,6 +1165,15 @@ class GameStateMixin:
             self.day4_guide_target = "cama"
             self.current_mission = "Ir a dormir"
 
+    def _story_display_name(self, name):
+        display_names = {
+            "npc1": "Gabriela",
+            "npc 1": "Gabriela",
+            "npc2": "Maria",
+            "npc 2": "Maria",
+        }
+        return display_names.get(str(name).strip().lower(), str(name))
+
     def _current_adventure_map_norm(self):
         fondo = getattr(self, "aventura_fondo", None)
         raw = os.path.basename(str(getattr(fondo, "ruta_imagen", ""))).lower()
@@ -1144,6 +1181,29 @@ class GameStateMixin:
             raw.replace("á", "a").replace("é", "e").replace("í", "i")
             .replace("ó", "o").replace("ú", "u").replace("ñ", "n")
         )
+
+    def _play_transition_sfx(self, target_image_name):
+        audio = getattr(self, "audio", None)
+        if audio is None:
+            return
+        origin = str(getattr(self, "story_previous_map_name", "") or "")
+        target = str(target_image_name or "")
+        pending = getattr(self, "_pending_transition_interactable", {}) or {}
+        self._pending_transition_interactable = None
+        text = " ".join([
+            origin,
+            target,
+            str(pending.get("name", "")),
+            str(pending.get("object_name", "")),
+            str(pending.get("target_image", "")),
+        ]).lower()
+        if any(k in text for k in ("azotea", "pasillo2", "pasillo1", "tarde")) and (
+                "pasillo1" in text and "pasillo2" in text or "azotea" in text):
+            audio.sfx_escalera()
+        elif any(k in text for k in ("verja", "reja", "atras", "atrás", "calle", "patio")):
+            audio.sfx_verja_metal()
+        else:
+            audio.sfx_puerta()
 
     def _change_adventure_background(self, target_image_name):
         if not target_image_name:
@@ -1182,7 +1242,7 @@ class GameStateMixin:
             self.aventura_personaje.sync_sprite_from_hitbox()
         self._update_story_camera()
         self.story_interaction_text = ""   # el cambio de mapa habla por s? solo
-        self.audio.sfx_puerta()
+        self._play_transition_sfx(target_image_name)
         self._sync_scene_audio()
         # â”€â”€ NPC AI: notificar cambio de mapa â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         npc_mgr = getattr(self, "npc_ai_manager", None)
@@ -1304,10 +1364,8 @@ class GameStateMixin:
                 self.player_can_move = False
             elif (base_norm == "habtarde.png"
                     and getattr(self, "escena_dia3_pelea_completada", False)):
-                pname = getattr(self, "player_name", "") or "Protagonista"
-                self.scene_manager = get_scene_dia3_fin(pname)
-                self.escena_activa = "dia3_fin"
-                self.player_can_move = False
+                self.day3_guide_target = "cama"
+                self.current_mission = "Dormir"
 
         if getattr(self, "current_day", 1) == 4:
             self._prepare_day4_state()
@@ -1338,6 +1396,7 @@ class GameStateMixin:
                 self.story_seated_hitbox = None
                 self.story_seated_pupitre = None
             self.story_thought = "Cruzaste una puerta."
+            self._pending_transition_interactable = dict(interactable)
             self._change_adventure_background(interactable.get("target_image", ""))
             return
         if action == "silla":
@@ -1383,7 +1442,7 @@ class GameStateMixin:
             return
         if action == "npc":
             npc_name = interactable.get("npc_character", "NPC")
-            self.story_interaction_text = f"{npc_name} esta ocupado/a."
+            self.story_interaction_text = f"{self._story_display_name(npc_name)} esta ocupado/a."
             self.audio.sfx_npc()
             return
         if action == "minijuego":
@@ -1416,6 +1475,11 @@ class GameStateMixin:
                     pname = getattr(self, "player_name", "") or "Protagonista"
                     self.scene_manager = get_scene_cama_dormir_dia4(pname)
                     self.escena_activa = "cama_dormir_dia4"
+                elif (getattr(self, "current_day", 1) == 3
+                        and getattr(self, "escena_dia3_pelea_completada", False)):
+                    pname = getattr(self, "player_name", "") or "Protagonista"
+                    self.scene_manager = get_scene_cama_dormir_dia3(pname)
+                    self.escena_activa = "cama_dormir_dia3"
                 else:
                     pname = getattr(self, "player_name", "") or "Protagonista"
                     self.scene_manager = get_scene_cama_dormir(pname)
@@ -1437,7 +1501,7 @@ class GameStateMixin:
             if "pupitre-salon1.png" in raw_name_norm or "pupitre-saln1.png" in raw_name_norm or "pupitre-sal" in raw_name_norm:
                 npc_owner = interactable.get("npc_owner", "")
                 if npc_owner:
-                    self.story_interaction_text = f"El pupitre de {npc_owner} está reservado."
+                    self.story_interaction_text = f"El pupitre de {self._story_display_name(npc_owner)} está reservado."
                     self.audio.sfx_interactuar()
                     return
                 # SceneManager: eligiendo asiento
@@ -1906,7 +1970,22 @@ class GameStateMixin:
         images_dir = os.path.join(os.path.dirname(__file__), "Imagenes")
         if not image_ref:
             image_ref = "HabDía.png"
-        normalized = os.path.normpath(str(image_ref).strip())
+        raw_ref = str(image_ref).strip()
+        raw_ref = (
+            raw_ref.replace("ÃƒÂ­", "í")
+            .replace("Ã­", "í")
+            .replace("ÃƒÂ¡", "á")
+            .replace("Ã¡", "á")
+            .replace("ÃƒÂ©", "é")
+            .replace("Ã©", "é")
+            .replace("ÃƒÂ³", "ó")
+            .replace("Ã³", "ó")
+            .replace("ÃƒÂº", "ú")
+            .replace("Ãº", "ú")
+            .replace("ÃƒÂ±", "ñ")
+            .replace("Ã±", "ñ")
+        )
+        normalized = os.path.normpath(raw_ref)
         direct = normalized if os.path.isabs(normalized) else os.path.join(os.path.dirname(__file__), normalized)
         if os.path.exists(direct):
             return direct
@@ -1950,8 +2029,8 @@ class GameStateMixin:
         "mateo_llorando.png": 16,
         "sara_llorar.png": 16,
         "npc1_burla.png": 8,
-        "npc1_chisme.png": 8,
-        "npc2_chisme.png": 8,
+        "npc1_chisme.png": 4,
+        "npc2_chisme.png": 4,
         "npc2_grabar_animacion.png": 8,
         "npc1_grabar_animacion.png": 4,
         "samuel_llorando_animacion.png": 4,

@@ -635,19 +635,20 @@
       }
     },
     {
-      "name": "Personajes/NPC2/NPC2_chisme.png",
-      "x": 0.2574605032182563,
-      "y": 0.45865834633385333,
+      "name": "Personajes/NPC2/NPC2_Burla.png",
+      "x": 0.386,
+      "y": 0.335,
       "w": 0.0620245757753072,
       "h": 0.10218408736349453,
-      "frames": 8
+      "frames": 16
     },
     {
-      "name": "Personajes/NPC1/NPC1_grabar.png",
+      "name": "Personajes/NPC1/NPC1_burla.png",
       "x": 0.3194850789935635,
       "y": 0.4407176287051482,
       "w": 0.05441778818022235,
-      "h": 0.12012480499219969
+      "h": 0.12012480499219969,
+      "frames": 8
     },
     {
       "name": "Personajes/Carlos/Carlos_burla.png",
