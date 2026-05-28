@@ -6,6 +6,18 @@
   ],
   "hitboxes": [
     {
+      "role": "interactable",
+      "type": "rect",
+      "rx": 0.697452229299363,
+      "ry": 0.056162246489859596,
+      "rw": 0.21847133757961784,
+      "rh": 0.36505460218408736,
+      "action": "objeto",
+      "object_name": "Armario_Cerrado-HabTarde.png",
+      "toggle_object": "Armario_Abierto-HabTarde.png",
+      "target_image": ""
+    },
+    {
       "role": "wall",
       "type": "line",
       "x1": 0.11423833118580272,
@@ -293,15 +305,6 @@
   },
   "npc_positions": {},
   "decoracion": [
-    {
-      "name": "Armario-HabTarde.png",
-      "x": 0.697452229299363,
-      "y": 0.056162246489859596,
-      "w": 0.21847133757961784,
-      "h": 0.36505460218408736,
-      "frames": 2,
-      "interactive_frame": true
-    },
     {
       "name": "Escritorio-HabTarde.png",
       "x": 0.3592356687898089,

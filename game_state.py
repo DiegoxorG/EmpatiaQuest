@@ -1370,12 +1370,20 @@ class GameStateMixin:
                 current = self.story_deco_frame_states.get(key, 0)
                 self.story_deco_frame_states[key] = (current + 1) % frames
                 self.audio.sfx_interactuar()
+        
+            elif interactable.get("toggle_object"):
+                alt = interactable.get("toggle_object")
+                key = f"{interactable.get('object_name','')}_{interactable.get('rx',0):.4f}"
+                current = self.story_deco_frame_states.get(key, False)
+                self.story_deco_frame_states[key] = not current
+                self.audio.sfx_interactuar()
             return
-            friendly = self._friendly_object_name(raw_name)
-            self.story_interaction_text = f"Interactuaste con {friendly}."
-            self.story_thought = "Hay algo interesante aqui."
-            self.audio.sfx_object(raw_name)
-            return
+    
+        friendly = self._friendly_object_name(raw_name)
+        self.story_interaction_text = f"Interactuaste con {friendly}."
+        self.story_thought = "Hay algo interesante aqui."
+        self.audio.sfx_object(raw_name)
+        return
         # Acci?n desconocida: no mostrar texto t?cnico al jugador
         self.story_interaction_text = ""
 
