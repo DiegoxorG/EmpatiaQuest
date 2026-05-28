@@ -54,7 +54,7 @@ class RendererMixin:
         "sara-carlos.png": 1,
         "carlos_devolver.png": 8,
         "tener_bolso_sara-carlos.png": 1,
-        "main_reirse.png": 5,
+        "main_reirse.png": 8,
     }
 
     # â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -1569,8 +1569,8 @@ class RendererMixin:
         if "salontarde" not in ruta:
             return
 
-        # Obtener nombre del sprite (cacheado al pasar por SalonDia, o fallback)
-        sprite_name = getattr(self, "_profe_deco_name", "") or "Personajes/Profesor1/Profesor1_idle_down.png"
+        # Este evento siempre usa a Profesor1; el cache global puede venir de otros mapas.
+        sprite_name = "Personajes/Profesor1/Profesor1_idle_down.png"
 
         sheet = self._load_object_interactable_image(sprite_name)
         if sheet is None:
