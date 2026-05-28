@@ -519,6 +519,13 @@ class ScreenHandlersMixin:
                     audio.sfx_dialogo()
             return
 
+        # ── Day 5: dodge minigame intercepts all input ───────────────────────
+        if getattr(self, "day5_pelea_active", False):
+            mgr5 = getattr(self, "day5_pelea_mgr", None)
+            if mgr5 is not None:
+                mgr5.handle_event(event)
+            return
+
         # ── SceneManager: interceptar eventos cuando hay escena activa ─────────
         if getattr(self, "escena_activa", None) is not None:
             sm = getattr(self, "scene_manager", None)
@@ -642,6 +649,35 @@ class ScreenHandlersMixin:
                 if choice is not None:
                     self.day4_choice = choice
                     self.day4_choice_menu_active = False
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_decision()
+                    return
+
+            if getattr(self, "day5_choice_menu_active", False):
+                context = getattr(self, "day5_choice_context", "")
+                mappings = {
+                    "pasillo_dia5": {
+                        pygame.K_a: "sara",
+                        pygame.K_b: "diego",
+                    },
+                    "sara_azotea": {
+                        pygame.K_a: "escuchar",
+                        pygame.K_b: "ayuda",
+                        pygame.K_c: "minimizar",
+                        pygame.K_d: "irse",
+                    },
+                    "diego_trasera": {
+                        pygame.K_a: "detener",
+                        pygame.K_b: "enfrentar",
+                        pygame.K_c: "ayuda",
+                        pygame.K_d: "ignorar",
+                    },
+                }
+                choice = mappings.get(context, {}).get(event.key)
+                if choice is not None:
+                    self.day5_choice = choice
+                    self.day5_choice_menu_active = False
                     audio = getattr(self, "audio", None)
                     if audio is not None:
                         audio.sfx_decision()

@@ -1988,6 +1988,41 @@ class RendererMixin:
             self.draw_pixel_text(line, panel.x + 26, y, "small", (245, 248, 255), False)
             y += 42
 
+    def _draw_day5_choice_overlay(self):
+        if not getattr(self, "day5_choice_menu_active", False):
+            return
+        context = getattr(self, "day5_choice_context", "")
+        options = {
+            "pasillo_dia5": [
+                "A) Ayudar a Sara",
+                "B) Ayudar a Diego",
+            ],
+            "sara_azotea": [
+                "A) Escucharla y quedarse con ella",
+                "B) Buscar ayuda para Sara",
+                "C) Minimizar lo ocurrido",
+                "D) Irse",
+            ],
+            "diego_trasera": [
+                "A) Detener la pelea calmadamente",
+                "B) Enfrentar agresivamente al grupo",
+                "C) Buscar ayuda",
+                "D) Ignorar la situacion",
+            ],
+        }.get(context, [])
+        if not options:
+            return
+        panel_h = 80 + len(options) * 42
+        panel = pygame.Rect(self.width // 2 - 470, self.height - panel_h - 42, 940, panel_h)
+        s = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
+        s.fill((10, 14, 22, 215))
+        self.screen.blit(s, panel.topleft)
+        pygame.draw.rect(self.screen, (245, 245, 245), panel, 2)
+        y = panel.y + 24
+        for line in options:
+            self.draw_pixel_text(line, panel.x + 26, y, "small", (245, 248, 255), False)
+            y += 42
+
     def _draw_day3_sprite(self, character, filename, rx, ry, height=180):
         path_ref = f"Personajes/{character}/{filename}" if character else filename
         try:
@@ -2138,6 +2173,56 @@ class RendererMixin:
             draw_ref("Personajes/NPC1/NPC1_chisme.png", 0.52, 0.52, 165)
             draw_ref("Personajes/Valeria/Valeria_idle_left.png", 0.61, 0.55, 165)
 
+    def _draw_day5_event_sprites(self):
+        if getattr(self, "current_day", 1) != 5:
+            return
+        active = getattr(self, "day5_event_active", "")
+        if not active:
+            return
+        phase = getattr(self, "day5_animation_phase", "")
+
+        def draw_ref(ref, rx, ry, height=170):
+            try:
+                img = self._load_object_interactable_image(ref)
+            except Exception:
+                img = None
+            wx = int(self.story_world_width * rx)
+            wy = int(self.story_world_height * ry)
+            x = wx - self.story_camera_x
+            y = wy - self.story_camera_y
+            if img is None:
+                pygame.draw.rect(self.screen, (255, 20, 147), (x - 22, y - height, 44, height), 2)
+                return
+            sw, sh = img.get_size()
+            key = os.path.basename(ref).lower()
+            frames = self._DAY3_SPRITE_FRAMES.get(key, 1)
+            fw = max(1, sw // max(1, frames))
+            if frames > 1:
+                fi = (pygame.time.get_ticks() // 120) % frames
+                img = img.subsurface(pygame.Rect(fi * fw, 0, fw, sh))
+                sw = fw
+            w = max(48, int(sw * (height / max(1, sh))))
+            spr = pygame.transform.smoothscale(img, (w, height))
+            self.screen.blit(spr, (x - w // 2, y - height))
+
+        if active == "pasillo":
+            draw_ref("Personajes/NPC1/NPC1_grabar.png", 0.28, 0.58, 160)
+            draw_ref("Personajes/NPC2/NPC2_grabar.png", 0.62, 0.60, 160)
+            if phase in ("sara", "decision"):
+                draw_ref("Personajes/Sara/Sara_llorar.png", 0.71, 0.50, 165)
+            if phase in ("diego", "decision"):
+                draw_ref("Personajes/Diego/Diego_idle_right.png", 0.36, 0.54, 165)
+                draw_ref("Personajes/Carlos/Carlos_idle_left.png", 0.42, 0.54, 165)
+
+        elif active == "sara_azotea":
+            draw_ref("Personajes/Sara/Sara_llorar.png", 0.50, 0.52, 165)
+
+        elif active == "diego_trasera":
+            draw_ref("Personajes/Diego/Diego_idle_right.png", 0.46, 0.56, 165)
+            draw_ref("Personajes/Carlos/Carlos_idle_left.png", 0.54, 0.56, 165)
+            draw_ref("Personajes/NPC1/NPC1_idle_down.png", 0.40, 0.58, 155)
+            draw_ref("Personajes/NPC2/NPC2_Burla.png", 0.60, 0.58, 155)
+
     def _draw_day3_foto_pelea_overlay(self):
         if not getattr(self, "day3_foto_pelea_active", False):
             return
@@ -2197,6 +2282,13 @@ class RendererMixin:
             self.screen.blit(self.cached_background_scaled, (0, 0), area=camera_view)
         else:
             pygame.draw.rect(self.screen, (255, 255, 255), (0, 0, self.width, self.height))
+
+        # ── Day 5: pelea minigame full-screen draw ────────────────────────────
+        if getattr(self, "day5_pelea_active", False):
+            mgr5 = getattr(self, "day5_pelea_mgr", None)
+            if mgr5 is not None:
+                mgr5.draw(self.screen, self.base_fonts)
+            return
 
         _npc_ai_mgr = getattr(self, "npc_ai_manager", None)
         _npc_ai_on = _npc_ai_mgr is not None and _npc_ai_mgr.npc_ai_active
@@ -2281,11 +2373,13 @@ class RendererMixin:
         # Dia 3: NPCs narrativos de los eventos principales
         self._draw_day3_event_npcs()
         self._draw_day4_event_sprites()
+        self._draw_day5_event_sprites()
 
         # Item-4: no dibujar al jugador mientras duerme (la animaci?n lo "representa")
         if (not getattr(self, "bedroom_sleeping_active", False)
                 and not getattr(self, "day3_separar_active", False)
-                and not getattr(self, "day4_hide_player", False)):
+                and not getattr(self, "day4_hide_player", False)
+                and not getattr(self, "day5_hide_player", False)):
             if self.aventura_personaje is not None:
                 if self.story_is_seated and self.story_seated_sprite is not None:
                     p = getattr(self, "story_seated_pupitre", None)
@@ -2388,6 +2482,7 @@ class RendererMixin:
         self._draw_story_clock_hud()
         self._draw_day3_choice_overlay()
         self._draw_day4_choice_overlay()
+        self._draw_day5_choice_overlay()
         self._draw_day3_fin_overlay()
 
         # CAMBIO 4: zoom pupitre (dibuja encima de todo si est? activo)

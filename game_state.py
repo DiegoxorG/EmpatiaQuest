@@ -44,6 +44,9 @@ from scene_manager import (
     get_scene_dia4_azotea,
     get_scene_dia4_biblioteca,
     get_scene_dia4_rumores,
+    get_scene_dia5_pasillo,
+    get_scene_dia5_sara_azotea,
+    get_scene_dia5_diego_trasera,
 )
 
 
@@ -170,6 +173,11 @@ class GameStateMixin:
             "decision_dia4_biblioteca": getattr(self, "decision_dia4_biblioteca", ""),
             "decision_dia4_rumores": getattr(self, "decision_dia4_rumores", ""),
             "day4_guide_target": getattr(self, "day4_guide_target", ""),
+            "escena_dia5_pasillo_completada": getattr(self, "escena_dia5_pasillo_completada", False),
+            "escena_dia5_fin_completada": getattr(self, "escena_dia5_fin_completada", False),
+            "decision_dia5_pasillo": getattr(self, "decision_dia5_pasillo", ""),
+            "decision_dia5_final": getattr(self, "decision_dia5_final", ""),
+            "day5_guide_target": getattr(self, "day5_guide_target", ""),
             "profesor1_fondo_actual": getattr(self, "profesor1_fondo_actual", ""),
             "profesor1_pos": list(getattr(self, "profesor1_pos", (0.5, 0.5))),
         }
@@ -222,6 +230,11 @@ class GameStateMixin:
         self.decision_dia4_biblioteca = str(data.get("decision_dia4_biblioteca", ""))
         self.decision_dia4_rumores = str(data.get("decision_dia4_rumores", ""))
         self.day4_guide_target = str(data.get("day4_guide_target", ""))
+        self.escena_dia5_pasillo_completada = bool(data.get("escena_dia5_pasillo_completada", False))
+        self.escena_dia5_fin_completada = bool(data.get("escena_dia5_fin_completada", False))
+        self.decision_dia5_pasillo = str(data.get("decision_dia5_pasillo", ""))
+        self.decision_dia5_final = str(data.get("decision_dia5_final", ""))
+        self.day5_guide_target = str(data.get("day5_guide_target", ""))
         self.day3_piscina_serios = False
         self.day3_piscina_hide_npcs = False
         self.day4_hide_player = False
@@ -593,6 +606,22 @@ class GameStateMixin:
         self.day4_hide_player = False
         self.day4_devolver_started_ms = 0
         self.day4_quitar_started_ms = 0
+        # Day 5 state
+        self.escena_dia5_pasillo_completada = False
+        self.escena_dia5_fin_completada = False
+        self.decision_dia5_pasillo = ""
+        self.decision_dia5_final = ""
+        self.day5_guide_target = ""
+        self.day5_event_active = ""
+        self.day5_choice_context = ""
+        self.day5_choice = ""
+        self.day5_choice_menu_active = False
+        self.day5_pending_teleport = ""
+        self.day5_pelea_active = False
+        self.day5_pelea_mgr = None
+        self.day5_minigame_result = None
+        self.day5_hide_player = False
+        self.day5_animation_phase = ""
         # NPC AI Manager (Evento 1)
         self.npc_ai_manager = NPCAIManager(os.path.dirname(__file__))
         # Mejora 2: set de posiciones (rx, ry) de pupitres actualmente ocupados por NPCs
@@ -1165,6 +1194,14 @@ class GameStateMixin:
             self.day4_guide_target = "cama"
             self.current_mission = "Ir a dormir"
 
+    def _prepare_day5_state(self):
+        if not getattr(self, "escena_dia5_pasillo_completada", False):
+            self.day5_guide_target = "pasillo"
+            self.current_mission = "Ve al pasillo del piso 1"
+        else:
+            self.day5_guide_target = ""
+            self.current_mission = ""
+
     def _story_display_name(self, name):
         display_names = {
             "npc1": "Gabriela",
@@ -1386,6 +1423,27 @@ class GameStateMixin:
                     and not getattr(self, "escena_dia4_rumores_completada", False)):
                 self.scene_manager = get_scene_dia4_rumores(pname)
                 self.escena_activa = "dia4_rumores"
+                self.player_can_move = False
+
+        if getattr(self, "current_day", 1) == 5:
+            self._prepare_day5_state()
+            pname = getattr(self, "player_name", "") or "Protagonista"
+            if (("pasillo1_dia" in base_norm or "pasillo1dia" in base_norm)
+                    and not getattr(self, "escena_dia5_pasillo_completada", False)):
+                self.scene_manager = get_scene_dia5_pasillo(pname)
+                self.escena_activa = "dia5_pasillo"
+                self.player_can_move = False
+            elif ("azoteadia" in base_norm
+                    and getattr(self, "decision_dia5_pasillo", "") == "sara"
+                    and not getattr(self, "escena_dia5_fin_completada", False)):
+                self.scene_manager = get_scene_dia5_sara_azotea(pname)
+                self.escena_activa = "dia5_sara_azotea"
+                self.player_can_move = False
+            elif ("patiotarde" in base_norm
+                    and getattr(self, "decision_dia5_pasillo", "") == "diego"
+                    and not getattr(self, "escena_dia5_fin_completada", False)):
+                self.scene_manager = get_scene_dia5_diego_trasera(pname)
+                self.escena_activa = "dia5_diego_trasera"
                 self.player_can_move = False
 
     def _execute_interactable_action(self, interactable):
@@ -1706,8 +1764,26 @@ class GameStateMixin:
                 if self.mision3_llamar_profe_ms <= 0:
                     self.mision3_llamar_profe_active = False
 
-        # â”€â”€ SceneManager update â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        sm = getattr(self, "scene_manager", None)
+        # ── Day 5: dodge minigame update ──────────────────────────────────────
+        if getattr(self, “day5_pelea_active”, False):
+            mgr5 = getattr(self, “day5_pelea_mgr”, None)
+            if mgr5 is not None:
+                mgr5.update(dt_ms)
+                if mgr5.result is not None:
+                    self.day5_pelea_active = False
+                    self.day5_minigame_result = mgr5.result
+
+        # ── Day 5: pending teleport (runs after scene clears escena_activa) ───
+        pending_tp5 = getattr(self, “day5_pending_teleport”, “”)
+        if pending_tp5 and not getattr(self, “escena_activa”, None):
+            self.day5_pending_teleport = “”
+            if pending_tp5 == “sara”:
+                self._change_adventure_background(“AzoteaDía.png”)
+            elif pending_tp5 == “diego”:
+                self._change_adventure_background(“PatioTarde.png”)
+
+        # ── SceneManager update ────────────────────────────────────────────────
+        sm = getattr(self, “scene_manager”, None)
         if sm is not None and getattr(self, "escena_activa", None) is not None:
             sm.update(dt_ms, self)
             if sm.done and getattr(self, "escena_activa", None) is not None:
