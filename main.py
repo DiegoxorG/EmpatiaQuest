@@ -35,7 +35,7 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
         )
         self.width, self.height = self.windowed_size
         self.screen = pygame.display.set_mode(self.windowed_size)
-        pygame.display.set_caption("Empatia Quest")
+        pygame.display.set_caption("Empatía Quest")
         self.clock = pygame.time.Clock()
 
         # ── Fuentes ───────────────────────────────────────────────────────────
@@ -89,11 +89,11 @@ class EmpatiaQuestUI(GameStateMixin, RendererMixin, ScreenHandlersMixin):
             ("Interactuar",         "interactuar"),
             ("Guardar partida",     "guardar"),
             ("Continuar dialogo",   "continuar"),
-            ("Elegir opcion 1",     "opcion_1"),
-            ("Elegir opcion 2",     "opcion_2"),
-            ("Elegir opcion 3",     "opcion_3"),
-            ("Elegir opcion 4",     "opcion_4"),
-            ("Elegir opcion 5",     "opcion_5"),
+            ("Elegir opción 1",     "opcion_1"),
+            ("Elegir opción 2",     "opcion_2"),
+            ("Elegir opción 3",     "opcion_3"),
+            ("Elegir opción 4",     "opcion_4"),
+            ("Elegir opción 5",     "opcion_5"),
         ]
         self.selected_control_index = 0
         self.waiting_control_action = None

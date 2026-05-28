@@ -586,6 +586,37 @@ class ScreenHandlersMixin:
                     self.player_can_move = True
 
         if event.type == pygame.KEYDOWN:
+            if getattr(self, "day3_choice_menu_active", False):
+                context = getattr(self, "day3_choice_context", "")
+                mappings = {
+                    "piscina": {
+                        pygame.K_a: "participar",
+                        pygame.K_b: "negarse",
+                        pygame.K_c: "detener",
+                        pygame.K_d: "irse",
+                    },
+                    "cafeteria": {
+                        pygame.K_a: "defender",
+                        pygame.K_b: "ignorar",
+                        pygame.K_c: "apoyar",
+                        pygame.K_d: "ayuda",
+                    },
+                    "pelea": {
+                        pygame.K_a: "separar",
+                        pygame.K_b: "profesor",
+                        pygame.K_c: "foto",
+                        pygame.K_d: "ignorar",
+                    },
+                }
+                choice = mappings.get(context, {}).get(event.key)
+                if choice is not None:
+                    self.day3_choice = choice
+                    self.day3_choice_menu_active = False
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_decision()
+                    return
+
             if getattr(self, "day2_chat_choice_menu_active", False):
                 mapping = {
                     pygame.K_1: ("defender", "ME.Defender.png"),
@@ -622,6 +653,20 @@ class ScreenHandlersMixin:
                     audio = getattr(self, "audio", None)
                     if audio is not None:
                         audio.sfx_decision()
+                    return
+
+            # ── Confirmación de minijuego (S = jugar, N = no jugar) ──────────
+            if getattr(self, "minijuego_confirm_active", False):
+                if event.key == pygame.K_s:
+                    self.minijuego_confirm = "si"
+                    self.minijuego_confirm_active = False
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_decision()
+                    return
+                elif event.key == pygame.K_n:
+                    self.minijuego_confirm = "no"
+                    self.minijuego_confirm_active = False
                     return
 
             # ── CAMBIO 3: Avance de diálogos Día 1 ───────────────────────────
@@ -986,6 +1031,24 @@ class ScreenHandlersMixin:
             self._handle_escape()
             return
 
+        # F4 — debug day-select menu
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_F4:
+            self._toggle_debug_day_menu()
+            return
+
+        # Debug day-select menu intercepts navigation when active
+        if getattr(self, "debug_day_menu_active", False) and event.type == pygame.KEYDOWN:
+            _days = [1, 2, 3]
+            if event.key in (pygame.K_UP, pygame.K_w):
+                self.debug_day_cursor = (self.debug_day_cursor - 1) % len(_days)
+            elif event.key in (pygame.K_DOWN, pygame.K_s):
+                self.debug_day_cursor = (self.debug_day_cursor + 1) % len(_days)
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                day = _days[self.debug_day_cursor]
+                self.debug_day_menu_active = False
+                self._debug_jump_to_day(day)
+            return
+
         # F5 / F6 — test rápido de minijuego (cualquier pantalla, sin historia)
         if event.type == pygame.KEYDOWN and self.current_screen != "minijuego":
             if event.key == pygame.K_F5:
@@ -1172,6 +1235,29 @@ class ScreenHandlersMixin:
         gano  = result.get("gano", result.get("ganó", False))
         tipo  = result.get("tipo", getattr(self, "minijuego_pending_tipo", "agresivo"))
 
+        if getattr(self, "day3_pending_minigame_context", ""):
+            self.day3_minigame_result = {"gano": bool(gano), "tipo": tipo}
+            self.day3_pending_minigame_context = ""
+            if bool(gano) and tipo == "pacifico":
+                lista = getattr(self, "lista_logros", None)
+                if lista is not None:
+                    lista.desbloquear("irrefutable")
+                    if getattr(self, "popup_logro_timer", 0) <= 0:
+                        siguiente = lista.consumir_popup()
+                        if siguiente is not None:
+                            self.popup_logro_actual = siguiente
+                            self.popup_logro_timer = 3500
+                            audio = getattr(self, "audio", None)
+                            if audio is not None:
+                                audio.sfx_logro()
+            self.minijuego_manager = None
+            transitions = getattr(self, "transitions", None)
+            audio = getattr(self, "audio", None)
+            if audio is not None and hasattr(self, "_sync_scene_audio"):
+                self._sync_scene_audio()
+            self._transition_to("aventura", transitions)
+            return
+
         # ── Deltas de stats según tipo de minijuego ──────────────────────────
         if tipo == "agresivo":
             df, dr = +1, -2
@@ -1239,6 +1325,9 @@ class ScreenHandlersMixin:
 
     def _handle_escape(self):
         """Lógica de ESC por pantalla."""
+        if getattr(self, "debug_day_menu_active", False):
+            self.debug_day_menu_active = False
+            return
         screen = self.current_screen
         if screen == "menu":
             self.running = False

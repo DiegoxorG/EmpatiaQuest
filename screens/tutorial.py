@@ -51,15 +51,15 @@ def _draw_page_0(game, panel):
     # Teclas 1-5
     nums_x = center_x - 80
     _draw_key(game, "1-5", nums_x + 80, wasd_y + 120, w=80)
-    game.draw_pixel_text("Elegir opcion en eventos", center_x + 120, wasd_y + 120, "small", TEXT_SOFT, False)
+    game.draw_pixel_text("Elegir opción en eventos", center_x + 120, wasd_y + 120, "small", TEXT_SOFT, False)
 
     # F5
     _draw_key(game, "F5", center_x, wasd_y + 180, w=64)
-    game.draw_pixel_text("Guardar partida rapida", center_x + 120, wasd_y + 180, "small", TEXT_SOFT, False)
+    game.draw_pixel_text("Guardar partida rápida", center_x + 120, wasd_y + 180, "small", TEXT_SOFT, False)
 
     # ESC
     _draw_key(game, "ESC", center_x, wasd_y + 230, w=64)
-    game.draw_pixel_text("Abrir menu de pausa", center_x + 120, wasd_y + 230, "small", TEXT_SOFT, False)
+    game.draw_pixel_text("Abrir menú de pausa", center_x + 120, wasd_y + 230, "small", TEXT_SOFT, False)
 
     # TAB
     _draw_key(game, "TAB", center_x, wasd_y + 280, w=64)
@@ -70,7 +70,7 @@ def _draw_page_1(game, panel):
     """P?gina 2: Sistema de estad?sticas."""
     # [UI] ASSET_UI: Imagenes/UI/tutorial_stats.png | 800x400 | Diagrama de F y R
     game.draw_pixel_text(
-        "ESTADISTICAS", panel.centerx, panel.y + 100, "subtitle", TEXT_MAIN, True
+        "ESTADÍSTICAS", panel.centerx, panel.y + 100, "subtitle", TEXT_MAIN, True
     )
 
     content_y = panel.y + 145
@@ -137,10 +137,10 @@ def _draw_page_2(game, panel):
     pw = panel.width - 120
 
     lineas = [
-        ("Como funcionan los eventos:", TEXT_MAIN),
+        ("Cómo funcionan los eventos:", TEXT_MAIN),
         ("  1. Exploras el mapa del colegio.", TEXT_SOFT),
         ("  2. Aparece un evento narrativo con opciones (1-5).", TEXT_SOFT),
-        ("  3. Tu eleccion modifica F (Felicidad) y R (Reputacion).", TEXT_SOFT),
+        ("  3. Tu elección modifica F (Felicidad) y R (Reputación).", TEXT_SOFT),
         ("  4. Algunas opciones desbloquean Logros y suben Habilidades.", TEXT_SOFT),
         ("", TEXT_SOFT),
         ("Las 5 Habilidades:", TEXT_MAIN),
@@ -172,7 +172,7 @@ def draw(game):
 
     game.draw_pixel_text("TUTORIAL", w // 2, panel.y + 44, "title", TEXT_MAIN, True)
 
-    page_names = ["Controles", "Estadisticas y Finales", "Decisiones y Habilidades"]
+    page_names = ["Controles", "Estadísticas y Finales", "Decisiones y Habilidades"]
     game.draw_pixel_text(
         f"({_PAGE + 1}/{_TOTAL_PAGES}) {page_names[_PAGE]}",
         w // 2, panel.y + 76, "small", TEXT_SOFT, True
@@ -210,7 +210,7 @@ def draw(game):
         game.draw_pixel_text("Siguiente >", next_rect.centerx, next_rect.centery, "small", TEXT_MAIN, True)
 
     game.draw_pixel_text(
-        "ESC volver | Flechas izq/der cambiar pagina",
+        "ESC volver | Flechas izq/der cambiar página",
         w // 2, panel.bottom - 22, "small", (62, 74, 98), True
     )
 

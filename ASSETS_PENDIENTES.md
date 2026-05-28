@@ -167,3 +167,8 @@ Ruta base: `Audio/BGM/`
 - `Imagenes/Chat/M3-reenviar.png` - superposicion opcion reenviar (fallback: busqueda global por nombre).
 - `Imagenes/Chat/M3-Psicologo.png` - superposicion opcion psicologo (fallback: busqueda global por nombre).
 - `Imagenes/Personajes/Lucas/llorando.png` - sprite de Lucas llorando (fallback: `Lucas_llorando.png` existente).
+
+## Dia 3
+
+- `Imagenes/Personajes/profesor2/parado.png` - profesor hombre adulto parado en piscina. Fallback actual: `Imagenes/Personajes/Profesor2/Profesor2_idle_down.png`.
+- `Audio/SFX/pelea_gritos.ogg` - sonido de gritos y empujones durante la pelea del Pasillo2.

@@ -38,6 +38,7 @@ _SPEEDS: dict[str, float] = {
     "Lucas":  0.0026,
     "Mateo":  0.0019,
     "Samuel": 0.0028,
+    "Profesor1": 0.0020,
 }
 
 # ── Zonas de spawn en PatioDia (rx_min, rx_max, ry_min, ry_max) ─────────────
@@ -72,6 +73,15 @@ _RODEO_TIMEOUT = 3000.0   # ms máximo en modo rodeo
 _WP_TIMEOUT = 8000.0      # ms máximo hacia un waypoint antes de teleport
 _CHAIR_IDLE_TIMEOUT = 10000.0  # ms: NPC deja de intentar llegar a su silla y espera en idle
 _FADE_DUR = 300.0          # ms del fade-in tras teleport
+
+_PROFESOR1_DAY3_MAPS = [
+    "PatioDia.png",
+    "Pasillo1_dia.png",
+    "Pasillo2Dia.png",
+    "CafeteriaDía.png",
+    "BibDia.png",
+    "salonDia.png",
+]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -131,9 +141,12 @@ class NPCEntity:
         # Animación — reemplaza el viejo "sprite: str"
         self.facing: str = "down"       # "down"|"up"|"left"|"right"
         self.anim_state: str = "idle"   # "idle"|"walk"|"sitting"|"hablando"|"dibujando"|"riendose"|"mirando"
-        self.walk_frame_idx: int = 0
-        self.walk_frame_ms: float = 0.0
-        self.anim_ms: float = random.uniform(0, 1000)   # stagger para idle loop
+        # Sistema de animación unificado (reemplaza walk_frame_idx/walk_frame_ms/anim_ms)
+        self.frames: list = []
+        self.frame_index: int = 0
+        self.frame_timer: float = 0.0
+        self.frame_duration: float = 150.0
+        self._anim_key: tuple = ()   # (nombre, load_state, facing) — detecta cambio de sprite
 
         # Steering / Bug-3
         self.steer_stuck_ms: float = 0.0
@@ -159,6 +172,22 @@ class NPCEntity:
 
 class NPCAIManager:
     """Gestiona todos los NPCEntity del Evento 1."""
+
+    _SPRITE_FRAME_COUNTS: dict = {
+        "npc2_burla.png": 16,
+        "andres_pelear.png": 16,
+        "carlos_pelear.png": 16,
+        "mateo_llorando.png": 16,
+        "sara_llorar.png": 16,
+        "npc1_burla.png": 8,
+        "npc1_chisme.png": 8,
+        "npc2_chisme.png": 8,
+        "npc2_grabar_animacion.png": 8,
+        "npc1_grabar_animacion.png": 4,
+        "samuel_llorando_animacion.png": 4,
+        "npc1_grabar.png": 1,
+        "npc2_grabar.png": 1,
+    }
 
     def __init__(self, base_dir: str):
         self.base_dir = base_dir
@@ -247,6 +276,62 @@ class NPCAIManager:
                 npc.reacted_segment = False
                 stagger += 300.0
 
+    def init_day3_profesor1(self, game, fondo_actual: str | None = None,
+                            pos: tuple[float, float] | None = None):
+        """Crea o restaura a Profesor1 como NPC itinerante del Dia 3."""
+        existing = self.get_profesor1()
+        if existing is not None:
+            return existing
+        fondo = fondo_actual or random.choice(_PROFESOR1_DAY3_MAPS)
+        if "baño" in fondo.lower() or "bano" in fondo.lower():
+            fondo = random.choice(_PROFESOR1_DAY3_MAPS)
+        rx, ry = pos if pos else self._pick_profesor1_spawn(fondo)
+        npc = NPCEntity("Profesor1", fondo, rx, ry, _SPEEDS.get("Profesor1", 0.0020), 0)
+        npc.estado = "walking"
+        npc.fase_evento = "dia3_idle"
+        npc.anim_state = "idle"
+        npc.waypoints = self._load_waypoints(fondo) or [
+            (max(0.08, rx - 0.08), ry),
+            (min(0.92, rx + 0.08), ry),
+            (rx, max(0.12, ry - 0.06)),
+            (rx, min(0.88, ry + 0.06)),
+        ]
+        npc.waypoint_idx = 0
+        npc.destino_rx, npc.destino_ry = npc.waypoints[0]
+        self.npc_ai_active = True
+        self.npcs.append(npc)
+        self._sync_profesor1_to_game(game, npc)
+        return npc
+
+    def get_profesor1(self):
+        for npc in self.npcs:
+            if npc.alive() and npc.nombre.lower() == "profesor1":
+                return npc
+        return None
+
+    def set_profesor1_following(self, game, target_map: str):
+        npc = self.init_day3_profesor1(game)
+        npc.fase_evento = "dia3_follow"
+        npc.estado = "walking"
+        npc.anim_state = "walk"
+        setattr(game, "day3_profesor1_return_target", target_map)
+
+    def place_profesor1_near_player(self, game):
+        npc = self.init_day3_profesor1(game)
+        fondo = self._current_map_name(game) or npc.fondo_actual
+        npc.fondo_actual = fondo
+        world_w = max(1, getattr(game, "story_world_width", 1280))
+        world_h = max(1, getattr(game, "story_world_height", 720))
+        player_rect = getattr(game, "player_rect", None)
+        if player_rect is not None:
+            npc.rx = max(0.02, min(0.98, (player_rect.centerx + 70) / world_w))
+            npc.ry = max(0.02, min(0.98, player_rect.centery / world_h))
+        npc.destino_rx, npc.destino_ry = npc.rx, npc.ry
+        npc.fase_evento = "dia3_idle"
+        npc.anim_state = "idle"
+        self._sync_profesor1_to_game(game, npc)
+        return npc
+
     def on_map_change(self, new_map_basename: str, game):
         if not self.npc_ai_active:
             return
@@ -267,15 +352,6 @@ class NPCAIManager:
         for npc in self.npcs:
             if not npc.alive():
                 continue
-            npc.anim_ms = (npc.anim_ms + dt_ms) % 100000
-
-            # Walk frame animation
-            if npc.anim_state == "walk":
-                npc.walk_frame_ms += dt_ms
-                if npc.walk_frame_ms >= _WALK_FRAME_DUR:
-                    npc.walk_frame_ms -= _WALK_FRAME_DUR
-                    npc.walk_frame_idx += 1
-
             # Fade in tras teleport
             if npc.fade_in_ms > 0:
                 npc.fade_in_ms = max(0.0, npc.fade_in_ms - dt_ms)
@@ -298,6 +374,15 @@ class NPCAIManager:
             elif npc.fase_evento == "saliendo":
                 self._update_saliendo(npc, dt_ms, walls, world_w, world_h,
                                       same_map, game)
+            elif npc.fase_evento == "dia3_idle":
+                self._update_day3_idle(npc, dt_ms, walls, world_w, world_h,
+                                       same_map, game)
+            elif npc.fase_evento == "dia3_follow":
+                self._update_day3_follow(npc, dt_ms, world_w, world_h,
+                                         current_map, game)
+            self._advance_npc_frames(npc, dt_ms)
+            if npc.nombre.lower() == "profesor1":
+                self._sync_profesor1_to_game(game, npc)
 
     def draw(self, screen: pygame.Surface, cam_x: int, cam_y: int,
              world_w: int, world_h: int, current_map: str):
@@ -472,6 +557,87 @@ class NPCAIManager:
 
         npc.anim_state = "walk"
 
+        npc.waypoint_timeout_ms += dt_ms
+        if npc.waypoint_timeout_ms > _WP_TIMEOUT:
+            print(f"[NPC_AI] {npc.nombre} saliendo timeout -> teleport")
+            npc.rx = npc.destino_rx
+            npc.ry = npc.destino_ry
+            npc.waypoint_timeout_ms = 0.0
+            npc.steer_stuck_ms = 0.0
+            npc.steer_rodeo_target = None
+            npc.steer_rodeo_ms = 0.0
+            npc.fade_alpha = 0
+            npc.fade_in_ms = _FADE_DUR
+            npc.anim_state = "idle"
+            self._on_reached_destination_saliendo(npc, game, walls)
+            return
+
+        step = min(npc.velocidad * world_w * (dt_ms / 16.667), dist)
+        dx_raw, dy_raw = _normalize(dest_wx - npc_wx, dest_wy - npc_wy)
+        if same_map:
+            self._move_npc(npc, dx_raw * step, dy_raw * step,
+                           walls, world_w, world_h, dt_ms)
+        else:
+            npc.rx += dx_raw * step / world_w
+            npc.ry += dy_raw * step / world_h
+            self._update_facing(npc, dx_raw, dy_raw)
+
+    def _update_day3_idle(self, npc: NPCEntity, dt_ms: float, walls,
+                          world_w, world_h, same_map: bool, game):
+        if npc.estado != "walking":
+            npc.estado = "walking"
+        if not npc.waypoints:
+            npc.waypoints = self._load_waypoints(npc.fondo_actual) or [
+                (max(0.08, npc.rx - 0.08), npc.ry),
+                (min(0.92, npc.rx + 0.08), npc.ry),
+            ]
+            npc.destino_rx, npc.destino_ry = npc.waypoints[0]
+        dest_wx = npc.destino_rx * world_w
+        dest_wy = npc.destino_ry * world_h
+        npc_wx = npc.rx * world_w
+        npc_wy = npc.ry * world_h
+        dist = _dist(npc_wx, npc_wy, dest_wx, dest_wy)
+        if dist < 12:
+            npc.waypoint_idx = (npc.waypoint_idx + 1) % len(npc.waypoints)
+            npc.destino_rx, npc.destino_ry = npc.waypoints[npc.waypoint_idx]
+            npc.anim_state = "idle"
+            return
+        step = min(npc.velocidad * world_w * (dt_ms / 16.667), dist)
+        dx_raw, dy_raw = _normalize(dest_wx - npc_wx, dest_wy - npc_wy)
+        npc.anim_state = "walk"
+        if same_map:
+            self._move_npc(npc, dx_raw * step, dy_raw * step,
+                           walls, world_w, world_h, dt_ms)
+        else:
+            npc.rx += dx_raw * step / world_w
+            npc.ry += dy_raw * step / world_h
+            self._update_facing(npc, dx_raw, dy_raw)
+
+    def _update_day3_follow(self, npc: NPCEntity, dt_ms: float,
+                            world_w, world_h, current_map: str, game):
+        player_rect = getattr(game, "player_rect", None)
+        if player_rect is None:
+            return
+        npc.fondo_actual = current_map
+        target_rx = max(0.02, min(0.98, (player_rect.centerx + 64) / max(1, world_w)))
+        target_ry = max(0.02, min(0.98, (player_rect.centery + 8) / max(1, world_h)))
+        npc.destino_rx, npc.destino_ry = target_rx, target_ry
+        dest_wx = target_rx * world_w
+        dest_wy = target_ry * world_h
+        npc_wx = npc.rx * world_w
+        npc_wy = npc.ry * world_h
+        dist = _dist(npc_wx, npc_wy, dest_wx, dest_wy)
+        if dist < 18:
+            npc.anim_state = "idle"
+            return
+        step = min(npc.velocidad * world_w * 1.35 * (dt_ms / 16.667), dist)
+        dx_raw, dy_raw = _normalize(dest_wx - npc_wx, dest_wy - npc_wy)
+        npc.rx += dx_raw * step / world_w
+        npc.ry += dy_raw * step / world_h
+        npc.anim_state = "walk"
+        self._update_facing(npc, dx_raw, dy_raw)
+
+        return
         # Timeout global → teleport con fade
         npc.waypoint_timeout_ms += dt_ms
         if npc.waypoint_timeout_ms > _WP_TIMEOUT:
@@ -825,6 +991,19 @@ class NPCAIManager:
         self._waypoints_cache[key] = wpts
         return list(wpts)
 
+    def _pick_profesor1_spawn(self, fondo_name: str) -> tuple[float, float]:
+        wpts = self._load_waypoints(fondo_name)
+        if wpts:
+            return random.choice(wpts)
+        return random.choice([(0.35, 0.48), (0.52, 0.55), (0.66, 0.44)])
+
+    def _sync_profesor1_to_game(self, game, npc: NPCEntity):
+        try:
+            game.profesor1_fondo_actual = npc.fondo_actual
+            game.profesor1_pos = (float(npc.rx), float(npc.ry))
+        except Exception:
+            pass
+
     def _find_door(self, walls, target_kw: str, game) -> tuple[float, float] | None:
         kw = target_kw.lower()
         for h in walls:
@@ -947,16 +1126,19 @@ class NPCAIManager:
         return frames
 
     def _load_sheet(self, path: str) -> list[pygame.Surface]:
-        """Carga un sprite (estático o spritesheet) aplicando convert_alpha()."""
+        """Carga un sprite (estático o spritesheet) aplicando convert_alpha().
+        Auto-detecta frames horizontales: w > h*1.5 → count=round(w/h); si no, imagen única."""
         try:
             sheet = pygame.image.load(path).convert_alpha()
         except (OSError, pygame.error, FileNotFoundError):
             return []
         sw, sh = sheet.get_size()
-        basename = os.path.basename(path).lower()
-        is_static = any(t in basename for t in ("sentado", "idle", "stand", "parado"))
-        count = 1 if is_static else max(1, round(sw / max(1, sh)))
-        fw = max(1, sw // count)
+        if sw > sh * 1.5:
+            count = max(1, round(sw / max(1, sh)))
+            fw = max(1, sw // count)
+        else:
+            count = 1
+            fw = sw
         return self._slice_sheet(sheet, sw, sh, count, fw)
 
     def _load_sheet_by_idle_width(self, path: str, nombre: str) -> list[pygame.Surface]:
@@ -975,10 +1157,12 @@ class NPCAIManager:
         if idle_w > 0 and sw % idle_w == 0:
             count = sw // idle_w
             fw = idle_w
-        else:
-            # fallback
+        elif sw > sh * 1.5:
             count = max(1, round(sw / max(1, sh)))
-            fw = sw // count
+            fw = max(1, sw // count)
+        else:
+            count = 1
+            fw = sw
         return self._slice_sheet(sheet, sw, sh, count, fw)
 
     def _slice_sheet(self, sheet: pygame.Surface, sw: int, sh: int,
@@ -993,32 +1177,49 @@ class NPCAIManager:
 
     # ── Renderizado ───────────────────────────────────────────────────────────
 
-    def _draw_npc(self, screen: pygame.Surface, npc: NPCEntity,
-                  cam_x: int, cam_y: int, world_w: int, world_h: int):
-        # idle y sitting-prematuro: frame 0 de la hoja de caminata
-        # (sitting real nunca llega aquí: draw() lo salta cuando estado=="sitting")
-        if npc.anim_state in ("idle", "sitting"):
-            frames = self._load_frames(npc.nombre, "walk", npc.facing)
+    def _advance_npc_frames(self, npc: NPCEntity, dt_ms: float):
+        """Carga sprites en npc.frames cuando cambia el estado/facing, y avanza frame_index."""
+        anim_state = npc.anim_state
+        load_state = "walk" if anim_state in ("idle", "sitting") else anim_state
+
+        cache_key = (npc.nombre, load_state, npc.facing)
+        if cache_key != npc._anim_key:
+            npc._anim_key = cache_key
+            frames = self._load_frames(npc.nombre, load_state, npc.facing)
+            if not frames and load_state != "walk":
+                frames = (self._load_frames(npc.nombre, "walk", npc.facing)
+                          or self._load_frames(npc.nombre, "walk", "down"))
             if not frames:
                 frames = self._load_frames(npc.nombre, "walk", "down")
-            frame_idx = 0
-        elif npc.anim_state == "walk":
-            frames = self._load_frames(npc.nombre, "walk", npc.facing)
-            frame_idx = npc.walk_frame_idx % max(1, len(frames))
-        else:
-            frames = self._load_frames(npc.nombre, npc.anim_state, npc.facing)
-            frame_idx = int(npc.anim_ms // 220) % max(1, len(frames))
+            npc.frames = frames
+            npc.frame_index = 0
+            npc.frame_timer = 0.0
 
+        if not npc.frames:
+            return
+
+        if anim_state in ("idle", "sitting"):
+            npc.frame_index = 0
+            npc.frame_timer = 0.0
+        else:
+            npc.frame_timer += dt_ms
+            if npc.frame_timer >= npc.frame_duration:
+                npc.frame_timer -= npc.frame_duration
+                npc.frame_index = (npc.frame_index + 1) % max(1, len(npc.frames))
+
+    def _draw_npc(self, screen: pygame.Surface, npc: NPCEntity,
+                  cam_x: int, cam_y: int, world_w: int, world_h: int):
         sx = int(npc.rx * world_w) - cam_x
         sy = int(npc.ry * world_h) - cam_y
 
-        if not frames:
+        if not npc.frames:
             # "Imagen Faltante" — borde rosa, no bloque gris sólido
             rect = pygame.Rect(sx - _NPC_W // 2, sy - _NPC_H // 2, _NPC_W, _NPC_H)
             pygame.draw.rect(screen, (255, 20, 147), rect, 2)
             return
 
-        frame = frames[frame_idx]
+        frame_idx = max(0, min(npc.frame_index, len(npc.frames) - 1))
+        frame = npc.frames[frame_idx]
 
         if npc.fade_alpha < 255:
             frame = frame.copy()

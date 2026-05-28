@@ -567,6 +567,16 @@
     {
       "role": "interactable",
       "type": "rect",
+      "rx": 0.21513445903689807,
+      "ry": 0.5046801872074883,
+      "rw": 0.0600375234521576,
+      "rh": 0.0748829953198128,
+      "action": "mensaje",
+      "texto": "No hay nadie que haga de portero... tal vez en otro momento."
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
       "rx": 0.4440275171982489,
       "ry": 0.1497659906396256,
       "rw": 0.07254534083802376,

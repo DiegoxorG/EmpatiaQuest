@@ -384,6 +384,16 @@
     {
       "role": "interactable",
       "type": "rect",
+      "rx": 0.21513445903689807,
+      "ry": 0.5046801872074883,
+      "rw": 0.0600375234521576,
+      "rh": 0.0748829953198128,
+      "action": "mensaje",
+      "texto": "No hay nadie que haga de portero... tal vez en otro momento."
+    },
+    {
+      "role": "interactable",
+      "type": "rect",
       "rx": 0.4581772784019975,
       "ry": 0.8104524180967239,
       "rw": 0.06179775280898876,
@@ -403,5 +413,14 @@
       }
     }
   },
-  "npc_positions": {}
+  "npc_positions": {},
+  "decoracion": [
+    {
+      "name": "Balón-minigame.png",
+      "x": 0.21513445903689807,
+      "y": 0.5046801872074883,
+      "w": 0.0600375234521576,
+      "h": 0.0748829953198128
+    }
+  ]
 }

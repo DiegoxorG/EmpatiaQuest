@@ -1070,6 +1070,50 @@ def main():
             max(MIN_DECO, int(ch * factor)),
         )
 
+    def scale_selected_deco_w(factor):
+        """Scale only the width of the selected decoration."""
+        if selected_deco_idx is None or not (0 <= selected_deco_idx < len(decoracion)):
+            return
+        obj = decoracion[selected_deco_idx]
+        r = get_deco_world_rect(obj)
+        nw = max(MIN_DECO, int(r.width * factor))
+        nx, ny = clamp_deco_pos(r.x, r.y, nw, r.height)
+        obj.update(normalize_deco(nx, ny, nw, r.height))
+        push_deco_history()
+
+    def scale_selected_deco_h(factor):
+        """Scale only the height of the selected decoration."""
+        if selected_deco_idx is None or not (0 <= selected_deco_idx < len(decoracion)):
+            return
+        obj = decoracion[selected_deco_idx]
+        r = get_deco_world_rect(obj)
+        nh = max(MIN_DECO, int(r.height * factor))
+        nx, ny = clamp_deco_pos(r.x, r.y, r.width, nh)
+        obj.update(normalize_deco(nx, ny, r.width, nh))
+        push_deco_history()
+
+    def scale_placement_deco_w(factor):
+        """Scale only the width of the placement ghost."""
+        if not available_objects:
+            return
+        obj_name = available_objects[current_object_idx]
+        obj_img = load_object_image(obj_name)
+        if obj_img is None:
+            return
+        cw, ch = get_placement_size(obj_name, obj_img)
+        placement_sizes[obj_name] = (max(MIN_DECO, int(cw * factor)), ch)
+
+    def scale_placement_deco_h(factor):
+        """Scale only the height of the placement ghost."""
+        if not available_objects:
+            return
+        obj_name = available_objects[current_object_idx]
+        obj_img = load_object_image(obj_name)
+        if obj_img is None:
+            return
+        cw, ch = get_placement_size(obj_name, obj_img)
+        placement_sizes[obj_name] = (cw, max(MIN_DECO, int(ch * factor)))
+
     # ── File paths ────────────────────────────────────────────────────────────
     image_name = os.path.splitext(os.path.basename(image_path))[0]
     out_path = os.path.join(project_root, "Hitboxes", f"{image_name}_hitboxes.json")
@@ -1686,6 +1730,7 @@ def main():
                 mods = pygame.key.get_mods()
                 ctrl = bool(mods & pygame.KMOD_CTRL)
                 shift = bool(mods & pygame.KMOD_SHIFT)
+                alt = bool(mods & pygame.KMOD_ALT)
 
                 if event.key == pygame.K_ESCAPE:
                     running = False
@@ -1874,19 +1919,45 @@ def main():
 
                 elif event.key in (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS):
                     if editor_mode == "object":
-                        if selected_deco_idx is not None:
-                            scale_selected_deco(DECO_SCALE_STEP)
+                        if ctrl:
+                            # Ctrl++ → solo anchura
+                            if selected_deco_idx is not None:
+                                scale_selected_deco_w(DECO_SCALE_STEP)
+                            else:
+                                scale_placement_deco_w(DECO_SCALE_STEP)
+                        elif alt:
+                            # Alt++ → solo altura
+                            if selected_deco_idx is not None:
+                                scale_selected_deco_h(DECO_SCALE_STEP)
+                            else:
+                                scale_placement_deco_h(DECO_SCALE_STEP)
                         else:
-                            scale_placement_deco(DECO_SCALE_STEP)
+                            if selected_deco_idx is not None:
+                                scale_selected_deco(DECO_SCALE_STEP)
+                            else:
+                                scale_placement_deco(DECO_SCALE_STEP)
                     else:
                         current_line_thickness_px = min(64, current_line_thickness_px + 1)
 
                 elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
                     if editor_mode == "object":
-                        if selected_deco_idx is not None:
-                            scale_selected_deco(1 / DECO_SCALE_STEP)
+                        if ctrl:
+                            # Ctrl+- → solo anchura
+                            if selected_deco_idx is not None:
+                                scale_selected_deco_w(1 / DECO_SCALE_STEP)
+                            else:
+                                scale_placement_deco_w(1 / DECO_SCALE_STEP)
+                        elif alt:
+                            # Alt+- → solo altura
+                            if selected_deco_idx is not None:
+                                scale_selected_deco_h(1 / DECO_SCALE_STEP)
+                            else:
+                                scale_placement_deco_h(1 / DECO_SCALE_STEP)
                         else:
-                            scale_placement_deco(1 / DECO_SCALE_STEP)
+                            if selected_deco_idx is not None:
+                                scale_selected_deco(1 / DECO_SCALE_STEP)
+                            else:
+                                scale_placement_deco(1 / DECO_SCALE_STEP)
                     else:
                         current_line_thickness_px = max(1, current_line_thickness_px - 1)
 
@@ -2340,7 +2411,7 @@ def main():
 
         lines = [
             ("HITBOX: arrastra=crear | WASD=camara | F=forma | I=wall/inter | K=accion | M=mover | T=test | P/Shift+P=spawn | click-der=borrar | C=limpiar | ENTER=guardar | Ctrl+L=cargar | ESC=salir", (235, 235, 235)),
-            ("O=modo objeto | J/H=obj/fondo | N=selector NPC | B=selector anim | G=grid | L=etiquetas | +/-=grosor/escala | [/]=frames- / frames+ | Ctrl+D=dup | Ctrl+A=sel-todo | Ctrl+C/V=copiar/pegar todos | Ctrl+Shift+C/V=sel individual | R=recortar obj | Shift+R=quitar recorte", (210, 210, 160)),
+            ("O=modo objeto | J/H=obj/fondo | N=selector NPC | B=selector anim | G=grid | L=etiquetas | +/-=escala | Ctrl++/-=solo ancho | Alt++/-=solo alto | [/]=frames- / frames+ | Ctrl+D=dup | Ctrl+A=sel-todo | Ctrl+C/V=copiar/pegar todos | Ctrl+Shift+C/V=sel individual | R=recortar obj | Shift+R=quitar recorte", (210, 210, 160)),
         ]
         for line_txt, line_col in lines:
             ui_y = draw_wrapped_text(screen, line_txt, tiny, line_col,

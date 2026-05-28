@@ -26,6 +26,22 @@ import screens.creditos as creditos_screen
 class RendererMixin:
     """Todos los m?todos de renderizado de EmpatiaQuestUI."""
 
+    _DAY3_SPRITE_FRAMES: dict = {
+        "npc2_burla.png": 16,
+        "andres_pelear.png": 16,
+        "carlos_pelear.png": 16,
+        "mateo_llorando.png": 16,
+        "sara_llorar.png": 16,
+        "npc1_burla.png": 8,
+        "npc1_chisme.png": 8,
+        "npc2_chisme.png": 8,
+        "npc2_grabar_animacion.png": 8,
+        "npc1_grabar_animacion.png": 4,
+        "samuel_llorando_animacion.png": 4,
+        "npc1_grabar.png": 1,
+        "npc2_grabar.png": 1,
+    }
+
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Texto pixel-art
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -125,7 +141,7 @@ class RendererMixin:
         labels = [
             ("Guardar", "pause_guardar"),
             ("Configuracion", "configuracion"),
-            ("Salir al menu", "pause_salir_menu"),
+            ("Salir al menú", "pause_salir_menu"),
         ]
         buttons = []
         total_height = len(labels) * self.button_height + (len(labels) - 1) * self.button_gap
@@ -198,7 +214,7 @@ class RendererMixin:
             hover = button.contains(mouse_pos) or i == self.selected_index
             button.draw(self.screen, self, hover=hover)
         self.draw_pixel_text(
-            "Mouse o flechas + Enter. ESC vuelve al menu.",
+            "Mouse o flechas + Enter. ESC vuelve al menú.",
             self.width // 2, self.height - 40, "small", (194, 216, 248), True,
         )
         self.draw_pixel_text(
@@ -219,7 +235,7 @@ class RendererMixin:
             self.draw_pixel_text(line, self.width // 2, y, "body", TEXT_SOFT, True)
             y += 42
         self.draw_pixel_text(
-            "Presiona ESC para volver al menu",
+            "Presiona ESC para volver al menú",
             self.width // 2, panel.y + panel.height - 50, "small", (62, 74, 98), True,
         )
 
@@ -234,7 +250,7 @@ class RendererMixin:
         pygame.draw.rect(self.screen, CARD, panel)
         pygame.draw.rect(self.screen, CARD_BORDER, panel, width=5)
         self.draw_pixel_text("PAUSA", self.width // 2, panel.y + 56, "title", TEXT_MAIN, True)
-        self.draw_pixel_text("Escoge una opcion", self.width // 2, panel.y + 108, "small", TEXT_SOFT, True)
+        self.draw_pixel_text("Escoge una opción", self.width // 2, panel.y + 108, "small", TEXT_SOFT, True)
         mouse_pos = pygame.mouse.get_pos()
         for i, button in enumerate(self.pause_buttons):
             hover = button.contains(mouse_pos) or i == self.pause_selected_index
@@ -428,7 +444,7 @@ class RendererMixin:
         pygame.draw.rect(self.screen, CARD_BORDER, panel, width=5)
         self.draw_pixel_text("CONTROLES", self.width // 2, panel.y + 52, "title", TEXT_MAIN, True)
         self.draw_pixel_text(
-            "Haz click en una accion y luego presiona la tecla nueva",
+            "Haz click en una acción y luego presiona la tecla nueva",
             self.width // 2, panel.y + 96, "small", TEXT_SOFT, True,
         )
         mouse_pos = pygame.mouse.get_pos()
@@ -595,7 +611,7 @@ class RendererMixin:
             style_name = self.part_styles[part][self.current_style[part]]
             self.draw_pixel_text(f"{part}: {style_name}", row.centerx, row.centery, "small", TEXT_MAIN, True)
         part_now = self._selected_part()
-        self.draw_pixel_text("A/D cambia diseno", left_x + 140, panel.y + 360, "small", TEXT_SOFT, True)
+        self.draw_pixel_text("A/D cambia diseño", left_x + 140, panel.y + 360, "small", TEXT_SOFT, True)
         self.draw_pixel_text(
             f"Actual: {self.part_styles[part_now][self.current_style[part_now]]}",
             left_x + 140, panel.y + 396, "small", TEXT_SOFT, True,
@@ -636,7 +652,7 @@ class RendererMixin:
         self.draw_pixel_text("Vista previa", preview_box.centerx, preview_box.y + 26, "small", TEXT_SOFT, True)
         self._draw_character_preview(preview_box.x + 72, preview_box.y + 60, scale=7)
         self.draw_pixel_text(
-            "Flechas: rasgo/color | A/D: diseno | TAB: RGB | ENTER: guardar | ESC: volver",
+            "Flechas: rasgo/color | A/D: diseño | TAB: RGB | ENTER: guardar | ESC: volver",
             self.width // 2, panel.y + panel.height - 28, "small", TEXT_SOFT, True,
         )
 
@@ -694,21 +710,47 @@ class RendererMixin:
             return
         day = getattr(self, "current_day", getattr(self, "story_clock_day", 1))
         mission = getattr(self, "current_mission", "")
+        time_band, time_color = self._current_time_band()
 
-        def _badge(text, x, y, min_w=90):
-            text_surf = self.base_fonts["small"].render(text, True, TEXT_MAIN)
+        def _badge(text, x, y, min_w=90, text_color=TEXT_MAIN):
+            text_surf = self.base_fonts["small"].render(text, True, text_color)
             w = max(min_w, text_surf.get_width() + 24)
             box = pygame.Rect(x, y, w, 34)
             overlay = pygame.Surface((box.width, box.height), pygame.SRCALPHA)
             overlay.fill((255, 255, 255, 220))
             self.screen.blit(overlay, box.topleft)
             pygame.draw.rect(self.screen, (18, 18, 18), box, 2)
-            self.draw_pixel_text(text, box.centerx, box.centery, "small", TEXT_MAIN, True)
+            self.draw_pixel_text(text, box.centerx, box.centery, "small", text_color, True)
             return box.right
 
-        next_x = _badge(f"Dia {day}", 12, 12)
+        next_x = _badge(f"Día {day}", 12, 12)
+        if time_band:
+            next_x = _badge(time_band, next_x + 8, 12, min_w=110, text_color=time_color)
         if mission:
-            _badge(f"Mision: {mission}", next_x + 8, 12, min_w=200)
+            _badge(f"Misión: {mission}", next_x + 8, 12, min_w=200)
+
+    def _current_time_band(self):
+        fondo = getattr(self, "aventura_fondo", None)
+        raw = os.path.basename(str(getattr(fondo, "ruta_imagen", "")))
+        stem = os.path.splitext(raw)[0].lower()
+        replacements = (
+            ("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"),
+            ("à", "a"), ("è", "e"), ("ì", "i"), ("ò", "o"), ("ù", "u"),
+            ("ä", "a"), ("ë", "e"), ("ï", "i"), ("ö", "o"), ("ü", "u"),
+            ("ñ", "n"),
+        )
+        for src, dst in replacements:
+            stem = stem.replace(src, dst)
+        # Quitar sufijo " (N)" de mapas como "CalleDia (1)" → "calledia"
+        import re as _re
+        stem = _re.sub(r'\s*\(\d+\)\s*$', '', stem).strip()
+        if "dia" in stem:
+            return "Mañana", (255, 224, 102)
+        if "tarde" in stem:
+            return "Tarde", (255, 153, 51)
+        if "noche" in stem:
+            return "Noche", (153, 153, 255)
+        return "", TEXT_MAIN
 
     def _draw_first_day_classroom_npcs(self):
         def _slot_for(npc_name, fallback_rx, fallback_ry):
@@ -966,11 +1008,15 @@ class RendererMixin:
 
         current_day = getattr(self, "current_day", 1)
         target = getattr(self, "day2_guide_target", "") if current_day == 2 else ""
+        if current_day == 3:
+            target = getattr(self, "day3_guide_target", "")
 
         # Guardianes: no mostrar flecha si no hay destino activo
         if current_day == 1 and not guide_active and not going_home:
             return
         if current_day == 2 and not target:
+            return
+        if current_day == 3 and not target:
             return
 
         def _norm(s):
@@ -992,8 +1038,72 @@ class RendererMixin:
         # Si ya llegamos a casa, ocultar flecha de regreso.
         if current_map.startswith("habtarde") and (going_home or target == "habtarde"):
             return
+        if (current_day == 3 and current_map.startswith("habtarde")
+                and target == "piscina"
+                and not getattr(self, "escena_dia3_piscina_completada", False)):
+            return
 
-        if current_day == 2:
+        direct_target_world = None
+        if current_day == 3 and target == "profesor1":
+            prof_map = _norm(getattr(self, "profesor1_fondo_actual", ""))
+            prof_pos = getattr(self, "profesor1_pos", (0.5, 0.5))
+            if prof_map and prof_map.split("/")[-1].startswith(current_map.replace(".png", "")):
+                direct_target_world = (
+                    int(float(prof_pos[0]) * self.story_world_width),
+                    int(float(prof_pos[1]) * self.story_world_height),
+                )
+                DAY1_NEXT = {}
+                next_keyword = ""
+            else:
+                DAY1_NEXT = {
+                    "habdia": "calle",
+                    "habtarde": "calle",
+                    "calledia": "patio",
+                    "calletarde": "patio",
+                    "patiodia": "pasillo1",
+                    "pasillo1_dia": "pasillo2" if "pasillo2" in prof_map else ("cafeteria" if "cafeteria" in prof_map else ("bib" if "bib" in prof_map else "salon")),
+                    "pasillo2dia": "pasillo1",
+                    "cafeteriadia": "pasillo1",
+                    "bibdia": "pasillo1",
+                    "salondia": "pasillo1",
+                    "piscinadia": "pasillo1",
+                }
+                target_world = None
+        elif current_day == 3:
+            if target == "piscina":
+                DAY1_NEXT = {
+                    "habtarde": "calle",
+                    "habdia": "calle",
+                    "calledia": "patio",
+                    "calletarde": "patio",
+                    "patiodia": "pasillo1",
+                    "pasillo1_dia": "piscina",
+                }
+            elif target == "cafeteria":
+                DAY1_NEXT = {
+                    "piscinadia": "pasillo1",
+                    "pasillo1_dia": "cafeteria",
+                    "patiodia": "pasillo1",
+                    "calledia": "patio",
+                    "habdia": "calle",
+                }
+            elif target == "pasillo2":
+                DAY1_NEXT = {
+                    "cafeteriadia": "pasillo1",
+                    "pasillo1_dia": "pasillo2",
+                    "patiodia": "pasillo1",
+                    "calledia": "patio",
+                }
+            else:
+                DAY1_NEXT = {
+                    "pasillo2dia": "pasillo1",
+                    "pasillo1_dia": "patio",
+                    "patiodia": "calle",
+                    "calledia": "habtarde",
+                    "calletarde": "habtarde",
+                }
+            target_world = None
+        elif current_day == 2:
             # D?a 2:
             #  - target escuela: HabD?a -> CalleDia -> PatioDia -> Pasillo1_dia
             #  - target bano: Pasillo1_dia -> Ba?oDia (hombres)
@@ -1044,19 +1154,20 @@ class RendererMixin:
                 break
 
         # Buscar la puerta cuyo target_image coincide con el siguiente mapa
-        target_world = None
-        for h in self.story_walls:
-            if h.get("role") != "interactable" or h.get("action") != "puerta":
-                continue
-            if next_keyword:
-                tgt = _norm(h.get("target_image", ""))
-                if next_keyword not in tgt:
+        target_world = direct_target_world
+        if target_world is None:
+            for h in self.story_walls:
+                if h.get("role") != "interactable" or h.get("action") != "puerta":
                     continue
-            mw, mh = self.story_world_width, self.story_world_height
-            cx = int(mw * h["rx"]) + int(mw * h["rw"]) // 2
-            cy = int(mh * h["ry"]) + int(mh * h["rh"]) // 2
-            target_world = (cx, cy)
-            break
+                if next_keyword:
+                    tgt = _norm(h.get("target_image", ""))
+                    if next_keyword not in tgt:
+                        continue
+                mw, mh = self.story_world_width, self.story_world_height
+                cx = int(mw * h["rx"]) + int(mw * h["rw"]) // 2
+                cy = int(mh * h["ry"]) + int(mh * h["rh"]) // 2
+                target_world = (cx, cy)
+                break
 
         # Fallback: cualquier puerta si no encontramos la espec?fica
         if target_world is None:
@@ -1107,7 +1218,7 @@ class RendererMixin:
         step = getattr(self, "day1_intro_step", 2)
         pname = getattr(self, "player_name", "") or "Protagonista"
         if step == 0:
-            text = "Que lindo dia, ya no puedo esperar por comenzar mi primer dia de clases!"
+            text = "¡Qué lindo día, ya no puedo esperar por comenzar mi primer día de clases!"
         else:
             text = "Tengo que ir a la escuela"
         box_h = 130
@@ -1232,6 +1343,31 @@ class RendererMixin:
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # CAMBIO 3 - Caja de di?logo D?a 1
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    def _draw_debug_day_menu(self):
+        W, H = self.width, self.height
+        options = ["Dia 1: Primer dia de escuela", "Dia 2: Chat de WhatsApp / Lucas", "Dia 3: Piscina, cafeteria y pelea"]
+        cursor = getattr(self, "debug_day_cursor", 0)
+
+        panel_w, panel_h = 500, 180
+        px = (W - panel_w) // 2
+        py = (H - panel_h) // 2
+
+        overlay = pygame.Surface((W, H), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        self.screen.blit(overlay, (0, 0))
+
+        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel.fill((18, 18, 30, 240))
+        pygame.draw.rect(panel, (80, 120, 255), (0, 0, panel_w, panel_h), 2, border_radius=8)
+        self.screen.blit(panel, (px, py))
+
+        self.draw_pixel_text("F4 — Iniciar desde dia", px + panel_w // 2, py + 14, "small", (160, 200, 255))
+        for i, opt in enumerate(options):
+            color = (255, 240, 80) if i == cursor else (200, 200, 220)
+            prefix = "> " if i == cursor else "  "
+            self.draw_pixel_text(prefix + opt, px + panel_w // 2, py + 46 + i * 36, "small", color)
+        self.draw_pixel_text("ENTER: confirmar   ESC/F4: cerrar", px + panel_w // 2, py + panel_h - 18, "small", (120, 120, 160))
 
     def _draw_day1_dialog(self):
         seq = getattr(self, "day1_seq_step", 0)
@@ -1631,6 +1767,122 @@ class RendererMixin:
         self.screen.blit(s, (0, 0))
         self.draw_pixel_text("Fin del D?a 2", self.width // 2, self.height // 2, "title", (245, 248, 255), True)
 
+    def _draw_day3_choice_overlay(self):
+        if not getattr(self, "day3_choice_menu_active", False):
+            return
+        context = getattr(self, "day3_choice_context", "")
+        options = {
+            "piscina": ["A) Participar", "B) Negarse", "C) Intentar detenerlos", "D) Irse"],
+            "cafeteria": ["A) Defender a la victima", "B) Ignorar", "C) Apoyar al agresor", "D) Buscar ayuda"],
+            "pelea": ["A) Separarlos calmadamente", "B) Buscar a un profesor", "C) Tomar foto", "D) Ignorar"],
+        }.get(context, [])
+        if not options:
+            return
+        panel = pygame.Rect(self.width // 2 - 450, self.height - 270, 900, 220)
+        s = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
+        s.fill((10, 14, 22, 210))
+        self.screen.blit(s, panel.topleft)
+        pygame.draw.rect(self.screen, (245, 245, 245), panel, 2)
+        y = panel.y + 24
+        for line in options:
+            self.draw_pixel_text(line, panel.x + 26, y, "small", (245, 248, 255), False)
+            y += 44
+
+    def _draw_day3_sprite(self, character, filename, rx, ry, height=180):
+        path_ref = f"Personajes/{character}/{filename}" if character else filename
+        try:
+            sheet = self._load_object_interactable_image(path_ref)
+        except Exception:
+            sheet = None
+        wx = int(self.story_world_width * rx)
+        wy = int(self.story_world_height * ry)
+        x = wx - self.story_camera_x
+        y = wy - self.story_camera_y
+        if sheet is None:
+            pygame.draw.rect(self.screen, (255, 20, 147), (x - 18, y - 64, 36, 64), 2)
+            return
+        sw, sh = sheet.get_size()
+        key = filename.lower()
+        n_frames = self._DAY3_SPRITE_FRAMES.get(key)
+        if n_frames is None:
+            n_frames = max(1, round(sw / max(1, sh))) if sw > sh * 1.5 else 1
+        n_frames = max(1, n_frames)
+        fw = max(1, sw // n_frames)
+        if n_frames > 1:
+            fi = (pygame.time.get_ticks() // 100) % n_frames
+            frame = sheet.subsurface(pygame.Rect(fi * fw, 0, fw, sh))
+        else:
+            frame = sheet
+        w = max(48, int(fw * (height / max(1, sh))))
+        spr = pygame.transform.smoothscale(frame, (w, height))
+        self.screen.blit(spr, (x - w // 2, y - height))
+
+    def _draw_day3_recording_npc(self, character, rx, ry):
+        started = bool(getattr(self, "day3_recording_started", False))
+        if not started:
+            self._draw_day3_sprite(character, f"{character}_idle_down.png", rx, ry, 170)
+            return
+        key = f"_day3_{getattr(self, 'day3_event_active', '')}_{character}_record_ms"
+        if not hasattr(self, key):
+            setattr(self, key, pygame.time.get_ticks())
+        elapsed = pygame.time.get_ticks() - getattr(self, key)
+        frames = self._load_sprite_sheet_frames(
+            self._resolve_image_path(f"{character}_grabar_animacion.png")
+        )
+        if frames and elapsed < len(frames) * 180:
+            frame = frames[min(len(frames) - 1, elapsed // 180)]
+            wx = int(self.story_world_width * rx)
+            wy = int(self.story_world_height * ry)
+            h = 170
+            w = max(48, int(frame.get_width() * (h / max(1, frame.get_height()))))
+            spr = pygame.transform.smoothscale(frame, (w, h))
+            self.screen.blit(spr, (wx - self.story_camera_x - w // 2, wy - self.story_camera_y - h))
+        else:
+            self._draw_day3_sprite(character, f"{character}_grabar.png", rx, ry, 170)
+
+    def _draw_day3_event_npcs(self):
+        event = getattr(self, "day3_event_active", "")
+        if event == "piscina":
+            self._draw_day3_sprite("Carlos", "Carlos_burla.png", 0.34, 0.58)
+            self._draw_day3_sprite("Diego", "Diego_idle_down.png", 0.42, 0.59)
+            self._draw_day3_sprite("NPC1", "NPC1_burla.png", 0.27, 0.60)
+            self._draw_day3_sprite("NPC2", "NPC2_Burla.png", 0.49, 0.60)
+            self._draw_day3_sprite("Samuel", "Samuel_idle_down.png", 0.70, 0.62)
+            self._draw_day3_sprite("Profesor2", "Profesor2_idle_down.png", 0.84, 0.45, 185)
+        elif event == "cafeteria":
+            self._draw_day3_sprite("Carlos", "Carlos_burla.png", 0.46, 0.58)
+            self._draw_day3_sprite("Mateo", "Mateo_llorando.png", 0.58, 0.60)
+            self._draw_day3_recording_npc("NPC1", 0.34, 0.62)
+            self._draw_day3_recording_npc("NPC2", 0.70, 0.62)
+        elif event == "pelea":
+            self._draw_day3_sprite("Carlos", "Carlos_pelear.png", 0.43, 0.60)
+            self._draw_day3_sprite("Andres", "Andres_pelear.png", 0.56, 0.60)
+            self._draw_day3_recording_npc("NPC1", 0.30, 0.62)
+            self._draw_day3_recording_npc("NPC2", 0.72, 0.62)
+            if getattr(self, "day3_choice", "") == "separar":
+                self._draw_day3_sprite("personaje_main", "Separar.png", 0.50, 0.61, 180)
+
+    def _draw_day3_foto_pelea_overlay(self):
+        if not getattr(self, "day3_foto_pelea_active", False):
+            return
+        img = self._load_object_interactable_image("foto_pelea.png")
+        if img is not None:
+            scaled = pygame.transform.smoothscale(img, (self.width, self.height))
+            self.screen.blit(scaled, (0, 0))
+        flash = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        remaining = getattr(self, "day3_foto_pelea_timer_ms", 0)
+        alpha = 180 if remaining > 1200 else max(0, int(180 * remaining / 1200))
+        flash.fill((255, 255, 255, alpha))
+        self.screen.blit(flash, (0, 0))
+
+    def _draw_day3_fin_overlay(self):
+        if not getattr(self, "day3_fin_active", False):
+            return
+        s = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        s.fill((0, 0, 0, 225))
+        self.screen.blit(s, (0, 0))
+        self.draw_pixel_text("Fin del Dia 3", self.width // 2, self.height // 2, "title", (245, 248, 255), True)
+
     def _draw_adventure_screen(self):
         self.screen.fill((255, 255, 255))
         self.story_map_rect = pygame.Rect(0, 0, self.story_world_width, self.story_world_height)
@@ -1754,6 +2006,9 @@ class RendererMixin:
         # SalonTarde: profesora junto a Sara (tras llamarla, opci?n D)
         self._draw_profe_en_sara()
 
+        # Dia 3: NPCs narrativos de los eventos principales
+        self._draw_day3_event_npcs()
+
         # Item-4: no dibujar al jugador mientras duerme (la animaci?n lo "representa")
         if not getattr(self, "bedroom_sleeping_active", False):
             if self.aventura_personaje is not None:
@@ -1813,6 +2068,8 @@ class RendererMixin:
         if getattr(self, "mision3_llamar_profe_active", False):
             self._draw_mision3_llamar_profe_overlay()
 
+        self._draw_day3_foto_pelea_overlay()
+
         # Día 2: Lucas visible en baño de hombres durante su evento
         if getattr(self, "day2_lucas_event_active", False):
             sprite_mode = getattr(self, "day2_lucas_sprite", "llorando")
@@ -1854,6 +2111,8 @@ class RendererMixin:
 
         # HUD de d?a - dibuja al frente, encima de objetos y NPCs
         self._draw_story_clock_hud()
+        self._draw_day3_choice_overlay()
+        self._draw_day3_fin_overlay()
 
         # CAMBIO 4: zoom pupitre (dibuja encima de todo si est? activo)
         if getattr(self, "day1_pupitre_zoom_active", False):
@@ -1894,7 +2153,7 @@ class RendererMixin:
             self.screen.blit(end_overlay, (0, 0))
             self.draw_pixel_text(self.story_final_key, self.width // 2, self.height // 2 - 60, "subtitle", (245, 247, 255), True)
             self.draw_pixel_text(self.story_final_text, self.width // 2, self.height // 2, "body", TEXT_SOFT, True)
-            self.draw_pixel_text("ENTER para volver al menu", self.width // 2, self.height // 2 + 80, "small", TEXT_SOFT, True)
+            self.draw_pixel_text("ENTER para volver al menú", self.width // 2, self.height // 2 + 80, "small", TEXT_SOFT, True)
             return
 
         # â”€â”€ Barra de estado inferior â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1946,7 +2205,7 @@ class RendererMixin:
         color = self.character_colors["Piel"]
         self.draw_pixel_text(f"Color de piel: R{color[0]} G{color[1]} B{color[2]}", self.width // 2, 50, "small", (255, 255, 255), True)
         self.draw_pixel_text("Flechas: cambiar R/G, Q/W: cambiar B, ENTER: guardar", self.width // 2, 80, "small", (255, 255, 255), True)
-        self.draw_pixel_text("ESC: menu", self.width // 2, self.height - 32, "small", (255, 255, 255), True)
+        self.draw_pixel_text("ESC: menú", self.width // 2, self.height - 32, "small", (255, 255, 255), True)
 
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Nuevo: popup de logro (Undertale-style)
@@ -2177,6 +2436,10 @@ class RendererMixin:
         popup_timer = getattr(self, "popup_logro_timer", 0)
         if popup_timer > 0:
             self._draw_achievement_popup()
+
+        # Debug day-select menu (F4)
+        if getattr(self, "debug_day_menu_active", False):
+            self._draw_debug_day_menu()
 
         # Transici?n de pantalla (fade negro)
         transitions = getattr(self, "transitions", None)

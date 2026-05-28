@@ -196,7 +196,7 @@ def draw(game):
                          pygame.Rect(track.x + 2, thumb_y + 2, 10, thumb_h - 4), 0, 4)
 
     game.draw_pixel_text(
-        "Rueda del raton: desplazar logros | ESC: volver",
+        "Rueda del ratón: desplazar logros | ESC: volver",
         w // 2, panel.bottom - 24, "small", (62, 74, 98), True
     )
 

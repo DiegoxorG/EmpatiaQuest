@@ -40,7 +40,7 @@ class PenaltisManager:
         self.result   = None  # None mientras corre; dict al terminar
 
         # ── Portería (escalada desde base 1280×720) ──────────────────────────
-        sx = screen_w / 1280
+        sx = self._sx = screen_w / 1280
         sy = screen_h / 720
         self.arco_x1 = int(457 * sx)
         self.arco_x2 = int(766 * sx)
@@ -54,7 +54,7 @@ class PenaltisManager:
         self._reset_ball()
 
         # ── Barra de entrenamiento ────────────────────────────────────────────
-        self.bar_w     = max(50, int(90 * sx))
+        self.bar_w     = max(40, int(65 * sx))   # portero más estrecho → más fácil
         self.bar_h     = max(12, int(16 * sy))
         self.bar_x     = float(self.arco_x1)
         self.bar_speed = max(3, int(4 * sx))
@@ -62,7 +62,7 @@ class PenaltisManager:
 
         # ── Cursor de apuntado (intentos 2-5) ────────────────────────────────
         self.aim_x   = float((self.arco_x1 + self.arco_x2) // 2)
-        self.aim_spd = max(3, int(4 * sx))
+        self.aim_spd = max(2, int(3 * sx))   # cursor más lento → más tiempo para apuntar
 
         # ── Estado del partido ────────────────────────────────────────────────
         self.intento  = 0   # 0 = entrenamiento, 1-4 = normales
@@ -89,6 +89,11 @@ class PenaltisManager:
         self._load_assets()
         self._generate_spaces()
 
+        # ── Portero móvil (después de _load_assets para tener _portero_w) ─────
+        self.portero_x   = float(self.arco_x1 + (self.arco_w - self._portero_w) // 2)
+        self.portero_dir = 1
+        self.portero_spd = max(3, int(4 * sx))
+
     # =========================================================================
     # Assets
     # =========================================================================
@@ -102,6 +107,13 @@ class PenaltisManager:
         except (OSError, pygame.error):
             return None
 
+    def _load_portero_img(self):
+        path = os.path.join(BASE_DIR, "Imagenes", "Personajes", "Diego", "Diego_portero.png")
+        try:
+            return pygame.image.load(path).convert_alpha()
+        except (OSError, pygame.error):
+            return None
+
     def _load_assets(self):
         raw_fondo = self._load_img("cancha.jpeg")
         self.fondo = (
@@ -109,6 +121,20 @@ class PenaltisManager:
             if raw_fondo else None
         )
         self.balon_orig = self._load_img("balon.png")
+
+        # Portero: Diego_portero.png escalado para que quepa en la portería
+        portero_h = max(70, int(self.arco_h * 1.8))
+        raw_portero = self._load_portero_img()
+        if raw_portero:
+            ow, oh = raw_portero.get_size()
+            portero_w = max(1, int(ow * portero_h / oh))
+            self.img_portero  = pygame.transform.smoothscale(raw_portero, (portero_w, portero_h))
+            self._portero_w   = portero_w
+            self._portero_h   = portero_h
+        else:
+            self.img_portero  = None
+            self._portero_w   = self.bar_w
+            self._portero_h   = self.arco_h
 
     # =========================================================================
     # Generación de portería
@@ -123,7 +149,7 @@ class PenaltisManager:
                 pygame.Rect(self.arco_x1, self.arco_y, self.arco_w, self.arco_h))
         else:
             # Tamaños decrecientes por ronda
-            base_sizes = [54, 46, 40, 34]
+            base_sizes = [90, 80, 70, 60]
             sz = int(base_sizes[min(self.intento - 1, 3)] * (self.screen_w / 1280))
             sz = max(20, sz)
 
@@ -249,7 +275,7 @@ class PenaltisManager:
 
     def _resolve_pending(self):
         """Ejecuta el avance después de la pausa."""
-        if self.pending_scored:
+        if self.pending_scored and self.intento > 0:   # el training no cuenta goles
             self.goles += 1
         self._reset_ball()
         self.intento += 1
@@ -299,13 +325,14 @@ class PenaltisManager:
     # ── tick_training ─────────────────────────────────────────────────────────
 
     def _tick_training(self):
-        # Mover barra (solo cuando no se ha disparado aún)
+        # Portero siempre se mueve de lado a lado
+        self.portero_x += self.portero_spd * self.portero_dir
+        if self.portero_x + self._portero_w >= self.arco_x2 - 4:
+            self.portero_dir = -1
+        if self.portero_x <= self.arco_x1 + 4:
+            self.portero_dir = 1
+
         if not self.shot:
-            self.bar_x += self.bar_speed * self.bar_dir
-            if self.bar_x + self.bar_w >= self.arco_x2:
-                self.bar_dir = -1
-            if self.bar_x <= self.arco_x1:
-                self.bar_dir = 1
             return  # sin disparo → nada más que hacer
 
         # Balón en vuelo
@@ -314,11 +341,13 @@ class PenaltisManager:
         sz = self.ball_size
         cx, cy = bx + sz // 2, by + sz // 2
 
-        bRect  = pygame.Rect(bx, by, sz, sz)
-        barRct = pygame.Rect(int(self.bar_x), self.arco_y, self.bar_w, self.bar_h)
+        bRect      = pygame.Rect(bx, by, sz, sz)
+        _portero_py = self.arco_y + self.arco_h - self._portero_h // 2
+        porteroRct = pygame.Rect(int(self.portero_x), _portero_py,
+                                 self._portero_w, self._portero_h // 2)
 
-        # Colisión con portero (barra)
-        if bRect.colliderect(barRct):
+        # Colisión con Diego
+        if bRect.colliderect(porteroRct):
             self._end_attempt(False, "¡ATAJADO!")
             return
 
@@ -337,6 +366,13 @@ class PenaltisManager:
     # ── tick_playing ──────────────────────────────────────────────────────────
 
     def _tick_playing(self):
+        # Portero siempre se mueve de lado a lado
+        self.portero_x += self.portero_spd * self.portero_dir
+        if self.portero_x + self._portero_w >= self.arco_x2 - 4:
+            self.portero_dir = -1
+        if self.portero_x <= self.arco_x1 + 4:
+            self.portero_dir = 1
+
         # Mover cursor con teclas (solo cuando no se ha disparado)
         if not self.shot:
             keys = pygame.key.get_pressed()
@@ -355,20 +391,18 @@ class PenaltisManager:
         cx, cy = bx + sz // 2, by + sz // 2
         bRect = pygame.Rect(bx, by, sz, sz)
 
-        # Colisión con bloqueos
-        for blq in self.bloqueos:
-            if bRect.colliderect(blq):
-                self._end_attempt(False, "¡BLOQUEADO!")
-                return
+        # Colisión con Diego (portero móvil)
+        _portero_py = self.arco_y + self.arco_h - self._portero_h // 2
+        porteroRct = pygame.Rect(int(self.portero_x), _portero_py,
+                                 self._portero_w, self._portero_h // 2)
+        if bRect.colliderect(porteroRct):
+            self._end_attempt(False, "¡ATAJADO!")
+            return
 
         # Balón en zona de portería
         if cy <= self.arco_y + self.arco_h and cy >= self.arco_y - sz:
             if self.arco_x1 <= cx <= self.arco_x2:
-                gol = any(sp.left <= cx <= sp.right for sp in self.espacios)
-                if gol:
-                    self._end_attempt(True, "¡GOOOOL! ⚽")
-                else:
-                    self._end_attempt(False, "¡BLOQUEADO!")
+                self._end_attempt(True, "¡GOOOOL! ⚽")
             else:
                 self._end_attempt(False, "¡FALLASTE!")
             return
@@ -405,10 +439,10 @@ class PenaltisManager:
         if self.phase == "pending":
             return
 
-        # Entrenamiento: ESPACIO/E dispara hacia la posición de la barra
+        # Entrenamiento: ESPACIO/E dispara hacia el centro de Diego
         if self.phase == "training" and not self.shot:
             if event.key in CONFIRM:
-                tx = self.bar_x + self.bar_w / 2
+                tx = self.portero_x + self._portero_w / 2
                 ty = float(self.arco_y + self.arco_h // 2)
                 self._shoot(tx, ty)
 
@@ -426,9 +460,9 @@ class PenaltisManager:
         self.msg_timer    = 0
         self.pending_ms   = 0
         self.particles    = []
-        self.bar_x        = float(self.arco_x1)
-        self.bar_dir      = 1
-        self.aim_x        = float((self.arco_x1 + self.arco_x2) // 2)
+        self.portero_x   = float(self.arco_x1 + (self.arco_w - self._portero_w) // 2)
+        self.portero_dir = 1
+        self.aim_x       = float((self.arco_x1 + self.arco_x2) // 2)
         self._reset_ball()
         self._generate_spaces()
 
@@ -450,22 +484,17 @@ class PenaltisManager:
             pygame.draw.circle(screen, (255, 255, 255),
                                (W // 2, H // 2), H // 8, 3)
 
-        # ── Bloqueos de portería (modo normal) ────────────────────────────────
-        if self.phase in ("playing", "pending") and self.intento >= 1:
-            for blq in self.bloqueos:
-                pygame.draw.rect(screen, (18, 18, 18), blq)
-                pygame.draw.rect(screen, (160, 30, 30), blq, 2)
-
-        # ── Barra del portero (entrenamiento) ─────────────────────────────────
-        if self.phase == "training" and not self.shot:
-            bar_rect = pygame.Rect(int(self.bar_x), self.arco_y,
-                                   self.bar_w, self.bar_h)
-            pygame.draw.rect(screen, (220, 30, 30), bar_rect)
-            pygame.draw.rect(screen, (255, 160, 0), bar_rect, 2)
-            fn_s = fonts.get("small")
-            if fn_s:
-                lbl = fn_s.render("PORTERO", True, (255, 255, 80))
-                screen.blit(lbl, (int(self.bar_x), self.arco_y - lbl.get_height() - 2))
+        # ── Portero Diego — centrado verticalmente en la portería, sigue portero_x ──
+        if self.phase in ("training", "playing", "pending"):
+            px = int(self.portero_x)
+            py = self.arco_y + self.arco_h - self._portero_h // 2
+            if self.img_portero:
+                screen.blit(self.img_portero, (px, py))
+            else:
+                # Fallback: barra roja si no cargó el sprite
+                bar_rect = pygame.Rect(px, self.arco_y, self._portero_w, self.arco_h)
+                pygame.draw.rect(screen, (220, 30, 30), bar_rect)
+                pygame.draw.rect(screen, (255, 160, 0), bar_rect, 2)
 
         # ── Cursor de apuntado (modo normal, sin disparo) ─────────────────────
         if self.phase == "playing" and not self.shot:

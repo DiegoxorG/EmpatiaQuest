@@ -116,6 +116,19 @@ class AtrapaEmocionesManager:
         self.img_izq    = self._scale_player(self._load_img("izquierda.png"))
         self.img_der    = self._scale_player(self._load_img("derecha.png"))
 
+        # Corazón HUD — más ancho que alto
+        heart_h = max(32, int(48 * self._sy))
+        heart_w = max(46, int(74 * self._sx))
+        raw_heart = self._load_img("corazon.png")
+        if raw_heart:
+            self.img_corazon       = pygame.transform.smoothscale(raw_heart, (heart_w, heart_h))
+            self.img_corazon_vacio  = self.img_corazon.copy()
+            self.img_corazon_vacio.set_alpha(55)
+        else:
+            self.img_corazon       = None
+            self.img_corazon_vacio = None
+        self._heart_sz = heart_w   # ancho usado para espaciado
+
         # Emociones buenas
         buenas_files = [
             "abrazo.png", "empatia.png", "feliz.png",
@@ -435,10 +448,20 @@ class AtrapaEmocionesManager:
         p_surf = fn.render(f"Puntos: {self.puntos}", True, (100, 255, 120))
         screen.blit(p_surf, (W // 2 - p_surf.get_width() // 2, 16))
 
-        # Vidas (derecha) — corazones ♥ / ♡
-        v_txt  = "♥ " * self.vidas + "♡ " * (MAX_VIDAS - self.vidas)
-        v_surf = fn.render(v_txt.strip(), True, (255, 80, 80))
-        screen.blit(v_surf, (W - v_surf.get_width() - 16, 16))
+        # Vidas (derecha) — corazones imagen
+        hsz = self._heart_sz
+        hh  = self.img_corazon.get_height() if self.img_corazon else hsz
+        gap = max(6, int(10 * self._sx))
+        total_w = MAX_VIDAS * hsz + (MAX_VIDAS - 1) * gap
+        hx = W - total_w - 16
+        hy = (64 - hh) // 2
+        for i in range(MAX_VIDAS):
+            img = self.img_corazon if i < self.vidas else self.img_corazon_vacio
+            if img:
+                screen.blit(img, (hx + i * (hsz + gap), hy))
+            else:
+                col = (255, 80, 80) if i < self.vidas else (80, 40, 40)
+                pygame.draw.rect(screen, col, (hx + i * (hsz + gap), hy, hsz, hsz), border_radius=4)
 
     def _draw_result(self, screen, fonts):
         W, H = self.screen_w, self.screen_h
