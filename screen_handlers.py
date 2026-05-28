@@ -617,6 +617,36 @@ class ScreenHandlersMixin:
                         audio.sfx_decision()
                     return
 
+            if getattr(self, "day4_choice_menu_active", False):
+                context = getattr(self, "day4_choice_context", "")
+                mappings = {
+                    "azotea": {
+                        pygame.K_a: "defender",
+                        pygame.K_b: "diego",
+                        pygame.K_c: "ignorar",
+                        pygame.K_d: "reirse",
+                    },
+                    "biblioteca": {
+                        pygame.K_a: "sara",
+                        pygame.K_b: "diego",
+                        pygame.K_c: "incluir",
+                    },
+                    "rumores": {
+                        pygame.K_a: "acompanar",
+                        pygame.K_b: "defender",
+                        pygame.K_c: "compartir",
+                        pygame.K_d: "juzgar",
+                    },
+                }
+                choice = mappings.get(context, {}).get(event.key)
+                if choice is not None:
+                    self.day4_choice = choice
+                    self.day4_choice_menu_active = False
+                    audio = getattr(self, "audio", None)
+                    if audio is not None:
+                        audio.sfx_decision()
+                    return
+
             if getattr(self, "day2_chat_choice_menu_active", False):
                 mapping = {
                     pygame.K_1: ("defender", "ME.Defender.png"),
@@ -1259,6 +1289,17 @@ class ScreenHandlersMixin:
             return
 
         # ── Deltas de stats según tipo de minijuego ──────────────────────────
+        if getattr(self, "day4_pending_minigame_context", ""):
+            self.day4_minigame_result = {"gano": bool(gano), "tipo": tipo}
+            self.day4_pending_minigame_context = ""
+            self.minijuego_manager = None
+            transitions = getattr(self, "transitions", None)
+            audio = getattr(self, "audio", None)
+            if audio is not None and hasattr(self, "_sync_scene_audio"):
+                self._sync_scene_audio()
+            self._transition_to("aventura", transitions)
+            return
+
         if tipo == "agresivo":
             df, dr = +1, -2
             label  = "Defender agresivamente"

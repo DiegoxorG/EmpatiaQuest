@@ -41,6 +41,10 @@ class RendererMixin:
         "samuel_llorando_animacion.png": 4,
         "npc1_grabar.png": 1,
         "npc2_grabar.png": 1,
+        "quitar_bolso.png": 8,
+        "sara-carlos.png": 1,
+        "carlos_devolver.png": 1,
+        "tener_bolso_sara-carlos.png": 1,
     }
 
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1056,6 +1060,8 @@ class RendererMixin:
         target = getattr(self, "day2_guide_target", "") if current_day == 2 else ""
         if current_day == 3:
             target = getattr(self, "day3_guide_target", "")
+        if current_day == 4:
+            target = getattr(self, "day4_guide_target", "")
 
         # Guardianes: no mostrar flecha si no hay destino activo
         if current_day == 1 and not guide_active and not going_home:
@@ -1063,6 +1069,8 @@ class RendererMixin:
         if current_day == 2 and not target:
             return
         if current_day == 3 and not target:
+            return
+        if current_day == 4 and not target:
             return
 
         def _norm(s):
@@ -1083,6 +1091,8 @@ class RendererMixin:
 
         # Si ya llegamos a casa, ocultar flecha de regreso.
         if current_map.startswith("habtarde") and (going_home or target == "habtarde"):
+            return
+        if current_day == 4 and current_map.startswith("habtarde") and target == "cama":
             return
         if (current_day == 3 and current_map.startswith("habtarde")
                 and target == "piscina"
@@ -1117,6 +1127,43 @@ class RendererMixin:
                     "piscinadia": "pasillo1",
                 }
                 target_world = None
+        elif current_day == 4:
+            if target == "azotea":
+                DAY1_NEXT = {
+                    "habdia": "calle",
+                    "calledia": "patio",
+                    "patiodia": "pasillo1",
+                    "pasillo1_dia": "pasillo2",
+                    "pasillo2dia": "azotea",
+                }
+            elif target == "biblioteca":
+                DAY1_NEXT = {
+                    "azoteadia": "pasillo2",
+                    "pasillo2dia": "pasillo1",
+                    "pasillo1_dia": "bib",
+                    "patiodia": "pasillo1",
+                    "calledia": "patio",
+                    "habdia": "calle",
+                }
+            elif target == "rumores":
+                DAY1_NEXT = {
+                    "bibdia": "pasillo1",
+                    "pasillo2dia": "pasillo1",
+                    "patiodia": "pasillo1",
+                    "calledia": "patio",
+                    "habdia": "calle",
+                }
+            else:
+                DAY1_NEXT = {
+                    "pasillo1_dia": "patio",
+                    "bibdia": "pasillo1",
+                    "azoteadia": "pasillo2",
+                    "pasillo2dia": "pasillo1",
+                    "patiodia": "calle",
+                    "calledia": "habtarde",
+                    "calletarde": "habtarde",
+                }
+            target_world = None
         elif current_day == 3:
             if target == "piscina":
                 DAY1_NEXT = {
@@ -1842,6 +1889,42 @@ class RendererMixin:
             self.draw_pixel_text(line, panel.x + 26, y, "small", (245, 248, 255), False)
             y += 44
 
+    def _draw_day4_choice_overlay(self):
+        if not getattr(self, "day4_choice_menu_active", False):
+            return
+        context = getattr(self, "day4_choice_context", "")
+        options = {
+            "azotea": [
+                "A) Defender calmadamente",
+                "B) Pedirle ayuda a Diego",
+                "C) Ignorar",
+                "D) Reirse para encajar",
+            ],
+            "biblioteca": [
+                "A) Hacer grupo con Sara",
+                "B) Ir con Diego",
+                "C) Convencer al grupo de incluirla",
+            ],
+            "rumores": [
+                "A) Escucharla y acompanarla",
+                "B) Defenderla publicamente",
+                "C) Compartir rumores",
+                "D) Juzgarla",
+            ],
+        }.get(context, [])
+        if not options:
+            return
+        panel_h = 80 + len(options) * 42
+        panel = pygame.Rect(self.width // 2 - 470, self.height - panel_h - 42, 940, panel_h)
+        s = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
+        s.fill((10, 14, 22, 215))
+        self.screen.blit(s, panel.topleft)
+        pygame.draw.rect(self.screen, (245, 245, 245), panel, 2)
+        y = panel.y + 24
+        for line in options:
+            self.draw_pixel_text(line, panel.x + 26, y, "small", (245, 248, 255), False)
+            y += 42
+
     def _draw_day3_sprite(self, character, filename, rx, ry, height=180):
         path_ref = f"Personajes/{character}/{filename}" if character else filename
         try:
@@ -1896,6 +1979,63 @@ class RendererMixin:
 
     def _draw_day3_event_npcs(self):
         pass  # NPC positions/animations are defined in the map's hitbox JSON decoracion
+
+    def _draw_day4_event_sprites(self):
+        if getattr(self, "current_day", 1) != 4:
+            return
+        active = getattr(self, "day4_event_active", "")
+        if not active:
+            return
+        phase = getattr(self, "day4_animation_phase", "")
+
+        def draw_ref(ref, rx, ry, height=170):
+            try:
+                img = self._load_object_interactable_image(ref)
+            except Exception:
+                img = None
+            wx = int(self.story_world_width * rx)
+            wy = int(self.story_world_height * ry)
+            x = wx - self.story_camera_x
+            y = wy - self.story_camera_y
+            if img is None:
+                pygame.draw.rect(self.screen, (255, 20, 147), (x - 22, y - height, 44, height), 2)
+                return
+            sw, sh = img.get_size()
+            key = os.path.basename(ref).lower()
+            frames = self._DAY3_SPRITE_FRAMES.get(key, 1)
+            fw = max(1, sw // max(1, frames))
+            if frames > 1:
+                fi = (pygame.time.get_ticks() // 120) % frames
+                img = img.subsurface(pygame.Rect(fi * fw, 0, fw, sh))
+                sw = fw
+            w = max(48, int(sw * (height / max(1, sh))))
+            spr = pygame.transform.smoothscale(img, (w, height))
+            if phase == "quitar_bolso" and "quitar_bolso" in key:
+                y += int(4 * abs(__import__("math").sin(pygame.time.get_ticks() / 140.0)))
+            self.screen.blit(spr, (x - w // 2, y - height))
+
+        if active == "azotea":
+            main_ref = {
+                "quitar_bolso": "quitar_bolso.png",
+                "devolver": "Carlos_devolver.png",
+            }.get(phase, "Sara-Carlos.png")
+            draw_ref("Personajes/Diego/Diego_idle_right.png", 0.39, 0.50, 165)
+            draw_ref(main_ref, 0.52, 0.49, 200)
+            draw_ref("Personajes/NPC1/NPC1_idle_up.png", 0.43, 0.66, 160)
+            draw_ref("Personajes/NPC2/NPC2_Burla.png", 0.61, 0.36, 160)
+            if getattr(self, "day4_choice", "") == "reirse":
+                draw_ref("Personajes/personaje_main/main_reirse.png", 0.34, 0.56, 160)
+        elif active == "biblioteca":
+            sara_rx = 0.31 if phase != "sara_incluida" else 0.47
+            draw_ref("Personajes/Sara/Sara_Sentado.png", sara_rx, 0.61, 150)
+            draw_ref("Personajes/Diego/Diego_Sentado.png", 0.58, 0.58, 150)
+            draw_ref("Personajes/NPC1/NPC1_Sentado.png", 0.66, 0.58, 150)
+            draw_ref("Personajes/NPC2/NPC2_Sentada.png", 0.58, 0.72, 150)
+            draw_ref("Personajes/Carlos/Carlos_Sentado.png", 0.66, 0.72, 150)
+        elif active == "rumores":
+            draw_ref("Personajes/NPC1/NPC1_chisme.png", 0.38, 0.52, 165)
+            draw_ref("Personajes/NPC2/NPC2_chisme.png", 0.46, 0.54, 165)
+            draw_ref("Personajes/Valeria/Valeria_idle_left.png", 0.61, 0.55, 165)
 
     def _draw_day3_foto_pelea_overlay(self):
         if not getattr(self, "day3_foto_pelea_active", False):
@@ -2043,6 +2183,7 @@ class RendererMixin:
 
         # Dia 3: NPCs narrativos de los eventos principales
         self._draw_day3_event_npcs()
+        self._draw_day4_event_sprites()
 
         # Item-4: no dibujar al jugador mientras duerme (la animaci?n lo "representa")
         if not getattr(self, "bedroom_sleeping_active", False) and not getattr(self, "day3_separar_active", False):
@@ -2147,6 +2288,7 @@ class RendererMixin:
         # HUD de d?a - dibuja al frente, encima de objetos y NPCs
         self._draw_story_clock_hud()
         self._draw_day3_choice_overlay()
+        self._draw_day4_choice_overlay()
         self._draw_day3_fin_overlay()
 
         # CAMBIO 4: zoom pupitre (dibuja encima de todo si est? activo)
